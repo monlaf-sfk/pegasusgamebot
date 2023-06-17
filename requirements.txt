@@ -1,0 +1,17 @@
+aiogram==3.0.0b7
+aiogram-dialog==2.0.0b18
+aiofile
+APScheduler
+pytz
+Pillow
+aiohttp
+psutil
+numpy
+psycopg2-binary
+pyqiwip2p
+aiocryptopay
+captcha
+texttable
+pyrogram
+tgcrypto
+aiopayok
