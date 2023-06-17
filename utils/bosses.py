@@ -43,8 +43,8 @@ class Boss:
         return f'{self.emoji} <b>{self.name}</b>\n' \
                f'💓 Здоровье: <b>{f"{transform2(self.hp)}/{transform2(self.begin_hp)}" if self.hp > 0 else "Босс повержен"}</b> ❤️‍🩹\n' \
                f'💨 Уклонение: <b>{self.dodge}%</b>\n' \
-               f'🛡 Защита: <b>{self.protect}%</b>\n\n' \
- \
+               f'🛡 Защита: <b>{self.protect}%</b>\n\n'
+
     def edit(self, name, value, attr=True, table="bosses"):
         if attr:
             setattr(self, name, value)

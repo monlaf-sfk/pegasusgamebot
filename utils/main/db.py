@@ -4,6 +4,8 @@ from datetime import datetime
 
 import psycopg2
 from psycopg2 import Error, OperationalError
+
+import config
 from config import log
 
 from threading import Lock, Thread
@@ -77,19 +79,14 @@ def timetostr(result: int):
 
 
 class Lsql:
-    def __init__(self):
-        # self.conn = psycopg2.connect(user="postgres",
-        #                    # пароль, который указали при установке PostgreSQL
-        #                    password="pegas",
-        #                    host="localhost",
-        #                    port="5432",
-        #                    dbname="pegasus_db")
-        self.conn = psycopg2.connect(user="postgres",
+    def __init__(self, user: str, password, host, port: int, dbname: str):
+
+        self.conn = psycopg2.connect(user=user,
                                      # пароль, который указали при установке PostgreSQL
-                                     password="1234",
-                                     host="localhost",
-                                     port="5432",
-                                     dbname="pegasus_db")
+                                     password=password,
+                                     host=host,
+                                     port=port,
+                                     dbname=dbname)
         self.cursor = self.conn.cursor()
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS users(
             id NUMERIC PRIMARY KEY,
@@ -373,4 +370,4 @@ class Lsql:
             return item
 
 
-sql = Lsql()
+sql = Lsql(config.USER_DB, config.PASSWORD_DB, config.HOST_DB, config.PORT_DB, config.NAME_DB)

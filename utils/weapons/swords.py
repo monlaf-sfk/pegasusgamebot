@@ -53,7 +53,8 @@ class Armory:
     def create_armory(user_id: int, id_weapons: int, type: str):
         sql.get_cursor().execute("INSERT INTO armory VALUES(DEFAULT,%s,%s,%s,%s,%s)",
                                  (
-                                 user_id, id_weapons, type, Armory.get_json(type, id_weapons)['max_durability'], False))
+                                     user_id, id_weapons, type, Armory.get_json(type, id_weapons)['max_durability'],
+                                     False))
         return True
 
     @staticmethod

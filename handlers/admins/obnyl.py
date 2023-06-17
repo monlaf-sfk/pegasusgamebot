@@ -42,8 +42,7 @@ async def obnyn_property_handler(message: Message):
             'TRUNCATE TABLE cars;\n' \
             'TRUNCATE TABLE moto;\n' \
             'TRUNCATE TABLE vertoleti;\n' \
-            'TRUNCATE TABLE yaxti;' \
- \
+            'TRUNCATE TABLE yaxti;'
     sql.executescript(query, True, False)
     return await message.reply('👨‍🎤 Обнуление имущества прошло успешно!')
 
@@ -88,8 +87,7 @@ async def obnyn_user_handler(message: Message):
                  f'DELETE FROM uah WHERE id={to_user.id};\n' \
                  f'DELETE FROM vertoleti WHERE id={to_user.id};\n' \
                  f'DELETE FROM city WHERE id={to_user.id};\n' \
-                 f'DELETE FROM yaxti WHERE id={to_user.id};' \
- \
+                 f'DELETE FROM yaxti WHERE id={to_user.id};'
         sql.executescript(query, True, False)
         return await message.reply(f'Игрок {to_user.link}! Был обнулен', disable_web_page_preview=True)
     except Exception as e:

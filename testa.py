@@ -31,10 +31,12 @@ def main():
             random.choice(string.ascii_letters + '0123456789_') for _ in range(random.randint(6, 10))).lower()
 
         res = (
-        i + random.randint(1000000, 99999999), None, username, first_name, reg_date, False, 5000, 0, 0, '', '', None,
-        datetime_bonus, None, 0, False, 0, None, 10, None,
-        0, 0, 0, 0, None, None, 0, 0, None, None, None, 0.0, 0, False, 0, False, 100, '', 0, None, False, False, 0, 0,
-        0)
+            i + random.randint(1000000, 99999999), None, username, first_name, reg_date, False, 5000, 0, 0, '', '',
+            None,
+            datetime_bonus, None, 0, False, 0, None, 10, None,
+            0, 0, 0, 0, None, None, 0, 0, None, None, None, 0.0, 0, False, 0, False, 100, '', 0, None, False, False, 0,
+            0,
+            0)
 
         len_title = "%s," * (len(list(res)) - 1) + "%s"
 
