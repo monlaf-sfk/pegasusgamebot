@@ -158,6 +158,9 @@ async def ferma_handler(message: Message):
             return await message.reply(text=text, reply_markup=buy_ferm_kb.as_markup())
 
         elif len(arg) > 0 and arg[0].lower() == 'купить':
+            if bitcoin:
+                return await message.reply('❗ У вас уже есть ферма, можно иметь только 1.'
+                                           )
             try:
                 index = int(arg[1])
                 if index < 1 or index > len(bitcoins):

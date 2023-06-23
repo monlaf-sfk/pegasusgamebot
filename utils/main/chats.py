@@ -5,9 +5,10 @@ from aiogram.types import Chat as OChat
 from threading import Thread
 from utils.main.db import sql
 
+all_chats_ = [i[0] for i in sql.get_all_data('chats')]
+
 
 def all_chats():
-    all_chats_ = [i[0] for i in sql.get_all_data('chats')]
     return all_chats_
 
 
@@ -71,12 +72,12 @@ class Chat:
 
     @staticmethod
     def create(chat: OChat | int):
-
+        global all_chats_
         if isinstance(chat, OChat):
             res = (chat.id, chat.title, chat.photo.big_file_id if chat.photo else None, chat.invite_link,
                    chat.username)
         else:
             res = (chat, None, None, None, None)
         sql.insert_data([res], 'chats')
-
+        all_chats_.append(res[0])
         return res

@@ -55,9 +55,10 @@ houses = {
     }
 }
 
+all_houses_ = [i[1] for i in sql.get_all_data('houses')]
+
 
 def all_houses():
-    all_houses_ = [i[1] for i in sql.get_all_data('houses')]
     return all_houses_
 
 
@@ -66,14 +67,16 @@ class House:
         self.source: tuple = sql.select_data(user_id, 'owner', True, 'houses')
         if self.source is None:
             raise Exception('Not have house')
-        self.index: int = self.source[0]
+        self.owner: int = self.source[0]
+        self.index: int = self.source[1]
         self.house = houses[self.index]
-        self.name: str = self.source[1] if self.source[1] else self.house['name']
-        self.cash: int = self.source[2]
-        self.last: int = self.source[3]
-        self.nalog: int = self.source[4]
-        self.arenda = bool(self.source[5])
-        self.owner: int = self.source[6]
+        self.name: str = self.source[2] if self.source[2] else self.house['name']
+        self.cash: int = self.source[3]
+        self.last: int = self.source[4]
+        self.nalog: int = self.source[5]
+        self.arenda = bool(self.source[6])
+        self.stock_doxod: int = self.source[7]
+        self.stock_nalog: int = self.source[8]
 
     @property
     def text(self):
@@ -104,10 +107,11 @@ class House:
 
     @staticmethod
     def create(user_id, house_index):
-
-        res = (house_index, None, 0, None, 0, False, user_id)
+        global all_houses_
+        res = (user_id, house_index, None, 0, None, 0, False, houses[house_index]['doxod'],
+               houses[house_index]['nalog'])
         sql.insert_data([res], 'houses')
-
+        all_houses_.append(res[0])
         return True
 
     def sell(self):

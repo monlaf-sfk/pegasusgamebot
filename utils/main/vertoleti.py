@@ -41,9 +41,10 @@ vertoleti = {
     },
 }
 
+all_vertoleti_ = [i[1] for i in sql.get_all_data('vertoleti')]
+
 
 def all_vertoleti():
-    all_vertoleti_ = [i[1] for i in sql.get_all_data('vertoleti')]
     return all_vertoleti_
 
 
@@ -98,11 +99,11 @@ class Vertolet:
 
     @staticmethod
     def create(user_id, vertolet_index):
-
+        global all_vertoleti_
         res = (vertolet_index, None, 0, None, 0, vertoleti[vertolet_index]["fuel"], 10, user_id,
                datetime.now().strftime('%d-%m-%Y %H:%M:%S'))
         sql.insert_data([res], 'vertoleti')
-
+        all_vertoleti_.append(res[0])
         return True
 
     def sell(self):

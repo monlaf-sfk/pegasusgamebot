@@ -55,9 +55,10 @@ businesses = {
     }
 }
 
+all_businesses_ = [i[1] for i in sql.get_all_data('businesses')]
+
 
 def all_businesses():
-    all_businesses_ = [i[1] for i in sql.get_all_data('businesses')]
     return all_businesses_
 
 
@@ -66,14 +67,16 @@ class Business:
         self.source: tuple = sql.select_data(user_id, 'owner', True, 'businesses')
         if self.source is None:
             raise Exception('Not have business')
-        self.index: int = self.source[0]
+        self.owner: int = self.source[0]
+        self.index: int = self.source[1]
         self.business = businesses[self.index]
-        self.name: str = self.source[1] if self.source[1] else self.business['name']
-        self.cash: int = self.source[2]
-        self.last: int = self.source[3]
-        self.nalog: int = self.source[4]
-        self.arenda = bool(self.source[5])
-        self.owner: int = self.source[6]
+        self.name: str = self.source[2] if self.source[2] else self.business['name']
+        self.cash: int = self.source[3]
+        self.last: int = self.source[4]
+        self.nalog: int = self.source[5]
+        self.arenda = bool(self.source[6])
+        self.stock_doxod: int = self.source[7]
+        self.stock_nalog: int = self.source[8]
 
     @property
     def text(self):
@@ -104,8 +107,11 @@ class Business:
 
     @staticmethod
     def create(user_id, business_index):
-        res = (business_index, None, 0, None, 0, False, user_id)
+        global all_businesses_
+        res = (user_id, business_index, None, 0, None, 0, False, businesses[business_index]['doxod'],
+               businesses[business_index]['nalog'])
         sql.insert_data([res], 'businesses')
+        all_businesses_.append(res[0])
         return True
 
     def sell(self):

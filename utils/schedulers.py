@@ -3,24 +3,23 @@ from contextlib import suppress
 from datetime import datetime, timedelta
 
 from aiogram.exceptions import TelegramBadRequest
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from psycopg2 import Error, OperationalError
 
 import config
 from config import donates, set_bitcoin_price, bitcoin_price, uah_price, set_uah_price, set_euro_price, euro_price
-from handlers.users.city.main import count_build_water, count_build_energy, count_build_house
+
 from loader import bot
 from utils.bosses import bosses
-from utils.city.buildings import energy_build, water_build, house_build
-from utils.city.city import City
+
 from utils.items.items import item_case
 from utils.jobs.jobs import jobs, levels
-from utils.main.bitcoin import bitcoins
+
 from utils.main.cars import cars
 from utils.main.cash import to_str
 from utils.main.db import sql
-from utils.main.houses import houses
-from utils.main.businesses import businesses
+
 from threading import Lock
 
 from utils.main.users import User
@@ -42,7 +41,6 @@ async def limit_check():
             data = sql.execute('SELECT id, donate_source FROM users WHERE last_vidacha'
                                f" IS NOT NULL AND TIMESTAMP without time zone '{datetime.now().strftime('%d-%m-%Y %H:%M:%S')}' -  last_vidacha >= '{timedelta(minutes=1439)}'",
                                False, True)
-
         if data != None:
             for i in data:
                 if i[1] != None:
@@ -137,6 +135,7 @@ async def check_jobs():
 
 async def cars_check():
     try:
+
         cursor = sql.conn.cursor()
 
         query2 = f'SELECT  "index", nalog, owner FROM cars WHERE last is NOT NULL AND ' \
@@ -165,54 +164,21 @@ async def cars_check():
 async def houses_check():
     try:
         cursor = sql.conn.cursor()
-
-        query2 = f'SELECT  "index", nalog, owner FROM houses WHERE arenda IS TRUE AND last is NOT NULL AND ' \
-                 f'({time.time()} - last) >= ' \
-                 f'3600'
         with lock:
-            result = sql.execute(query2, False, True, cursor=cursor)
-
-        query3 = ''
-
-        for house_s in result:
-            index, nalog, owner = house_s
-            house = houses[index]
-            if nalog + house["nalog"] > house['limit']:
-                pass
-            else:
-                query3 += f'UPDATE houses SET cash = cash + {house["doxod"]}, nalog = nalog + {house["nalog"]}, ' \
-                          f'last = {time.time()} WHERE owner = {owner};\n'
-        if query3 != '':
-            with lock:
-                sql.executescript(query3, True, False, cursor=cursor)
+            query3 = f'UPDATE houses SET nalog = nalog + stock_nalog, ' \
+                     f'last = {time.time()}, cash = ROUND(cash + stock_doxod) WHERE last is NOT NULL AND ({time.time()} - last) >= 3600'
+            sql.executescript(query3, True, False, cursor=cursor)
     except Exception as ex:
-        print('houses_check:', ex)
+        print('businesses_check:', ex)
 
 
 async def businesses_check():
     try:
         cursor = sql.conn.cursor()
-
-        query2 = f'SELECT "index", nalog, owner FROM businesses WHERE arenda IS TRUE AND last is NOT NULL AND ' \
-                 f'({time.time()} - last) >= ' \
-                 f'3600'
         with lock:
-            result = sql.execute(query2, False, True, cursor=cursor)
-
-        query3 = ''
-
-        for house_s in result:
-            index, nalog, owner = house_s
-            business = businesses[index]
-            if nalog + business["nalog"] > business['limit']:
-                pass
-            else:
-                query3 += f'UPDATE businesses SET cash = cash + {business["doxod"]}, nalog = nalog +' \
-                          f' {business["nalog"]}, ' \
-                          f'last = {time.time()} WHERE owner = {owner};\n'
-        if query3 != '':
-            with lock:
-                sql.executescript(query3, True, False, cursor=cursor)
+            query3 = f'UPDATE businesses SET nalog = nalog + stock_nalog, ' \
+                     f'last = {time.time()}, cash = ROUND(cash + stock_doxod) WHERE last is NOT NULL AND ({time.time()} - last) >= 3600'
+            sql.executescript(query3, True, False, cursor=cursor)
     except Exception as ex:
         print('businesses_check:', ex)
 
@@ -328,28 +294,10 @@ async def moto_check():
 async def btc_check():
     try:
         cursor = sql.conn.cursor()
-
-        query2 = f'SELECT zindex, nalog, owner, videocards FROM bitcoin WHERE last is NOT NULL AND ' \
-                 f'({time.time()} - last) >= ' \
-                 f'3600'
         with lock:
-            result = sql.execute(query2, False, True, cursor=cursor)
-
-        query3 = ''
-
-        for car_s in result:
-            index, nalog, owner, videocards = car_s
-            car = bitcoins[index]()
-            if nalog + car.nalog > car.limit:
-                pass
-            else:
-                summ = car.doxod * videocards
-                query3 += f'UPDATE bitcoin SET nalog = nalog + {car.nalog}, ' \
-                          f'last = {time.time()}, balance = ROUND(balance + {summ}) WHERE owner ' \
-                          f'= {owner};\n'
-        if query3 != '':
-            with lock:
-                sql.executescript(query3, True, False, cursor=cursor)
+            query3 = f'UPDATE bitcoin SET nalog = nalog + stock_nalog, ' \
+                     f'last = {time.time()}, balance = ROUND(balance + stock_doxod * videocards) WHERE last is NOT NULL AND ({time.time()} - last) >= 3600'
+            sql.executescript(query3, True, False, cursor=cursor)
     except Exception as ex:
         print('btc_check:', ex)
 
@@ -375,95 +323,35 @@ name_by_index = ['cars', 'airplanes', 'houses', 'businesses',
                  'moto', 'vertoleti', 'yaxti', 'bitcoin']
 
 
-async def kazna_city_check():
-    cursor = sql.conn.cursor()
-    query2 = f'SELECT owner FROM city WHERE happynes > 20'
-    with lock:
-        result = sql.execute(query2, False, True, cursor=cursor)
-    query3 = ''
-    for owner in result:
-        city = City(user_id=owner[0])
-        count = 0
-        for index, builds in enumerate(list(city.water), start=1):
-            build = water_build[index]
-            count += build["work_place"] * builds[1]
-        for index, builds in enumerate(list(city.energy), start=1):
-            build = energy_build[index]
-            count += build["work_place"] * builds[1]
-        query3 += f"UPDATE city SET kazna=kazna+((taxes/100) * {count} ) +{count} WHERE owner={owner[0]};"
-    if query3 != '':
-        with lock:
-            sql.executescript(query3, True, False, cursor=cursor)
-
-
 async def city_check():
     try:
         cursor = sql.conn.cursor()
 
-        query2 = f'SELECT owner FROM city WHERE happynes > 20'
-        with lock:
-            result = sql.execute(query2, False, True, cursor=cursor)
-
-        query3 = ''
         try:
-            for owner in result:
-                city = City(user_id=owner[0])
-                count = 0
-                for index, builds in enumerate(list(city.water), start=1):
-                    build = water_build[index]
-                    count += build["work_place"] * builds[1]
-                for index, builds in enumerate(list(city.energy), start=1):
-                    build = energy_build[index]
-                    count += build["work_place"] * builds[1]
-                query3 += f"UPDATE city SET workers={count} WHERE workers !={count} AND owner={owner[0]};"
-                query3 += f"UPDATE city SET kazna=kazna+((taxes/100) * {count} ) +{count} WHERE owner={owner[0]};"
-            if query3 != '':
-                with lock:
-                    sql.executescript(query3, True, False, cursor=cursor)
+            query3 = f"UPDATE city SET workers=CAST (water->'2'->>'work_place' AS INTEGER) * CAST (water->'2'->>'count_build' AS INTEGER)" \
+                     f" + CAST (water->'1'->>'work_place' AS INTEGER) * CAST (water->'1'->>'count_build' AS INTEGER)+ " \
+                     f"CAST (energy->'2'->>'work_place' AS INTEGER) * CAST (energy->'2'->>'count_build' AS INTEGER)" \
+                     f"+ CAST (energy->'1'->>'work_place' AS INTEGER) * CAST (energy->'1'->>'count_build' AS INTEGER) " \
+                     f" WHERE happynes > 20;"
+            query3 += f"UPDATE city SET kazna=kazna+((taxes/100) * workers) WHERE happynes > 20;"
+            with lock:
+                sql.executescript(query3, True, False, cursor=cursor)
         except Exception as ex:
             print('city_check (kazna,workers):', ex)
         #########################################################################################
         try:
-            query4 = f'SELECT owner FROM city WHERE happynes > 20'
+            query5 = f"UPDATE city SET citizens = CAST (house->'2'->>'capacity' AS INTEGER)* CAST (house->'2'->>'count_build' AS INTEGER) " \
+                     f"+ CAST (house->'1'->>'capacity' AS INTEGER) * CAST (house->'1'->>'count_build' AS INTEGER)" \
+                     f"WHERE happynes > 20;"
             with lock:
-                result = sql.execute(query4, False, True, cursor=cursor)
-            query5 = ''
-            for owner in result:
-                count = 0
-                owner = owner[0]
-                city = City(user_id=owner)
-                for index, builds in enumerate(city.house, start=1):
-                    build = house_build[index]
-                    count += build["capacity"] * int(builds[1])
-                query5 += f"UPDATE city SET citizens= {count} WHERE citizens !={count} AND owner={owner};"
-            if query5 != '':
-                with lock:
-                    sql.executescript(query5, True, False, cursor=cursor)
+                sql.executescript(query5, True, False, cursor=cursor)
         except Exception as ex:
             print('city_check capacity:', ex)
         ##############################################################################################
-        query6 = f'SELECT owner FROM city'
+
+        query7 = f" UPDATE city SET happynes = 101-taxes-{random.uniform(0.01, 0.99)};"
         with lock:
-            result = sql.execute(query6, False, True, cursor=cursor)
-        happynes = 100
-        query7 = ''
-        for owner in result:
-            owner = owner[0]
-            city = City(user_id=owner)
-            count_water = count_build_water(counter=list(city.water))
-            count_energy = count_build_energy(counter=list(city.energy))
-            count_house = count_build_house(counter=list(city.house))
-
-            if count_house * 145 > count_energy:
-                happynes = happynes - random.uniform(18.01, 19.99)
-            if count_house * 135 > count_water:
-                happynes = happynes - random.uniform(18.01, 19.99)
-
-            happynes = happynes - (city.taxes) if happynes - (city.taxes) > 1 else random.uniform(1.01, 1.99)
-            query7 += f"UPDATE city SET happynes= {happynes} WHERE owner ={owner};"
-        if query7 != '':
-            with lock:
-                sql.executescript(query7, True, False, cursor=cursor)
+            sql.executescript(query7, True, False, cursor=cursor)
     except (Exception, Error) as error:
         print('city_check:', error)
 
@@ -523,6 +411,7 @@ async def autopromo_handler():
 
 async def auction_handler():
     try:
+
         cursor = sql.conn.cursor()
 
         query2 = f'SELECT seller, uuid4, count, price, costumers, message_id FROM auction WHERE time is NOT NULL AND ' \
@@ -584,7 +473,8 @@ async def auction_handler():
 
 
 async def boss_spavn():
-    bosse = sql.execute("SELECT * FROM bosses", fetch=True)
+    with lock:
+        bosse = sql.execute("SELECT * FROM bosses", fetch=True)
     ids_bosse = [1, 2, 3, 4, 5, 6]
     for boss in bosse:
         boss_id, hp = boss
@@ -596,7 +486,8 @@ async def boss_spavn():
 
 
 async def boss_check():
-    bosses_sql = sql.execute("SELECT * FROM bosses", fetch=True)
+    with lock:
+        bosses_sql = sql.execute("SELECT * FROM bosses", fetch=True)
 
     if not bosses_sql:
         return
@@ -647,78 +538,46 @@ async def boss_check():
             sql.execute(f"DELETE FROM user_bosses WHERE boss_id ={boss_id} ", commit=True)
 
 
-boss_check_s = AsyncIOScheduler()
-boss_check_s.add_job(boss_check, 'cron', minute='*')
-boss_check_s.start()
+job_defaults = {
+    'coalesce': False,
+    'max_instances': 3
+}
+shedualer = AsyncIOScheduler(job_defaults=job_defaults)
 
-boss_spavn_s = AsyncIOScheduler()
-boss_spavn_s.add_job(boss_spavn, 'interval', hours=3)
-boss_spavn_s.start()
+shedualer.add_job(boss_check, 'cron', minute='*', misfire_grace_time=1000)
 
-auction_s = AsyncIOScheduler()
-auction_s.add_job(auction_handler, 'cron', minute='*')
-auction_s.start()
+shedualer.add_job(boss_spavn, 'interval', hours=3, misfire_grace_time=3600)
 
-autopromo_s = AsyncIOScheduler()
-autopromo_s.add_job(autopromo_handler, 'interval', hours=24)
-autopromo_s.start()
+shedualer.add_job(auction_handler, 'cron', minute='*', misfire_grace_time=1000)
 
-kazna_city_scheduler = AsyncIOScheduler()
-kazna_city_scheduler.add_job(kazna_city_check, 'interval', minutes=10)
-kazna_city_scheduler.start()
+shedualer.add_job(autopromo_handler, 'interval', hours=24, misfire_grace_time=86400)
 
-city_scheduler = AsyncIOScheduler()
-city_scheduler.add_job(city_check, 'cron', minute='*')
-city_scheduler.start()
+shedualer.add_job(city_check, 'cron', minute='*', misfire_grace_time=1000)
 
-limit_scheduler = AsyncIOScheduler()
-limit_scheduler.add_job(limit_check, 'cron', minute='*')
-limit_scheduler.start()
+shedualer.add_job(limit_check, 'cron', minute='*', misfire_grace_time=1000)
 
-deposit_scheduler = AsyncIOScheduler()
-deposit_scheduler.add_job(deposit_check, 'cron', minute='*')
-deposit_scheduler.start()
+shedualer.add_job(deposit_check, 'cron', minute='*', misfire_grace_time=1000)
 
-autonalog_scheduler = AsyncIOScheduler()
-autonalog_scheduler.add_job(autonalog_check, 'cron', minute='*')
-autonalog_scheduler.start()
+shedualer.add_job(autonalog_check, 'cron', minute='*', misfire_grace_time=1000)
 
-houses_scheduler = AsyncIOScheduler()
-houses_scheduler.add_job(houses_check, 'cron', minute='*')
-houses_scheduler.start()
+shedualer.add_job(houses_check, 'cron', minute='*', misfire_grace_time=1000)
 
-businesses_scheduler = AsyncIOScheduler()
-businesses_scheduler.add_job(businesses_check, 'cron', minute='*')
-businesses_scheduler.start()
+shedualer.add_job(businesses_check, 'cron', minute='*', misfire_grace_time=1000)
 
-cars_scheduler = AsyncIOScheduler()
-cars_scheduler.add_job(cars_check, 'cron', minute='*')
-cars_scheduler.start()
+shedualer.add_job(cars_check, 'cron', minute='*', misfire_grace_time=1000)
 
-yaxti_scheduler = AsyncIOScheduler()
-yaxti_scheduler.add_job(yaxti_check, 'cron', minute='*')
-yaxti_scheduler.start()
+shedualer.add_job(yaxti_check, 'cron', minute='*', misfire_grace_time=1000)
 
-vertoleti_scheduler = AsyncIOScheduler()
-vertoleti_scheduler.add_job(vertoleti_check, 'cron', minute='*')
-vertoleti_scheduler.start()
+shedualer.add_job(vertoleti_check, 'cron', minute='*', misfire_grace_time=1000)
 
-airplanes_scheduler = AsyncIOScheduler()
-airplanes_scheduler.add_job(airplanes_check, 'cron', minute='*')
-airplanes_scheduler.start()
+shedualer.add_job(airplanes_check, 'cron', minute='*', misfire_grace_time=1000)
 
-moto_scheduler = AsyncIOScheduler()
-moto_scheduler.add_job(moto_check, 'cron', minute='*')
-moto_scheduler.start()
+shedualer.add_job(moto_check, 'cron', minute='*', misfire_grace_time=1000)
 
-btc_scheduler = AsyncIOScheduler()
-btc_scheduler.add_job(btc_check, 'cron', minute='*')
-btc_scheduler.start()
+shedualer.add_job(btc_check, 'cron', minute='*', misfire_grace_time=1000)
 
-check_jobs_s = AsyncIOScheduler()
-check_jobs_s.add_job(check_jobs, 'cron', minute='*')
-check_jobs_s.start()
+shedualer.add_job(check_jobs, 'cron', minute='*', misfire_grace_time=1000)
 
-btc_change_s = AsyncIOScheduler()
-btc_change_s.add_job(btc_change, 'cron', hour='*')
-btc_change_s.start()
+shedualer.add_job(btc_change, 'cron', hour='*', misfire_grace_time=1000)
+
+shedualer.start()

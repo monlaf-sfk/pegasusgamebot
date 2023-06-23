@@ -62,7 +62,6 @@ async def bosses_callbackinfo_handler(call: CallbackQuery, callback_data: BosseI
     text = '🏆 Лидеры по урону\n'
     index = 0
     if top_damage:
-
         for user_top in top_damage:
             user_id, damage = user_top
             user = User(id=user_id)

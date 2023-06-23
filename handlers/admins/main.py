@@ -30,7 +30,7 @@ import os
 import psutil
 from threading import Lock
 from utils.main.airplanes import Airplane
-from utils.main.bitcoin import Bitcoin
+from utils.main.bitcoin import Bitcoin, all_ferma
 from utils.main.businesses import Business
 from utils.main.cars import Car
 from utils.main.cash import to_str
@@ -558,7 +558,7 @@ async def stats_handler(message: Message):
 
     lent = sum([len(all_yaxti()), len(all_vertoleti()),
                 len(all_cars()), len(all_businesses()),
-                len(all_airplanes()), len(all_moto())])
+                len(all_airplanes()), len(all_moto()), len(all_ferma())])
 
     text = f'👥 Пользователей в боте: {len(all_users())}\n' \
            f'💭 Чатов добавило бота: {len(all_chats())}\n\n' \
@@ -566,7 +566,7 @@ async def stats_handler(message: Message):
            f'🚫 Забаненых пользователей: {len(all_users_ban())}\n' \
            f'👨‍👩‍👦 Семьи: {len(all_marries())}\n' \
            f'📃 Имущество: <b>{lent}</b>\n➖➖➖➖➖➖\n' \
-           f'<b>Версия бота:</b> V1.4.6\n'
+           f'<b>Версия бота:</b> V1.4.7\n'
 
     if message.from_user.id == owner_id:
         text += '➖➖➖➖➖➖\n' \
@@ -609,7 +609,8 @@ async def stats_dop_call(call):
                  f'🏎️ Машины: {len(all_cars())}\n' \
                  f'🧑‍💼 Бизнеса: {len(all_businesses())}\n' \
                  f'✈️ Самолёты: {len(all_airplanes())}\n' \
-                 f'🏍️ Мотоциклы: {len(all_moto())}\n\n'
+                 f'🏍️ Мотоциклы: {len(all_moto())}\n' \
+                 f'🖥️ Фермы: {len(all_ferma())}\n\n'
 
     return await call.message.edit_text(stats_text)
 

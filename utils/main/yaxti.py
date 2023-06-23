@@ -41,9 +41,10 @@ yaxti = {
     }
 }
 
+all_yaxti_ = [i[1] for i in sql.get_all_data('yaxti')]
+
 
 def all_yaxti():
-    all_yaxti_ = [i[1] for i in sql.get_all_data('yaxti')]
     return all_yaxti_
 
 
@@ -98,9 +99,11 @@ class Yaxta:
 
     @staticmethod
     def create(user_id, yaxta_index):
+        global all_yaxti_
         res = (yaxta_index, None, 0, None, 0, yaxti[yaxta_index]["fuel"], 10, user_id,
                datetime.now().strftime('%d-%m-%Y %H:%M:%S'))
         sql.insert_data([res], 'yaxti')
+        all_yaxti_.append(res[0])
         return True
 
     def sell(self):

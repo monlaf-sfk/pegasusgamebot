@@ -56,10 +56,10 @@ motos = {
         'fuel': 1000
     }
 }
+all_moto_ = [i[1] for i in sql.get_all_data('moto')]
 
 
 def all_moto():
-    all_moto_ = [i[1] for i in sql.get_all_data('moto')]
     return all_moto_
 
 
@@ -114,11 +114,11 @@ class Moto:
 
     @staticmethod
     def create(user_id, moto_index):
-
+        global all_moto_
         res = (moto_index, None, 0, None, 0, motos[moto_index]["fuel"], 10, user_id,
                datetime.now().strftime('%d-%m-%Y %H:%M:%S'))
         sql.insert_data([res], 'moto')
-
+        all_moto_.append(res[0])
         return True
 
     def sell(self):

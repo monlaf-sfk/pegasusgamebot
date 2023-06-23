@@ -1,9 +1,11 @@
 import logging
+import time
 
 from datetime import datetime
 
 import psycopg2
 from psycopg2 import Error, OperationalError
+from psycopg2.extras import RealDictCursor
 
 import config
 from config import log
@@ -123,15 +125,15 @@ class Lsql:
         """)
         self.conn.commit()
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS houses(
-            index NUMERIC ,name text ,cash NUMERIC ,last NUMERIC ,nalog NUMERIC ,arenda BOOLEAN ,owner NUMERIC PRIMARY KEY)
+            owner NUMERIC PRIMARY KEY, index NUMERIC ,name text ,cash NUMERIC ,last NUMERIC ,nalog NUMERIC ,arenda BOOLEAN ,stock_doxod NUMERIC, stock_nalog NUMERIC)
         """)
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS businesses(
-            index NUMERIC ,name text ,cash NUMERIC ,last NUMERIC ,nalog NUMERIC ,arenda BOOLEAN ,owner NUMERIC PRIMARY KEY)
+            owner NUMERIC PRIMARY KEY,index NUMERIC ,name text ,cash NUMERIC ,last NUMERIC ,nalog NUMERIC ,arenda BOOLEAN , stock_doxod NUMERIC, stock_nalog NUMERIC)
         """)
         self.conn.commit()
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS city(
             owner NUMERIC PRIMARY KEY, 
-            name text ,kazna NUMERIC ,citizens NUMERIC ,happynes NUMERIC ,workers NUMERIC ,taxes INT,water text ,energy text ,road NUMERIC ,house text )
+            name text ,kazna NUMERIC ,citizens NUMERIC ,happynes NUMERIC ,workers NUMERIC ,taxes INT,water jsonb ,energy jsonb ,road NUMERIC ,house jsonb )
         """)
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS marries(
             id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, 
@@ -154,7 +156,7 @@ class Lsql:
         """)
         self.conn.commit()
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS bitcoin(
-            owner NUMERIC PRIMARY KEY,zindex INT ,balance NUMERIC ,last NUMERIC ,videocards INT ,nalog NUMERIC ,limit_video INT )
+            owner NUMERIC PRIMARY KEY,zindex INT ,balance NUMERIC ,last NUMERIC ,videocards INT ,nalog NUMERIC ,limit_video INT, stock_doxod NUMERIC, stock_nalog NUMERIC)
         """)
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS promocodes(
             id NUMERIC PRIMARY KEY,
@@ -227,7 +229,7 @@ class Lsql:
 
                 self.cursor.executemany(f"INSERT INTO {table} VALUES ({len_title})", data_mass)
                 self.conn.commit()
-                # write_admins_log('INSERT',f'SQL:INSERT INTO {table} VALUES ({data_mass})')
+                # write_admins_log('INSERT', f'SQL:INSERT INTO {table} VALUES ({data_mass})')
         except (Exception, Error, OperationalError) as error:
             write_admins_log(f'ERROR', f'{error}\nSQL:INSERT INTO {table} VALUES ({data_mass})')
             sql.get_rollback()
@@ -239,7 +241,7 @@ class Lsql:
                 self.cursor.execute(f"UPDATE {table} SET {title_new} = %s WHERE {title_last} = %s",
                                     [(new), (last)])
                 self.conn.commit()
-                # write_admins_log("UPDATE",f'SQL:UPDATE {table} SET {title_new} ={new} WHERE {title_last} = {last}')
+                # write_admins_log("UPDATE", f'SQL:UPDATE {table} SET {title_new} = {new} WHERE {title_last} = {last}')
         except (Exception, Error, OperationalError) as error:
             write_admins_log(f'ERROR',
                              f'{error}\nSQL:UPDATE {table} SET {title_new} ={new} WHERE {title_last} = {last}')
@@ -250,7 +252,7 @@ class Lsql:
             with lock:
                 self.cursor.execute(f"DELETE FROM {table} WHERE {title_name} = %s", [(name)])
                 self.conn.commit()
-            # write_admins_log('DELETE',f'DELETE FROM {table} WHERE {title_name} = {name}')
+            # write_admins_log('DELETE', f'DELETE FROM {table} WHERE {title_name} = {name}')
         except (Exception, Error, OperationalError) as error:
             write_admins_log(f'ERROR', f'{error}\nSQL:DELETE FROM {table} WHERE {title_name} = {name}')
             sql.get_rollback()
@@ -259,7 +261,7 @@ class Lsql:
         try:
             with lock:
                 self.cursor.execute(f"SELECT {column} FROM {table} WHERE {title}=%s", [(name)])
-                # write_admins_log(f'ERROR', f'SQL:SELECT {column} FROM {table} WHERE {title}={name}')
+                # write_admins_log(f'SELECT', f'SQL:SELECT {column} FROM {table} WHERE {title}={name}')
 
             if row_factor:
 
@@ -283,6 +285,7 @@ class Lsql:
     def get_all_data(self, table="users"):
         try:
             with lock:
+
                 self.cursor.execute(f"SELECT * FROM {table}")
                 return self.cursor.fetchall()
         except (Exception, Error, OperationalError) as error:

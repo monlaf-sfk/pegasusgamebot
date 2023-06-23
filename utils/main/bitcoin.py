@@ -19,25 +19,33 @@ class Ferma:
 
 
 bitcoins = {
-    1: lambda: Ferma('Bit-cash 💻', 150000, 0.1, 17500, 210000, 1000),
-    2: lambda: Ferma('Crypto-farm 🧑🏿‍💻', 2500000, 0.3, 150000, 1800000, 1000),
-    3: lambda: Ferma('Delta-farm 🖥️', 15000000, 0.6, 5000000, 60000000, 1000),
-    4: lambda: Ferma('River-bitcoin 📼', 1000000000, 1, 10000000, 120000000, 1000)
+    1: lambda: Ferma('Bit-cash 💻', 150_000, 0.5, 17_500, 210_000, 1000),
+    2: lambda: Ferma('Crypto-farm 🧑🏿‍💻', 2_500_000, 1, 150_000, 1_800_000, 1000),
+    3: lambda: Ferma('Delta-farm 🖥️', 15_000_000, 3, 2_500_000, 30_000_000, 1000),
+    4: lambda: Ferma('River-bitcoin 📼', 100_000_000, 6, 5_000_000, 60_000_000, 1000)
 }
 
 to_usd = lambda summ: int(float(summ) * config.bitcoin_price())
+all_ferma_ = [i[1] for i in sql.get_all_data('bitcoin')]
+
+
+def all_ferma():
+    return all_ferma_
 
 
 class Bitcoin:
     @staticmethod
     def create(owner: int, zindex: int):
-        res = (owner, zindex, 0, time.time(), 0, 0, 1000)
+        global all_ferma_
+        res = (owner, zindex, 0, time.time(), 0, 0, 1000, bitcoins[zindex]().doxod, bitcoins[zindex]().nalog)
         sql.insert_data([res], 'bitcoin')
+        all_ferma_.append(res[0])
         return res
 
     def __init__(self, owner: int = None):
         self.source = sql.select_data(owner, 'owner', True, 'bitcoin')
-
+        if self.source is None:
+            raise Exception('Not have bitcoin')
         self.owner: int = self.source[0]
         self.zindex: int = self.source[1]
         self.balance_: int = round(self.source[2])
@@ -48,6 +56,8 @@ class Bitcoin:
         self.bitcoin.doxod *= self.videocards
         self.limit_video: int = self.source[6] + int(User(id=owner).donate_videocards)
         self.name = self.bitcoin.name
+        self.stock_doxod: int = self.source[7]
+        self.stock_nalog: int = self.source[8]
 
     def edit(self, name, value, attr=True):
         if attr:

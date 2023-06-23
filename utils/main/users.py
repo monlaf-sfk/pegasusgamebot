@@ -18,14 +18,17 @@ from utils.main.cash import to_str
 from utils.main.db import sql, timetomin, timetostr
 from utils.main.donates import Donate, BanUser
 
+all_users_ = [i[0] for i in sql.get_all_data()]
+
 
 def all_users():
-    all_users_ = [i[0] for i in sql.get_all_data()]
     return all_users_
 
 
+all_users_ban_ = [i[0] for i in sql.execute(f"SELECT ban_source FROM users WHERE ban_source!='NULL'", fetch=True)]
+
+
 def all_users_ban():
-    all_users_ban_ = [i[0] for i in sql.execute(f"SELECT ban_source FROM users WHERE ban_source!='NULL'", fetch=True)]
     return all_users_ban_
 
 
@@ -36,7 +39,7 @@ datetime_bonus = datetime(year=1920, month=1, day=1).strftime('%d-%m-%Y %H:%M:%S
 class User:
     @staticmethod
     def create(user_id: int, first_name: str = None, username: str = None, ref_id: int = None):
-
+        global all_users_
         now_date = datetime.now()
         reg_date = now_date.strftime('%d-%m-%Y %H:%M:%S')
         res = (user_id, None, username, first_name, reg_date, False, 5000, 0, 0, '', None,
@@ -44,6 +47,7 @@ class User:
                0, 0, 0, 0, None, None, 0, 0, None, None, None, 0.0, 0, False, None, 100, '', None, False, False, 0, 0,
                0, False, True)
         sql.insert_data([res])
+        all_users_.append(res[0])
         return res
 
     def __init__(self, **kwargs):
@@ -100,7 +104,6 @@ class User:
         self.ref: int | None = self.source[12]
         self.refs: int = self.source[13]
         self.lock: bool = bool(self.source[14])
-
         self.credit: int = self.source[15]
         self.credit_time: int | None = self.source[16]
 
@@ -158,10 +161,12 @@ class User:
         Thread(target=self.check_names, args=(first_name, username,)).start()
 
     async def banf(self, reason: str, admin: User, bot: Bot, is_always: bool, time: int):
+        global all_users_ban_
         if self.ban:
             return
         if is_always:
             self.edit('ban_source', f'{datetime.now().strftime("%d-%m-%Y %H:%M")},{is_always},None,{reason}')
+            all_users_ban_.append(f'{datetime.now().strftime("%d-%m-%Y %H:%M")},{is_always},None,{reason}')
         else:
             dt = datetime.now()
             td = timedelta(seconds=time)
@@ -169,7 +174,8 @@ class User:
 
             self.edit('ban_source',
                       f'{datetime.now().strftime("%d-%m-%Y %H:%M")},{is_always},{my_date.strftime("%d-%m-%Y %H:%M")},{reason}')
-
+            all_users_ban_.append(
+                f'{datetime.now().strftime("%d-%m-%Y %H:%M")},{is_always},{my_date.strftime("%d-%m-%Y %H:%M")},{reason}')
         with suppress(TelegramBadRequest):
             return await bot.send_message(chat_id=self.id,
                                           text=f'<i>🚫 {self.link}, ваш игровой аккаунт был заблокирован за Нарушение игровых правил Pegasus бота.</i>\n\n'
@@ -355,6 +361,7 @@ class User:
 
     @property
     def link(self):
+
         url = f'https://t.me/{self.username}' if self.username else f'tg://user?id={self.id}'
         if self.clan_teg:
             try:

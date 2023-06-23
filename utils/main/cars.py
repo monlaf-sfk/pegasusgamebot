@@ -57,9 +57,10 @@ cars = {
     }
 }
 
+all_cars_ = [i[1] for i in sql.get_all_data('cars')]
+
 
 def all_cars():
-    all_cars_ = [i[1] for i in sql.get_all_data('cars')]
     return all_cars_
 
 
@@ -115,11 +116,12 @@ class Car:
 
     @staticmethod
     def create(user_id, car_index):
-
+        global all_cars_
         res = (
-        car_index, None, 0, None, 0, cars[car_index]["fuel"], 10, user_id, datetime.now().strftime('%d-%m-%Y %H:%M:%S'))
+            car_index, None, 0, None, 0, cars[car_index]["fuel"], 10, user_id,
+            datetime.now().strftime('%d-%m-%Y %H:%M:%S'))
         sql.insert_data([res], 'cars')
-
+        all_cars_.append(res[0])
         return True
 
     def sell(self):

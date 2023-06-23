@@ -40,10 +40,10 @@ airplanes = {
         'fuel': 700
     },
 }
+all_airplanes_ = [i[1] for i in sql.get_all_data('airplanes')]
 
 
 def all_airplanes():
-    all_airplanes_ = [i[1] for i in sql.get_all_data('airplanes')]
     return all_airplanes_
 
 
@@ -99,11 +99,11 @@ class Airplane:
 
     @staticmethod
     def create(user_id, airplane_index):
-
+        global all_airplanes_
         res = (airplane_index, None, 0, None, 0, airplanes[airplane_index]["fuel"], 10, user_id,
                datetime.now().strftime('%d-%m-%Y %H:%M:%S'))
         sql.insert_data([res], 'airplanes')
-
+        all_airplanes_.append(res[0])
         return True
 
     def sell(self):

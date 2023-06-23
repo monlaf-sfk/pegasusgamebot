@@ -43,9 +43,10 @@ computers = {
     }
 }
 
+all_computers_ = [i[1] for i in sql.get_all_data('computers')]
+
 
 async def all_computers():
-    all_computers_ = [i[1] for i in sql.get_all_data('computers')]
     return all_computers_
 
 
@@ -95,10 +96,10 @@ class Computer:
 
     @staticmethod
     def create(user_id, computer_index):
-
+        global all_computers_
         res = (computer_index, None, 0, None, 100, 0, user_id)
         sql.insert_data([res], 'computers')
-
+        all_computers_.append(res[0])
         return True
 
     def sell(self):

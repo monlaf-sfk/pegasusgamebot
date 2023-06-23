@@ -2,6 +2,7 @@ import re
 
 from aiogram import flags
 from aiogram.types import Message
+from psycopg2._json import Json
 
 from config import bot_name
 from keyboard.generate import show_city_kb, city_water_kb, city_electro_kb, city_road_kb, city_build_kb, city_house_kb
@@ -15,28 +16,19 @@ from utils.city.buildings import water_build, energy_build, house_build
 numbers_emoji = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣']
 
 
-def count_build_water(counter: list = None):
+def count_build(counter: list = None):
+    count = 0
+    for index, builds in enumerate(counter, start=1):
+        count += counter[f"{index}"]["count_build"]
+
+    return count
+
+
+def count_build_get(counter: list = None):
     count = 0
     for index, item in enumerate(counter, start=1):
         build = water_build[index]
-        count += item[1] * build['get']
-
-    return count
-
-
-def count_build_energy(counter: list = None):
-    count = 0
-    for index, item in enumerate(counter, start=1):
-        build = energy_build[index]
-        count += item[1] * build['get']
-
-    return count
-
-
-def count_build_house(counter: list = None):
-    count = 0
-    for index, item in enumerate(counter, start=1):
-        count += item[1]
+        count += counter[f"{index}"]["count_build"] * build['get']
     return count
 
 
@@ -69,22 +61,19 @@ async def city_handler(message: Message):
                 return await city_info_handler(message)
         user = User(user=message.from_user)
         if len(arg) == 0:
-            user = User(user=message.from_user)
-            city.water = list(city.water)
-            count_water = count_build_water(counter=city.water)
-            city.energy = list(city.energy)
-            count_energy = count_build_energy(counter=city.energy)
-            city.house = list(city.house)
-            count_house = count_build_house(counter=city.house)
-            city.water = list(city.water)
-            city.energy = list(city.energy)
-            city.house = list(city.house)
+            count_house = count_build(city.house)
+            count_energy = count_build(city.energy)
+            count_water = count_build(city.water)
             builds = city.get_count_build()
+            happynes = city.happynes
             problems = ''
+            notification = "➖➖➖➖➖➖➖➖➖➖➖\n⚠️ В городе есть проблемы"
             if count_energy < count_house * 165:
+                happynes -= 20
                 problems += '⚡️ Расходы электроэнергии превышают её выработки!\n' \
                             '➖ Постройте электростанцию\n'
             if count_water < count_house * 145:
+                happynes -= 20
                 problems += '💦 Расходы воды превышают её добычу!\n' \
                             '➖ Постройте водонапорную башню\n'
             text = f'<b>{user.link}</b>, информация о Вашем городе:\n\n' \
@@ -92,14 +81,14 @@ async def city_handler(message: Message):
                    f'🏙 Название: <b>{city.name}</b>\n\n' \
                    f'💰 Казна города: {to_str(city.kazna)}\n' \
                    f'👥 Жителей: {city.citizens}\n' \
-                   f'{"🤬" if city.happynes < 30 else "🙂"} Счастье: {round(city.happynes, 2)}%\n' \
+                   f'{"🤬" if happynes < 30 else "🙂"} Счастье: {round(happynes, 2)}%\n' \
                    f'👨🏻‍🔧 Работают: {city.workers}\n' \
                    f'💸 Налоги: {city.taxes}%\n' \
                    f'➖➖➖➖➖➖➖➖➖➖➖\n' \
-                   f'💧 Вода: {count_water}/{"-" if count_house * 145 == 0 else count_house * 145} м³/сутки\n' \
-                   f'⚡ Энергия: {count_energy}/{"-" if count_house * 165 == 0 else count_house * 165} МВт\n' \
+                   f'💧 Вода: {count_build_get(city.water)}/{"-" if count_house * 145 == 0 else count_house * 145} м³/сутки\n' \
+                   f'⚡ Энергия: {count_build_get(city.energy)}/{"-" if count_house * 165 == 0 else count_house * 165} МВт\n' \
                    f'🚙 Дороги: {city.road}\n' \
-                   f'{problems if problems == "" else "➖➖➖➖➖➖➖➖➖➖➖    ⚠️ В городе есть проблемы"}\n' \
+                   f'{problems if problems == "" else notification}\n' \
                    f'{problems}' \
                    f'➖➖➖➖➖➖➖➖➖➖➖\n' \
                    f'🏗 Зданий: {builds}'
@@ -162,21 +151,22 @@ async def city_handler(message: Message):
                         return await message.reply('🚫 Неверный номер предмета!')
 
                     price = (item['price'])
-                    city.water = list(city.water)
-                    city.energy = list(city.energy)
-                    city.house = list(city.house)
                     builds = city.get_count_build()
+
                     if builds * 2 > city.road:
                         return await message.reply(f'Вы не можете построить это здание:\n'
                                                    '🚧 В городе нет свободных дорог, рядом с которыми можно построить это здание. ')
                     if user.balance < price:
                         return await message.reply(f'💲 Недостаточно средств на руках, нужно: {to_str(price)}')
                     user.edit('balance', user.balance - price)
-                    city.water = list(city.water)
-                    city.set_water(item_id=item_id)
+                    count = city.water[f'{item_id}']['count_build'] + 1
+                    sql.execute(
+                        "UPDATE city SET water = jsonb_set(water, "
+                        f"'{{{item_id}, count_build}}', "
+                        f"'{count}')", commit=True)
                     return await message.reply(f'✅ Вы успешно построили «{item["name"]}» '
                                                f'📌 Информация о здании:\n'
-                                               f'  💧 Количество зданий: {city.get_water(item_id=item_id)[1]} шт.\n'
+                                               f'  💧 Количество зданий: {count} шт.\n'
                                                f'  💧 Добыча воды:{item["get"]} м³/сутки',
                                                reply_markup=city_water_kb.as_markup())
                 if name == 'электро':
@@ -202,19 +192,21 @@ async def city_handler(message: Message):
 
                     if user.balance < price:
                         return await message.reply(f'💲 Недостаточно средств на руках, нужно: {to_str(price)}')
-                    city.water = list(city.water)
-                    city.energy = list(city.energy)
-                    city.house = list(city.house)
                     builds = city.get_count_build()
+
                     if builds * 2 > city.road:
                         return await message.reply(f'Вы не можете построить это здание:\n'
                                                    '🚧 В городе нет свободных дорог, рядом с которыми можно построить это здание. ')
                     user.edit('balance', user.balance - price)
-                    city.energy = list(city.energy)
-                    city.set_energy(item_id=item_id)
+                    count = city.energy[f'{item_id}']['count_build'] + 1
+
+                    sql.execute(
+                        "UPDATE city SET energy = jsonb_set(energy, "
+                        f"'{{{item_id}, count_build}}', "
+                        f"'{count}')", commit=True)
                     return await message.reply(f'✅ Вы успешно построили  «{item["name"]}»'
                                                f'📌 Информация о здании:\n'
-                                               f' ⚡ Количество зданий: {city.get_energy(item_id=item_id)[1]} шт.\n'
+                                               f' ⚡ Количество зданий: {count} шт.\n'
                                                f'  Выработка энергии: {item["get"]} КВт',
                                                reply_markup=city_electro_kb.as_markup())
                 if name == 'дом':
@@ -240,19 +232,21 @@ async def city_handler(message: Message):
 
                     if user.balance < price:
                         return await message.reply(f'💲 Недостаточно средств на руках, нужно: {to_str(price)}')
-                    city.water = list(city.water)
-                    city.energy = list(city.energy)
-                    city.house = list(city.house)
+
                     builds = city.get_count_build()
                     if builds * 2 > city.road:
                         return await message.reply(f'Вы не можете построить это здание:\n'
                                                    '🚧 В городе нет свободных дорог, рядом с которыми можно построить это здание. ')
                     user.edit('balance', user.balance - price)
-                    city.house = list(city.house)
-                    city.set_house(item_id=item_id)
+                    count = city.house[f'{item_id}']['count_build'] + 1
+
+                    sql.execute(
+                        "UPDATE city SET house = jsonb_set(house, "
+                        f"'{{{item_id}, count_build}}', "
+                        f"'{count}')", commit=True)
                     return await message.reply(f'✅ Вы успешно построили  «{item["name"]}»'
                                                f'📌 Информация о здании:\n'
-                                               f' 👤 Количество зданий: {city.get_house(item_id=item_id)[1]} шт.\n'
+                                               f' 👤 Количество зданий: {count} шт.\n'
                                                f' 👤 Вместимость жителей: {item["capacity"]} ',
                                                reply_markup=city_house_kb.as_markup())
 
@@ -294,22 +288,22 @@ async def city_handler(message: Message):
             city.edit('kazna', 0)
             return
         elif arg[0].lower() == 'здания':
-            text = '🏡 Все здания в городе:'
+            text = '🏡 Все здания в городе:\n'
             count = 1
             for index, builds in enumerate(city.water, start=1):
                 emoji = ''.join(numbers_emoji[int(i)] for i in str(count))
                 build = water_build[index]
-                text += f'{emoji}. {build["name"]} - ({builds[1]}) \n'
+                text += f'{emoji}. {build["name"]} - ({city.water[f"{index}"]["count_build"]}) \n'
                 count += 1
             for index, builds in enumerate(city.energy, start=1):
                 emoji = ''.join(numbers_emoji[int(i)] for i in str(count))
                 build = energy_build[index]
-                text += f'{emoji}. {build["name"]} - ({builds[1]}) \n'
+                text += f'{emoji}. {build["name"]} - ({city.energy[f"{index}"]["count_build"]}) \n'
                 count += 1
             for index, builds in enumerate(city.house, start=1):
                 emoji = ''.join(numbers_emoji[int(i)] for i in str(count))
                 build = house_build[index]
-                text += f'{emoji}. {build["name"]} - ({builds[1]}) \n'
+                text += f'{emoji}. {build["name"]} - ({city.house[f"{index}"]["count_build"]}) \n'
                 count += 1
             return await message.reply(text=text, disable_web_page_preview=True)
 
@@ -324,7 +318,6 @@ async def city_handler(message: Message):
                 city.edit('name', args)
                 await message.reply(f'✅ Названия города успешно изменён на: <code>{city.name}</code>',
                                     reply_markup=show_city_kb.as_markup())
-
 
         else:
             return await message.reply('❌ Ошибка. Используйте: <code>Город</code>')
