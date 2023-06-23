@@ -66,7 +66,7 @@ from handlers.users.donate import donate_help_handler, privilegia_handler, zadon
 from handlers.users.funny import globus_handler, chance_handler, choice_handler
 from handlers.users.games import tictactoe
 from handlers.users.games.basketball import basketball_handler
-from handlers.users.games.blackjack import blackjack
+from handlers.users.games.blackjack import blackjack, blackjack_ls
 from handlers.users.games.bowling import bowling_handler
 from handlers.users.games.cases import cases_handler
 from handlers.users.games.casino import casino_handler
@@ -158,6 +158,7 @@ async def main():
     dp.include_router(exceptions.router)
     dp.include_router(rass.router)
     dp.include_router(wdz.router)
+    dp.include_router(blackjack_ls.router)
     dp.include_router(blackjack.router)
     dp.callback_query.register(show_newgame_cb, F.data == "choose_newgame")
     dp.message.register(stats_minesweeper, Trigger(

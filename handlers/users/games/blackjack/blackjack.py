@@ -1,4 +1,4 @@
-﻿import random
+import random
 from contextlib import suppress
 from uuid import uuid4
 
@@ -17,38 +17,27 @@ from aiogram.types import Message, CallbackQuery
 from config import bot_name
 from filters.triggers import Trigger
 from filters.users import flood_handler, flood_handler2
+from handlers.users.games.blackjack.help_func import get_hand_value, create_deck, get_numerate_cards, check_win, \
+    check_result, numbers_emoji
 from handlers.users.games.blackjack.state import GameBlackjackCallback, BlackjackGame, NewGameCallbackBlackjack, \
-    newgame_black_kb, game_blackjack_kb, replay_game_black_kb, game_blackjacksplit_kb, get_hand_value, get_card_value, \
+    newgame_black_kb, game_blackjack_kb, replay_game_black_kb, game_blackjacksplit_kb, get_card_value, \
     to_str3, game_blackjack_insurance_kb
 from keyboard.generate import show_balance_kb
 from keyboard.main import check_ls_kb
 from loader import bot
 from middlewares.check_active_game import CheckActiveGameBlackMiddleware
+
 from utils.main.cash import get_cash, to_str
 from utils.main.users import User
 
-card_values = ["Туз", "2", "3", "4", "5", "6", "7", "8", "9", "10", "Валет", "Дама", "Кароль"]
-card_suits = ["♥", "♦", "♣", "♠"]
-numbers_emoji = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣']
-
-
-def create_deck():
-    deck = []
-    for suit in card_suits:
-        for value in card_values:
-            deck.append(f"{value} {suit}")
-    random.shuffle(deck)
-    return deck
-
-
 router = Router()
+router.message.filter(F.chat.type.in_({"private"}))
 router.message.middleware(CheckActiveGameBlackMiddleware())
 router.callback_query.middleware(CheckActiveGameBlackMiddleware())
 
 
 @router.message((F.text.lower() == "блэкджек помощь") | (F.text.lower() == "блэкджэк помощь ") | (
         F.text.lower() == "блекджек помощь") | (F.text.lower() == "блекджэк помощь") | (F.text.lower() == "бд помощь"))
-@flags.throttling_key('games')
 async def help_blackjack(message: Message):
     if message.from_user.id == message.chat.id:
         await message.answer("""
@@ -102,145 +91,11 @@ async def help_blackjack(message: Message):
                                    reply_markup=check_ls_kb.as_markup())
 
 
-async def get_numerate_cards(hand) -> str:
-    text = ''
-    for index, cards in enumerate(hand, start=1):
-        emoji = ''.join(numbers_emoji[int(i)] for i in str(index))
-        text += f'  {emoji} {cards}\n'
-    return text
-
-
-async def check_win(player_hand: list, dealer_hand: list, user_id: int, summ: int, insurance: int = None) -> str:
-    user = User(id=user_id)
-    player_hand_value = get_hand_value(player_hand)
-    dealer_hand_value = get_hand_value(dealer_hand)
-    smile = ['♠', '🃏', '♣', '♥', '♦', '🎴']
-    rsmile = random.choice(smile)
-    text = ''
-    if insurance:
-        if dealer_hand_value == 21:
-            text_player = f'➖ 1-я рука - Страховка спасла [♥]: \n{await  get_numerate_cards(player_hand)}'
-            text_dil = f'{await  get_numerate_cards(dealer_hand)}'
-            text = f"{rsmile} {user.link} ,Результаты:" \
-                   f"\n🎫 Ваша рука: {player_hand_value}\n" \
-                   f"{text_player}" \
-                   f"\n🎟 Рука дилера: {dealer_hand_value}" \
-                   f"\n{text_dil}"
-            return text
-        user.edit('balance', user.balance - insurance)
-        text += "💔 Ваша страховка сгорела\n"
-    if player_hand_value > 21:
-        text_player = f'➖ 1-я рука - Поражение [❌]: \n{await get_numerate_cards(player_hand)}'
-        text_dil = f'{await get_numerate_cards(dealer_hand)}'
-        user.edit('balance', user.balance - summ)
-        text += f"{rsmile} {user.link}, Результаты:" \
-                f"\n🎫 Ваша рука: {player_hand_value}\n" \
-                f"{text_player}" \
-                f"\n🎟 Рука дилера: {dealer_hand_value}" \
-                f"\n{text_dil}" \
-                f"\n\nВы проиграли 🙁 ({to_str(summ)})"
-        return text
-    elif dealer_hand_value > 21:
-        text_player = f'➖ 1-я рука - Победа [✔]: \n{await get_numerate_cards(player_hand)}'
-        text_dil = f'{await get_numerate_cards(dealer_hand)}'
-        user.edit('balance', user.balance + summ)
-        text += f"{rsmile} {user.link}, Результаты:" \
-                f"\n🎫 Ваша рука: {player_hand_value}\n" \
-                f"{text_player}" \
-                f"\n🎟 Рука дилера: {dealer_hand_value}" \
-                f"\n{text_dil}" \
-                f"\n\nПобеда! Ваш приз: {to_str(summ * 2)} [x2]"
-        return text
-    elif player_hand_value > dealer_hand_value:
-        text_player = f'➖ 1-я рука - Победа [✔]: \n{await get_numerate_cards(player_hand)}'
-        text_dil = f'{await  get_numerate_cards(dealer_hand)}'
-        user.edit('balance', user.balance + summ)
-        text += f"{rsmile} {user.link}, Результаты:" \
-                f"\n🎫 Ваша рука: {player_hand_value}\n" \
-                f"{text_player}" \
-                f"\n🎟 Рука дилера: {dealer_hand_value}" \
-                f"\n{text_dil}" \
-                f"\n\nПобеда! Ваш приз: {to_str(summ * 2)} [x2]"
-        return text
-    elif dealer_hand_value > player_hand_value:
-        text_player = f'➖ 1-я рука - Поражение [❌]: \n{await  get_numerate_cards(player_hand)}'
-        text_dil = f'{await  get_numerate_cards(dealer_hand)}'
-        user.edit('balance', user.balance - summ)
-        text += f"{rsmile} {user.link}, Результаты:" \
-                f"\n🎫 Ваша рука: {player_hand_value}\n" \
-                f"{text_player}" \
-                f"\n🎟 Рука дилера: {dealer_hand_value}" \
-                f"\n{text_dil}" \
-                f"\n\nВы проиграли 🙁 ({to_str(summ)})"
-        return text
-    else:
-        text_player = f'➖ 1-я рука - Ничья [🟰]: \n{await  get_numerate_cards(player_hand)}'
-        text_dil = f'{await  get_numerate_cards(dealer_hand)}'
-        text += f"{rsmile} {user.link} ,Результаты:" \
-                f"\n🎫 Ваша рука: {player_hand_value}\n" \
-                f"{text_player}" \
-                f"\n🎟 Рука дилера: {dealer_hand_value}" \
-                f"\n{text_dil}"
-        return text
-
-
-async def check_result(player_hand, player_hand2, dealer_hand, user_id, summ):
-    try:
-        player_hand_value = get_hand_value(player_hand)
-        player_hand_value2 = get_hand_value(player_hand2)
-        dealer_hand_value = get_hand_value(dealer_hand)
-    except ValueError:
-        return "Error", "Error"
-    smile = ['♠', '🃏', '♣', '♥', '♦', '🎴']
-    rsmile = random.choice(smile)
-    user = User(id=user_id)
-    if player_hand_value > 21:
-        text_player = f'➖ 1-я рука - Поражение [❌]: \n{await get_numerate_cards(player_hand)}\n Вы проиграли 🙁 ({to_str(summ)})\n'
-        user.edit('balance', user.balance - summ)
-    elif dealer_hand_value > 21:
-        text_player = f'➖ 1-я рука - Победа [✔]: \n{await get_numerate_cards(player_hand)}\nПобеда! Ваш приз: {to_str(summ * 2)} [x2]\n'
-        user.edit('balance', user.balance + summ)
-    elif player_hand_value > dealer_hand_value:
-        text_player = f'➖ 1-я рука - Победа [✔]: \n{await get_numerate_cards(player_hand)}\nПобеда! Ваш приз: {to_str(summ * 2)} [x2]\n'
-        user.edit('balance', user.balance + summ)
-    elif dealer_hand_value > player_hand_value:
-        text_player = f'➖ 1-я рука - Поражение [❌]: \n{await  get_numerate_cards(player_hand)}\n Вы проиграли 🙁 ({to_str(summ)})\n'
-        user.edit('balance', user.balance - summ)
-    else:
-        text_player = f'➖ 1-я рука - Ничья [🟰]: \n{await  get_numerate_cards(player_hand)}\n'
-
-    if player_hand_value2 > 21:
-        text_player2 = f'➖ 2-я рука - Поражение [❌]: \n{await get_numerate_cards(player_hand2)}\n Вы проиграли 🙁 ({to_str(summ)})\n'
-        user.edit('balance', user.balance - summ)
-    elif dealer_hand_value > 21:
-        text_player2 = f'➖ 2-я рука - Победа [✔]: \n{await get_numerate_cards(player_hand2)}\nПобеда! Ваш приз: {to_str(summ * 2)} [x2]\n'
-        user.edit('balance', user.balance + summ)
-    elif player_hand_value2 > dealer_hand_value:
-        text_player2 = f'➖ 2-я рука - Победа [✔]: \n{await get_numerate_cards(player_hand2)}\nПобеда! Ваш приз: {to_str(summ * 2)} [x2]\n'
-        user.edit('balance', user.balance + summ)
-    elif dealer_hand_value > player_hand_value2:
-        text_player2 = f'➖ 2-я рука - Поражение [❌]: \n{await  get_numerate_cards(player_hand2)}\n Вы проиграли 🙁 ({to_str(summ)})\n'
-        user.edit('balance', user.balance - summ)
-    else:
-        text_player2 = f'➖ 2-я рука - Ничья [🟰]: \n{await  get_numerate_cards(player_hand2)}\n'
-
-    text_dil = f'{await  get_numerate_cards(dealer_hand)}'
-    text = f"{rsmile} {user.link}, Результаты:" \
-           f"\n🎫 Ваша рука: {player_hand_value} & {player_hand_value2}\n" \
-           f"{text_player}" \
-           f"{text_player2}" \
-           f"\n🎟 Рука дилера: {dealer_hand_value}" \
-           f"\n{text_dil}"
-    return text
-
-
-@flags.throttling_key('games')
 async def check_state(message: Message, state: FSMContext, fsm_storage: BaseStorage, bot: bot):
     user = User(id=message.from_user.id if message.from_user.id else message.from_user.id)
     smile = ['♠', '🃏', '♣', '♥', '♦', '🎴']
     rsmile = random.choice(smile)
     if isinstance(message, CallbackQuery):
-
         state_get = await fsm_storage.get_state(bot=bot, key=StorageKey(
             user_id=message.from_user.id,
             chat_id=message.from_user.id,
@@ -265,7 +120,7 @@ async def check_state(message: Message, state: FSMContext, fsm_storage: BaseStor
                     f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
                     f"{text_player}"
                     f"{text_player2}"
-                    f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                     f"\n{text_dil}"
                     ,
                     reply_markup=game_blackjack_kb(game_id, user.id, split=True),
@@ -282,7 +137,7 @@ async def check_state(message: Message, state: FSMContext, fsm_storage: BaseStor
                     f"{rsmile} {user.link}, Нажмите на кнопки для продолжения:"
                     f"\n🎫 Ваша руки: {get_hand_value(player_hand)}\n"
                     f"{text_player}"
-                    f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                     f"\n{text_dil}"
                     ,
                     reply_markup=kb,
@@ -308,7 +163,7 @@ async def check_state(message: Message, state: FSMContext, fsm_storage: BaseStor
                     f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
                     f"{text_player}"
                     f"{text_player2}"
-                    f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                     f"\n{text_dil}"
                     ,
                     reply_markup=game_blackjack_kb(game_id, user.id, split=True),
@@ -325,7 +180,7 @@ async def check_state(message: Message, state: FSMContext, fsm_storage: BaseStor
                     f"{user.link}, Нажмите на кнопки для продолжения:"
                     f"\n🎫 Ваша руки: {get_hand_value(player_hand)}\n"
                     f"{text_player}"
-                    f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                     f"\n{text_dil}"
                     ,
                     reply_markup=kb,
@@ -349,7 +204,7 @@ async def check_state(message: Message, state: FSMContext, fsm_storage: BaseStor
                     f"{rsmile} {user.link}, Нажмите на кнопки для продолжения:"
                     f"\n🎫 Ваша руки: {get_hand_value(player_hand)}\n"
                     f"{text_player}"
-                    f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                     f"\n 1️⃣ {dealer_hand[0]}"
                     ,
                     reply_markup=game_blackjack_insurance_kb(game_id, message.from_user.id),
@@ -381,7 +236,7 @@ async def check_state(message: Message, state: FSMContext, fsm_storage: BaseStor
                 f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
                 f"{text_player}"
                 f"{text_player2}"
-                f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                 f"\n{text_dil}"
                 ,
                 reply_markup=game_blackjack_kb(game_id, user.id, split=True),
@@ -399,7 +254,7 @@ async def check_state(message: Message, state: FSMContext, fsm_storage: BaseStor
                 f"{rsmile} {user.link}, Нажмите на кнопки для продолжения:"
                 f"\n🎫 Ваша руки: {get_hand_value(player_hand)}\n"
                 f"{text_player}"
-                f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                 f"\n{text_dil}"
                 ,
                 reply_markup=kb,
@@ -425,7 +280,7 @@ async def check_state(message: Message, state: FSMContext, fsm_storage: BaseStor
                 f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
                 f"{text_player}"
                 f"{text_player2}"
-                f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                 f"\n{text_dil}"
                 ,
                 reply_markup=game_blackjack_kb(game_id, user.id, split=True),
@@ -442,7 +297,7 @@ async def check_state(message: Message, state: FSMContext, fsm_storage: BaseStor
                 f"{rsmile} {user.link}, Нажмите на кнопки для продолжения:"
                 f"\n🎫 Ваша руки: {get_hand_value(player_hand)}\n"
                 f"{text_player}"
-                f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                 f"\n{text_dil}"
                 ,
                 reply_markup=kb,
@@ -465,7 +320,7 @@ async def check_state(message: Message, state: FSMContext, fsm_storage: BaseStor
                 f"{rsmile} {user.link}, Нажмите на кнопки для продолжения:"
                 f"\n🎫 Ваша руки: {get_hand_value(player_hand)}\n"
                 f"{text_player}"
-                f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                 f"\n 1️⃣ {dealer_hand[0]}"
                 ,
                 reply_markup=game_blackjack_insurance_kb(game_id, message.from_user.id),
@@ -474,7 +329,6 @@ async def check_state(message: Message, state: FSMContext, fsm_storage: BaseStor
 
 
 @router.message(Trigger(["блэкджек", "бд"]))
-@flags.throttling_key('games')
 async def start_blackjack(message: Message, state: FSMContext, bot: bot, fsm_storage: BaseStorage):
     flood2 = await flood_handler2(message)
     flood = await flood_handler(message)
@@ -558,15 +412,14 @@ async def start_blackjack(message: Message, state: FSMContext, bot: bot, fsm_sto
             chat_id=message.from_user.id,
             bot_id=bot.id))
         newgamedata_dict = {"deck": deck, 'player_hand': player_hand, 'player_hand2': player_hand2,
-                            'dealer_hand': dealer_hand, 'summ': summ5}
+                            'dealer_hand': dealer_hand, 'summ': summ5, 'user_id': user.id}
         await fsm_storage.update_data(bot=bot, data=newgamedata_dict, key=StorageKey(
             user_id=message.from_user.id,
             chat_id=message.from_user.id,
             bot_id=bot.id))
 
 
-@router.callback_query(NewGameCallbackBlackjack.filter(), flags={"need_check_game": True})
-@flags.throttling_key('games')
+@router.callback_query(NewGameCallbackBlackjack.filter(), flags={"need_check_game": False})
 async def new_game_blackjack(callback_query: CallbackQuery, state: FSMContext, callback_data: NewGameCallbackBlackjack,
                              fsm_storage: BaseStorage):
     state_get = await fsm_storage.get_state(bot=bot, key=StorageKey(
@@ -640,7 +493,7 @@ async def new_game_blackjack(callback_query: CallbackQuery, state: FSMContext, c
         chat_id=callback_query.from_user.id,
         bot_id=bot.id))
     newgamedata_dict = {"deck": deck, 'player_hand': player_hand, 'player_hand2': player_hand2,
-                        'dealer_hand': dealer_hand, 'summ': summ5}
+                        'dealer_hand': dealer_hand, 'summ': summ5, 'user_id': user.id}
     await fsm_storage.update_data(bot=bot, data=newgamedata_dict, key=StorageKey(
         user_id=callback_query.from_user.id,
         chat_id=callback_query.from_user.id,
@@ -649,7 +502,6 @@ async def new_game_blackjack(callback_query: CallbackQuery, state: FSMContext, c
 
 @router.callback_query(GameBlackjackCallback.filter(), BlackjackGame.waiting_for_action,
                        flags={"need_check_game": True})
-@flags.throttling_key('games')
 async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, callback_data: GameBlackjackCallback,
                            fsm_storage: BaseStorage):
     data = await fsm_storage.get_data(bot=bot, key=StorageKey(
@@ -678,7 +530,7 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                     f"{rsmile} {user.link},Для разделения требуется({to_str(summ5 * 2)}):"
                     f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
                     f"\n{text_player}"
-                    f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                     f"\n{text_dil}"
                     ,
                     reply_markup=game_blackjacksplit_kb(game_id, callback_query.from_user.id, dealer_hand),
@@ -698,7 +550,7 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                                                    f"\n🎫 Ваши руки: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
                                                    f"{text_player}"
                                                    f"{text_player2}"
-                                                   f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                                                   f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                                                    f"\n {text_dil}"
                                                    , reply_markup=game_blackjack_kb(game_id,
                                                                                     callback_query.from_user.id,
@@ -732,7 +584,7 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                         f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {player_hand_value2}\n"
                         f"{text_player}"
                         f"{text_player2}"
-                        f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                        f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                         f"\n {text_dil}"
                         ,
                         reply_markup=game_blackjacksplit_kb(game_id, callback_query.from_user.id, dealer_hand),
@@ -751,7 +603,7 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                                                            f"\n🎫 Ваша рука: {player_hand_value} & {player_hand_value2}\n"
                                                            f"{text_player}"
                                                            f"{text_player2}"
-                                                           f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                                                           f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                                                            f"\n {text_dil}"
                                                            ,
                                                            reply_markup=game_blackjack_kb(game_id,
@@ -779,7 +631,7 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                                                            f"\n🎫 Ваша рука: {player_hand_value} & {player_hand_value2}\n"
                                                            f"{text_player}"
                                                            f"{text_player2}"
-                                                           f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                                                           f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                                                            f"\n{text_dil}"
                                                            , reply_markup=game_blackjack_kb(game_id,
                                                                                             callback_query.from_user.id,
@@ -811,7 +663,7 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                 await callback_query.message.edit_text(f"{rsmile} {user.link},Вы вытянули {player_hand[-1]}: "
                                                        f"\n🎫 Ваша рука: {player_hand_value}\n"
                                                        f"{text_player}"
-                                                       f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                                                       f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                                                        f"\n 1️⃣ {dealer_hand[0]}"
                                                        f"\nПровал! Вы проиграли!\n"
                                                        f"вы потеряли {to_str(summ5)}!",
@@ -826,7 +678,7 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                 await callback_query.message.edit_text(f"{rsmile} {user.link},Вы вытянули {player_hand[-1]}:"
                                                        f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
                                                        f"{text_player}"
-                                                       f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                                                       f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                                                        f"\n 1️⃣ {dealer_hand[0]}"
                                                        , reply_markup=game_blackjack_kb(game_id,
                                                                                         callback_query.from_user.id,
@@ -855,7 +707,7 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                         f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
                         f"{text_player}"
                         f"{text_player2}"
-                        f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                        f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                         f"\n {text_dil}"
                         ,
                         reply_markup=game_blackjacksplit_kb(game_id, callback_query.from_user.id, dealer_hand),
@@ -867,7 +719,7 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                                                        f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
                                                        f"{text_player}"
                                                        f"{text_player2}"
-                                                       f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                                                       f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                                                        f"\n {text_dil}"
                                                        , reply_markup=game_blackjack_kb(game_id,
                                                                                         callback_query.from_user.id,
@@ -907,7 +759,7 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                     f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
                     f"{text_player}"
 
-                    f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                     f"\n {text_dil}"
                     ,
                     reply_markup=game_blackjack_kb(game_id, callback_query.from_user.id, player_hand, dealer_hand),
@@ -936,7 +788,7 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                 f"{rsmile} {user.link}:"
                 f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
                 f"{text_player}"
-                f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                 f"\n {text_dil}"
                 f"\n\n🚫 Вы отказались от игры и потеряли половину своей суммы!"
                 ,
@@ -954,7 +806,7 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                     f"{rsmile} {user.link}, для страхования дополнительно требуется ({to_str(round(summ5 / 2))}):"
                     f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
                     f"\n{text_player}"
-                    f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                     f"\n{text_dil}"
                     ,
                     reply_markup=game_blackjack_kb(game_id, callback_query.from_user.id, player_hand, dealer_hand),
@@ -967,7 +819,7 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                 f"{rsmile} {user.link}:"
                 f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
                 f"{text_player}"
-                f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                 f"\n {text_dil}"
                 f"\n\nВы застраховали свою ставку за {to_str(round(summ5 / 2))} 👍🏼!"
                 ,
@@ -987,7 +839,6 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
 
 @router.callback_query(GameBlackjackCallback.filter(), BlackjackGame.waiting_for_action2,
                        flags={"need_check_game": True})
-@flags.throttling_key('games')
 async def action2_blackjack(callback_query: CallbackQuery, state: FSMContext, callback_data: GameBlackjackCallback,
                             fsm_storage: BaseStorage):
     data = await fsm_storage.get_data(bot=bot, key=StorageKey(
@@ -1021,7 +872,7 @@ async def action2_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
                     f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {player_hand_value2}\n"
                     f"{text_player}"
                     f"{text_player2}"
-                    f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                     f"\n{text_diller} "
                     ,
                     reply_markup=game_blackjacksplit_kb(game_id, callback_query.from_user.id, dealer_hand),
@@ -1050,7 +901,7 @@ async def action2_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
                                                        f"\n🎫 Ваша рука: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
                                                        f"{text_player}"
                                                        f"{text_player2}"
-                                                       f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                                                       f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                                                        f"\n 1️⃣ {dealer_hand[0]}"
                                                        , reply_markup=game_blackjack_kb(game_id,
                                                                                         callback_query.from_user.id,
@@ -1086,7 +937,6 @@ async def action2_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
 
 @router.callback_query(GameBlackjackCallback.filter(), BlackjackGame.waiting_for_action3,
                        flags={"need_check_game": True})
-@flags.throttling_key('games')
 async def action3_blackjack(callback_query: CallbackQuery, state: FSMContext, callback_data: GameBlackjackCallback,
                             fsm_storage: BaseStorage):
     data = await fsm_storage.get_data(bot=bot, key=StorageKey(
@@ -1119,7 +969,7 @@ async def action3_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
                 await callback_query.message.edit_text(f"{rsmile} {user.link},Вы вытянули {player_hand[-1]}: "
                                                        f"\n🎫 Ваша рука: {player_hand_value}\n"
                                                        f"{text_player}"
-                                                       f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                                                       f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                                                        f"\n 1️⃣ {dealer_hand[0]}"
                                                        f"\nПровал! Вы проиграли!\n"
                                                        f"вы потеряли {to_str(summ5)}!",
@@ -1134,7 +984,7 @@ async def action3_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
                 await callback_query.message.edit_text(f"{rsmile} {user.link},Вы вытянули {player_hand[-1]}:"
                                                        f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
                                                        f"{text_player}"
-                                                       f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                                                       f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                                                        f"\n 1️⃣ {dealer_hand[0]}"
                                                        , reply_markup=game_blackjack_kb(game_id,
                                                                                         callback_query.from_user.id,
@@ -1174,7 +1024,7 @@ async def action3_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
                     f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
                     f"{text_player}"
 
-                    f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                     f"\n {text_dil}"
                     ,
                     reply_markup=game_blackjack_kb(game_id, callback_query.from_user.id, player_hand, dealer_hand),

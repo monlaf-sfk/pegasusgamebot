@@ -3,32 +3,9 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from handlers.users.games.blackjack.help_func import get_card_value
 from utils.main.cash import transform
 from utils.main.users import User
-
-
-def get_card_value(card):
-    value = card.split()[0]
-    if value == "Туз":
-        return 11
-    elif value in ["Кароль", "Дама", "Валет", "10"]:
-        return 10
-    else:
-        return int(value)
-
-
-def get_hand_value(hand):
-    total_value = 0
-    num_aces = 0
-    for card in hand:
-        value = get_card_value(card)
-        if value == 11:
-            num_aces += 1
-        total_value += value
-    while total_value > 21 and num_aces > 0:
-        total_value -= 10
-        num_aces -= 1
-    return total_value
 
 
 class GameBlackjackCallback(CallbackData, prefix="game"):
@@ -60,6 +37,7 @@ def newgame_black_kb(user_id: int, summ: int = 0) -> InlineKeyboardMarkup:
     if summ == 0:
         keyboard = InlineKeyboardBuilder()
         user = User(id=user_id)
+
         if user.balance >= 10:
             keyboard.add(
                 InlineKeyboardButton(text=f"💰 Играть на {transform(round(user.balance / 2))}$",
@@ -111,6 +89,7 @@ def replay_game_black_kb(user_id: int, summ: int) -> InlineKeyboardMarkup:
 def game_blackjack_kb(game_id: str, user_id: int, player_hand: list = None, dealer_hand: list = None,
                       split: bool = False) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
+
     if split:
         keyboard.add(
             InlineKeyboardButton(text="➕ Ещё",
