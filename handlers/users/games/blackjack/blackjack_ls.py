@@ -246,7 +246,7 @@ async def check_state2(message: Message, state: FSMContext, fsm_storage: BaseSto
         return
 
 
-@router.message(Trigger(["бд еще", "бд стоп", "бд удвоить", "бд сплит", "бд отказ", "бд страховка"]),
+@router.message(Trigger(["бд еще", "бд ещё", "бд стоп", "бд удвоить", "бд сплит", "бд отказ", "бд страховка"]),
                 BlackjackGame.waiting_for_action)
 async def action_blackjack_ls(message: Message, state: FSMContext,
                               fsm_storage: BaseStorage, bot: Bot):
@@ -336,7 +336,7 @@ async def action_blackjack_ls(message: Message, state: FSMContext,
                 bot_id=bot.id))
 
         return
-    if action == "еще":
+    if action in ["еще", "ещё"]:
 
         if player_hand2:
             player_hand_value2 = get_hand_value(player_hand2)
@@ -620,7 +620,7 @@ async def action_blackjack_ls(message: Message, state: FSMContext,
             bot_id=bot.id))
 
 
-@router.message(Trigger(["бд еще", "бд стоп"]),
+@router.message(Trigger(["бд еще", "бд ещё", "бд стоп"]),
                 BlackjackGame.waiting_for_action2)
 async def action2_blackjack_ls(message: Message, state: FSMContext,
                                fsm_storage: BaseStorage, bot: Bot):
@@ -655,7 +655,7 @@ async def action2_blackjack_ls(message: Message, state: FSMContext,
             return await check_state2(message, state, fsm_storage, bot)
         if state_get == 'BlackjackGame:waiting_for_action3':
             return await check_state2(message, state, fsm_storage, bot)
-    if action == "еще":
+    if action in ["еще", "ещё"]:
         player_hand2.append(deck.pop())
         player_hand_value2 = get_hand_value(player_hand2)
         text_player2 = f'➖ 2-я рука:(текущая)\n{await get_numerate_cards(player_hand2)}'
