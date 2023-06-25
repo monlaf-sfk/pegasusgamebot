@@ -6,6 +6,7 @@ import config
 from utils.main.cash import get_cash, to_str
 from utils.main.users import User
 from utils.main.chat_wdz import Chat_wdz
+from utils.photos.photos import escape
 
 router = Router()
 
@@ -80,27 +81,28 @@ async def chat_check_handler(message: Message):
         return
     else:
         if chat.switch == 'on':
-            for members in message.new_chat_members:
-                if members.is_bot == False:
-                    if message.from_user.id != members.id:
-                        new_member = sql.select_data(column='reg_date', table='users', title='id', name=members.id,
+            for member in message.new_chat_members:
+                if member.is_bot == False:
+                    if message.from_user.id != member.id:
+                        new_member = sql.select_data(column='reg_date', table='users', title='id', name=member.id,
                                                      row_factor=True)
 
                         if new_member is None:
                             query = f'SELECT awards FROM chat_wdz WHERE id={chat.id}'
                             summ = sql.execute(query, commit=False, fetch=True)[0][0]
+                            User(user=member)
                             user = User(user=message.from_user)
                             user.edit('balance', user.balance + summ)
                             query = f'UPDATE chat_wdz SET count= count+1 WHERE id={chat.id}'
                             sql.execute(query, commit=True, fetch=False)
                             await message.reply(
-                                f'💬️ <a href="tg://user?id={members.id}">{members.first_name.replace("<", "").replace(">", "")}</a> Добро пожаловать в чат Pegasus!'
+                                f'💬️ <a href="tg://user?id={member.id}">{escape(member.full_name)}</a> Добро пожаловать в чат Pegasus!'
                                 f'\n⏩ Перейди в лс для получения полного доступа в боте!',
                                 reply_markup=check_ls_kb.as_markup())
                         else:
                             await message.reply(
-                                f'💬️ <a href="tg://user?id={members.id}">{members.first_name.replace("<", "").replace(">", "")}</a> Добро пожаловать в чат Pegasus!')
+                                f'💬️ <a href="tg://user?id={member.id}">{escape(member.full_name)}</a> Добро пожаловать в чат Pegasus!')
                     else:
 
                         await message.reply(
-                            f'💬️ <a href="tg://user?id={members.id}">{members.first_name.replace("<", "").replace(">", "")}</a> Добро пожаловать в чат Pegasus!')
+                            f'💬️ <a href="tg://user?id={member.id}">{escape(member.full_name)}</a> Добро пожаловать в чат Pegasus!')

@@ -166,7 +166,7 @@ async def houses_check():
         cursor = sql.conn.cursor()
         with lock:
             query3 = f'UPDATE houses SET nalog = nalog + stock_nalog, ' \
-                     f'last = {time.time()}, cash = ROUND(cash + stock_doxod) WHERE last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*12 >= nalog'
+                     f'last = {time.time()}, cash = ROUND(cash + stock_doxod) WHERE last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*11 >= nalog'
             sql.executescript(query3, True, False, cursor=cursor)
     except Exception as ex:
         print('businesses_check:', ex)
@@ -177,7 +177,7 @@ async def businesses_check():
         cursor = sql.conn.cursor()
         with lock:
             query3 = f'UPDATE businesses SET nalog = nalog + stock_nalog, ' \
-                     f'last = {time.time()}, cash = ROUND(cash + stock_doxod) WHERE last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*12 >= nalog'
+                     f'last = {time.time()}, cash = ROUND(cash + stock_doxod) WHERE last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*11 >= nalog'
             sql.executescript(query3, True, False, cursor=cursor)
     except Exception as ex:
         print('businesses_check:', ex)
@@ -296,7 +296,7 @@ async def btc_check():
         cursor = sql.conn.cursor()
         with lock:
             query3 = f'UPDATE bitcoin SET nalog = nalog + stock_nalog, ' \
-                     f'last = {time.time()}, balance = ROUND(balance + stock_doxod * videocards) WHERE last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*12 >= nalog'
+                     f'last = {time.time()}, balance = ROUND(balance + stock_doxod * videocards) WHERE last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*11 >= nalog'
             sql.executescript(query3, True, False, cursor=cursor)
     except Exception as ex:
         print('btc_check:', ex)

@@ -2,7 +2,7 @@ import random
 from contextlib import suppress
 from uuid import uuid4
 
-from aiogram import Router, F, flags
+from aiogram import Router, F
 from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 
 from aiogram.fsm.context import FSMContext
@@ -522,6 +522,17 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
     smile = ['♠', '🃏', '♣', '♥', '♦', '🎴']
     rsmile = random.choice(smile)
     if action == "split":
+        if get_card_value(player_hand[0]) != get_card_value(player_hand[1]) or len(
+                player_hand) != 2 or len(player_hand2) > 0:
+            text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
+            with suppress(TelegramBadRequest):
+                await callback_query.message.edit_text(
+                    f"{rsmile} {user.link}, разделять можно только пару одного достоинства 👍🏻:"
+                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
+                    f"\n{text_player}",
+                    reply_markup=game_blackjack_kb(game_id, callback_query.from_user.id, player_hand, dealer_hand),
+                    disable_web_page_preview=True)
+            return
         if user.balance < summ5 * 2:
             text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
             text_dil = f'{await get_numerate_cards(dealer_hand)}'
@@ -750,9 +761,20 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
 
         return await state.clear()
     if action == 'double':
+        text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
+        text_dil = f'{await get_numerate_cards(dealer_hand)}'
+        if len(player_hand) != 2:
+            with suppress(TelegramBadRequest):
+                await callback_query.message.edit_text(
+                    f"{rsmile} {user.link}, Удвоить можно только в начале игры:"
+                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
+                    f"\n{text_player}"
+                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                    f"\n{text_dil}",
+                    reply_markup=game_blackjack_kb(game_id, callback_query.from_user.id, player_hand, dealer_hand)
+                    , disable_web_page_preview=True)
+            return
         if user.balance < summ5 * 2:
-            text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
-            text_dil = f'{await get_numerate_cards(dealer_hand)}'
             with suppress(TelegramBadRequest):
                 return await callback_query.message.edit_text(
                     f"{rsmile} {user.link},Для удвоения требуется({to_str(summ5 * 2)}):"
@@ -780,10 +802,21 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
         return await state.clear()
 
     if action == 'surrender':
+        text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
+        text_dil = f'{await get_numerate_cards(dealer_hand)}'
+        if len(player_hand) != 2:
+            with suppress(TelegramBadRequest):
+                await callback_query.message.edit_text(
+                    f"{rsmile} {user.link}, Отказаться можно только в начале игры:"
+                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
+                    f"\n{text_player}"
+                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                    f"\n{text_dil}"
+                    , reply_markup=game_blackjack_kb(game_id, callback_query.from_user.id, player_hand, dealer_hand),
+                    disable_web_page_preview=True)
+            return
         user.edit('balance', user.balance - round(summ5 / 2))
         with suppress(TelegramBadRequest):
-            text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
-            text_dil = f'{await get_numerate_cards(dealer_hand)}'
             await callback_query.message.edit_text(
                 f"{rsmile} {user.link}:"
                 f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
@@ -798,9 +831,21 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
 
         return await state.clear()
     if action == 'insurance':
+        text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
+        text_dil = f'{await get_numerate_cards(dealer_hand)}'
+        if dealer_hand and get_card_value(dealer_hand[0]) != 11 and len(player_hand) == 2:
+            with suppress(TelegramBadRequest):
+                await callback_query.message.edit_text(
+                    f"{rsmile} {user.link}, Доступно только при наличии у бота туза :"
+                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
+                    f"\n{text_player}"
+                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                    f"\n{text_dil}"
+
+                    , reply_markup=game_blackjack_kb(game_id, callback_query.from_user.id, player_hand, dealer_hand),
+                    disable_web_page_preview=True)
+            return
         if user.balance < (round(summ5 / 2)) + summ5:
-            text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
-            text_dil = f'{await get_numerate_cards(dealer_hand)}'
             with suppress(TelegramBadRequest):
                 await callback_query.message.edit_text(
                     f"{rsmile} {user.link}, для страхования дополнительно требуется ({to_str(round(summ5 / 2))}):"

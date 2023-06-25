@@ -13,7 +13,7 @@ from filters.triggers import Trigger
 from filters.users import flood_handler2, flood_handler
 from handlers.users.games.blackjack.help_func import get_numerate_cards, get_hand_value, get_card_value, numbers_emoji, \
     check_win, check_result, create_deck
-from handlers.users.games.blackjack.state import game_blackjacksplit_kb, game_blackjack_kb, BlackjackGame, to_str3
+from handlers.users.games.blackjack.state import BlackjackGame, to_str3
 from keyboard.generate import show_balance_kb
 
 from utils.main.cash import to_str, get_cash
@@ -281,7 +281,8 @@ async def action_blackjack_ls(message: Message, state: FSMContext,
             return await check_state2(message, state, fsm_storage, bot)
 
     if action == "сплит":
-        if get_card_value(player_hand[0]) != get_card_value(player_hand[1]):
+        if get_card_value(player_hand[0]) != get_card_value(player_hand[1]) or len(
+                player_hand) != 2 or len(player_hand2) > 0:
             text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
             with suppress(TelegramBadRequest):
                 await message.reply(
@@ -506,9 +507,19 @@ async def action_blackjack_ls(message: Message, state: FSMContext,
 
         return await state.clear()
     if action == 'удвоить':
+        text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
+        text_dil = f'{await get_numerate_cards(dealer_hand)}'
+        if len(player_hand) != 2 or len(player_hand2) > 0:
+            with suppress(TelegramBadRequest):
+                await message.reply(
+                    f"{rsmile} {user.link}, Удвоить можно только в начале игры:"
+                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
+                    f"\n{text_player}"
+                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                    f"\n{text_dil}"
+                    , disable_web_page_preview=True)
+            return
         if user.balance < summ5 * 2:
-            text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
-            text_dil = f'{await get_numerate_cards(dealer_hand)}'
             with suppress(TelegramBadRequest):
                 return await message.reply(
                     f"{rsmile} {user.link},Для удвоения требуется({to_str(summ5 * 2)}):"
@@ -535,10 +546,20 @@ async def action_blackjack_ls(message: Message, state: FSMContext,
         return await state.clear()
 
     if action == 'отказ':
+        text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
+        text_dil = f'{await get_numerate_cards(dealer_hand)}'
+        if len(player_hand) != 2 or len(player_hand2) > 0:
+            with suppress(TelegramBadRequest):
+                await message.reply(
+                    f"{rsmile} {user.link}, Отказаться можно только в начале игры:"
+                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
+                    f"\n{text_player}"
+                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                    f"\n{text_dil}"
+                    , disable_web_page_preview=True)
+            return
         user.edit('balance', user.balance - round(summ5 / 2))
         with suppress(TelegramBadRequest):
-            text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
-            text_dil = f'{await get_numerate_cards(dealer_hand)}'
             await message.reply(
                 f"{rsmile} {user.link}:"
                 f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
@@ -554,7 +575,7 @@ async def action_blackjack_ls(message: Message, state: FSMContext,
     if action == 'страховка':
         text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
         text_dil = f'{await get_numerate_cards(dealer_hand)}'
-        if dealer_hand and get_card_value(dealer_hand[0]) != 11:
+        if dealer_hand and get_card_value(dealer_hand[0]) != 11 or len(player_hand2) > 0:
             with suppress(TelegramBadRequest):
                 await message.reply(
                     f"{rsmile} {user.link}, Доступно только при наличии у бота туза :"
