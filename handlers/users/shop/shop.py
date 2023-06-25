@@ -48,18 +48,8 @@ async def product_getter(dialog_manager: DialogManager, **_kwargs):
 async def on_click(callback: CallbackQuery, button: Button,
                    dialog_manager: DialogManager, item_id: str):
     item = items_to_sell[int(item_id)]
-    if item['use'] == 'xp':
-        text = f"{item['descriptoin']}\n\n" \
-               "⬆️ Увеличивает опыт:" \
-               "\n➖ Инв юз [предмет] [кол-во]"
-    elif item['use'] == 'sell_count':
-        text = f"{item['descriptoin']}\n\n" \
-               "〽️ Дает скидку на покупку:" \
-               "\n➖ Инв юз [предмет] [кол-во]"
-    elif item['use'] == 'energy':
-        text = f"{item['descriptoin']}\n\n" \
-               "⬆️ Увеличивает энергию:" \
-               "\n➖ Инв юз [предмет] [кол-во]"
+
+    text = f"{item['descriptoin']}\n\n"
     dialog_manager.dialog_data["text"] = text
     await dialog_manager.next()
 
