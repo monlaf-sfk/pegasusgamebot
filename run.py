@@ -58,7 +58,7 @@ from handlers.users.city.main import city_handler, city_info_handler
 from handlers.users.clan.clan import clan_handler, info_callback_invate, invate_solution, mamber_handler, \
     info_callback_user
 from handlers.users.clan.list_clans import clan_list_handler, clan_dialog
-from handlers.users.donate import donate_help_handler, privilegia_handler, zadonatit_handler, donate_help_call_handler, \
+from handlers.users.donate import donate_help_handler, zadonatit_handler, donate_help_call_handler, \
     percent_buy_handler, cobmen_handler, other_method_handler, check_handler_qiwi, qiwi_info_handler, qiwi_buy_handler, \
     check_handler_crypto, crypto_info_handler, crypto_buy_handler, CryptoBot, check_handler_crystal, \
     crystal_buy_handler, crystal_info_handler, CrystalPay, payok_buy_handler, check_handler_payok, payok_info_handler
@@ -150,6 +150,8 @@ async def main():
     dp.include_routers(my_chat_member.router)
     dp.message.register(app.forward_from, F.forward_from)
     dp.message.register(app.sql_handler, Command("sql"), IsOwner())
+    dp.message.register(donate_help_handler, Trigger(
+        ["donate", "донат", "прива", "привы", "привилегии", "привилегия", "донаты", "donates", "donats", ]))
     dp.message.register(app.ban_handler, F.text, IsBan())
     dp.include_routers(app.router)
     dp.include_routers(ban.router)
@@ -435,23 +437,6 @@ async def main():
 
     # Donate
 
-    dp.message.register(
-        donate_help_handler,
-        Trigger(
-            [
-                "donate",
-                "донат",
-                "прива",
-                "привы",
-                "привилегии",
-                "привилегия",
-                "донаты",
-                "donates",
-                "donats",
-            ]
-        ),
-    )
-    dp.message.register(privilegia_handler, Trigger(["купить"]))
     dp.callback_query.register(donate_help_call_handler, F.data.startswith("priv_"))
     dp.message.register(zadonatit_handler, Trigger(["задонатить", "donatit"]))
     dp.message.register(cobmen_handler, Trigger(["кобмен", "Кобмен"]))

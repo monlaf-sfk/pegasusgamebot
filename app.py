@@ -1,8 +1,5 @@
-import os
 import re
-import signal
-import subprocess
-import sys
+
 import time
 from contextlib import suppress
 
@@ -10,7 +7,6 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Message, FSInputFile
 from aiogram import Router, F, flags
 
-import config
 from handlers.admins.pyrogram import get_user_id
 
 from utils.main.db import sql, timetostr

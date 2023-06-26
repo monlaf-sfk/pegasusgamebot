@@ -135,7 +135,8 @@ async def clan_handler(message: Message):
                 summ = get_cash(arg[1])
             except:
                 pass
-
+            if user.payban:
+                return await message.reply('❌ На ваш аккаунт наложено ограничение на переводы !')
             if summ <= 0:
                 return await message.reply('❌ Минимум $1')
 

@@ -9,11 +9,11 @@ from utils.main.users import User
 async def obnyn_handler(message: Message):
     # await message.answer_document(document=InputFile('assets/database.db'),
     #                               caption=f'База за {datetime.now()}')
-    query = f"UPDATE users SET balance = 5000, bank = 0, deposit = 0, pets = '', items = '', deposit_date = NULL, " \
+    query = f"UPDATE users SET balance = 5000, bank = 0, deposit = 0,items = '', deposit_date = NULL, " \
             f"bonus ='{datetime.now().strftime('%d-%m-%Y %H:%M:%S')}', lock = FALSE, credit = 0, credit_time = NULL, energy = 10, energy_time =" \
             f"NULL, xp = 0, sell_count = 0, level = 0, job_index = 0, job_time = NULL," \
             f" work_time = NULL, prefix = NULL, last_vidacha = NULL," \
-            f" last_rob = NULL, shield_count = 0, autonalogs = FALSE, skin = NULL, health = 100,cases = '',state_ruletka=NULL, bitcoins=0;\n"
+            f" last_rob = NULL, shield_count = 0, autonalogs = FALSE, health = 100,cases = '',state_ruletka=NULL, bitcoins=0;\n"
 
     query += 'TRUNCATE TABLE airplanes;\n' \
              'TRUNCATE TABLE bitcoin;\n' \
@@ -71,23 +71,23 @@ async def obnyn_user_handler(message: Message):
                 return await message.reply('❌ Ошибка. В БД нету пользователя с таким id!')
         else:
             return await message.reply('Используйте: <code>/reset_user {ссылка\id}</code>')
-        query = f"UPDATE users SET balance = 0, bank = 0, deposit = 0, pets = '', items = '', deposit_date = NULL, " \
+        query = f"UPDATE users SET balance = 0, bank = 0, deposit = 0,  items = '', deposit_date = NULL, " \
                 f"bonus ='{datetime.now().strftime('%d-%m-%Y %H:%M:%S')}', lock = FALSE, credit = 0, credit_time = NULL, energy = 10, energy_time =" \
                 f"NULL, xp = 0, sell_count = 0, level = 0, job_index = 0, job_time = NULL," \
                 f" work_time = NULL, prefix = NULL, last_vidacha = NULL," \
-                f" last_rob = NULL, shield_count = 0, autonalogs = FALSE, skin = NULL, health = 100,cases = '',state_ruletka=NULL WHERE id={to_user.id};\n"
-        query += f'DELETE FROM airplanes WHERE id={to_user.id};\n' \
-                 f'DELETE FROM bitcoin WHERE id={to_user.id};\n' \
-                 f'DELETE FROM businesses WHERE id={to_user.id};\n' \
-                 f'DELETE FROM cars WHERE id={to_user.id};\n' \
-                 f'DELETE FROM euro WHERE id={to_user.id};\n' \
-                 f'DELETE FROM houses WHERE id={to_user.id};\n' \
+                f" last_rob = NULL, shield_count = 0, autonalogs = FALSE, health = 100,cases = '',state_ruletka=NULL WHERE id={to_user.id};\n"
+        query += f'DELETE FROM airplanes WHERE owner={to_user.id};\n' \
+                 f'DELETE FROM bitcoin WHERE owner={to_user.id};\n' \
+                 f'DELETE FROM businesses WHERE owner={to_user.id};\n' \
+                 f'DELETE FROM cars WHERE owner={to_user.id};\n' \
+                 f'DELETE FROM euro WHERE owner={to_user.id};\n' \
+                 f'DELETE FROM houses WHERE owner={to_user.id};\n' \
                  f'DELETE FROM marries WHERE id={to_user.id};\n' \
-                 f'DELETE FROM moto WHERE id={to_user.id};\n' \
-                 f'DELETE FROM uah WHERE id={to_user.id};\n' \
-                 f'DELETE FROM vertoleti WHERE id={to_user.id};\n' \
-                 f'DELETE FROM city WHERE id={to_user.id};\n' \
-                 f'DELETE FROM yaxti WHERE id={to_user.id};'
+                 f'DELETE FROM moto WHERE owner={to_user.id};\n' \
+                 f'DELETE FROM uah WHERE owner={to_user.id};\n' \
+                 f'DELETE FROM vertoleti WHERE owner={to_user.id};\n' \
+                 f'DELETE FROM city WHERE owner={to_user.id};\n' \
+                 f'DELETE FROM yaxti WHERE owner={to_user.id};'
         sql.executescript(query, True, False)
         return await message.reply(f'Игрок {to_user.link}! Был обнулен', disable_web_page_preview=True)
     except Exception as e:

@@ -25,8 +25,60 @@ from utils.main.users import User
 
 @flags.throttling_key('default')
 async def donate_help_handler(message: Message):
-    return await message.reply(text=actions_help['back'], reply_markup=donate_help_kb.as_markup(),
-                               disable_web_page_preview=True)
+    args = message.text.split()[1:] if not bot_name.lower() in message.text.split()[
+        0].lower() else message.text.split()[
+                        2:]
+    if len(args) == 0:
+        return await message.reply(text=actions_help['back'], reply_markup=donate_help_kb.as_markup(),
+                                   disable_web_page_preview=True)
+    try:
+        if not args[1].lower().isdigit():
+            return await message.reply('❌ Введите номер доната!')
+    except IndexError:
+        return await message.reply('❌ Введите номер доната!')
+    arg = int(args[1].lower())
+    user = User(user=message.from_user)
+    if arg > 0 and arg <= 5:
+        item = donates[arg]
+        donate = user.donate
+
+        if user.coins < item["price"]:
+            return await message.reply(f'🪙 Недостаточно коинов, нужно: <code>{item["price"]}</code>',
+                                       reply_markup=donate_kb.as_markup() if message.chat.id != message.from_user.id else donate_kbi.as_markup())
+        elif donate and donate.id >= arg:
+            return await message.reply('➖ У вас и так такая привилегия или выше!')
+        limitvidach: int = 0
+        last_vidacha = None
+        if arg == 4:
+            limitvidach = 10_000_000
+            last_vidacha = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+        if arg == 5:
+            limitvidach = 30_000_000
+            last_vidacha = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+
+        user.editmany(donate_source=f'{arg},{datetime.now().strftime("%d-%m-%Y %H:%M")},True,None',
+                      coins=user.coins - item['price'], limitvidach=limitvidach, last_vidacha=last_vidacha)
+
+        return await message.reply(f'✅ Вы успешно приобрели привилегию <b>{item["name"]}</b> за {item["price"]}🪙')
+    elif arg == 6:
+        if user.coins < 100:
+            return await message.reply(f'🪙 Недостаточно коинов, нужно: <code>100🪙</code>',
+                                       reply_markup=donate_kb.as_markup() if message.chat.id != message.from_user.id else donate_kbi.as_markup())
+        user.editmany(donate_videocards=user.donate_videocards + 1000, coins=user.coins - 100)
+        return await message.reply(f'✅ Вы успешно приобрели <b>📼 Увеличение видеокарт x1000</b> за 100🪙')
+    elif arg == 7:
+        if user.coins < 150:
+            return await message.reply(f'🪙 Недостаточно коинов, нужно: <code>150🪙</code>',
+                                       reply_markup=donate_kb.as_markup() if message.chat.id != message.from_user.id else donate_kbi.as_markup())
+        user.edit('ban_source', None)
+        return await message.reply(f'✅ Вы успешно приобрели <b>👮 Разблокировку аккаунта</b> за 150🪙')
+    elif arg == 8:
+        if user.coins < 150:
+            return await message.reply(f'🪙 Недостаточно коинов, нужно: <code>150🪙</code>',
+                                       reply_markup=donate_kb.as_markup() if message.chat.id != message.from_user.id else donate_kbi.as_markup())
+        user.editmany(payban=False, nickban=False)
+        return await message.reply(f'✅ Вы успешно приобрели <b>⛔️ Снятие всех ограничений</b> за 150🪙')
+    return await message.reply('❌ Такого доната не существует!')
 
 
 actions_help = {
@@ -56,7 +108,7 @@ actions_help = {
 🛡 Защита от ограбления
 ➖➖➖➖➖➖➖➖➖➖➖➖
 🔖 Цена: 200 🪙
-<b>Введите:</b> <code>Купить 1</code> - чтобы купить привилегию
+<b>Введите:</b> <code>Донат купить 1</code> - чтобы купить привилегию
 ''',
 
     'premium': '''
@@ -73,7 +125,7 @@ actions_help = {
 ➖ Выводить информацию о игроках в боте!
 ➖➖➖➖➖➖➖➖➖➖➖➖
 🔖 Цена: 300 🪙
-<b>Введите:</b> <code>Купить 3</code> - чтобы купить привилегию
+<b>Введите:</b> <code>Донат купить 3</code> - чтобы купить привилегию
 ''',
     'beta': '''
 📂 Привилегия: 👨‍🔬 БЕТА-ТЕСТЕР
@@ -88,7 +140,7 @@ actions_help = {
 ➖ Смотреть кто создал и активировал.
 ➖➖➖➖➖➖➖➖➖➖➖➖
 🔖 Цена: 50000000 
-<b>Введите:</b> <code>Купить 2</code> - чтобы купить привилегию🪙
+<b>Введите:</b> <code>Донат купить 2</code> - чтобы купить привилегию🪙
 ''',
     'elite': '''
 📂 Привилегия: ⚡ ELITE
@@ -109,7 +161,7 @@ actions_help = {
 ➖ Максимум можете выдавать <code>$10,000,000</code>!
 ➖➖➖➖➖➖➖➖➖➖➖➖
 🔖 Цена: 500 🪙
-<b>Введите:</b> <code>Купить 4</code> - чтобы купить привилегию'''
+<b>Введите:</b> <code>Донат купить 4</code> - чтобы купить привилегию'''
     ,
     'admin': '''
 📂 Привилегия: 👮‍♂️ ADMIN
@@ -131,7 +183,7 @@ actions_help = {
 ➖ Смотреть кто создал и активировал.
 ➖➖➖➖➖➖➖➖➖➖➖➖
 🔖 Цена: 700 🪙
-<b>Введите:</b> <code>Купить 5</code> - чтобы купить привилегию'''
+<b>Введите:</b> <code>Донат купить 5</code> - чтобы купить привилегию'''
     ,
     'subject': '''
 📂 Раздел: 🗂 Предметы
@@ -143,15 +195,17 @@ actions_help = {
 
 📼 Увеличение видеокарт x1000 
 🔖 Цена: 100 🪙
-<b>Введите:</b> <code>Купить 6</code>
+<b>Введите:</b> <code>Донат купить 6</code>
 
 ➖➖➖➖➖➖➖➖➖➖➖➖
 👮 Разблокировка аккаунта
 🔖 Цена: 150 🪙
+<b>Введите:</b> <code>Донат купить 7</code>
 
 ➖➖➖➖➖➖➖➖➖➖➖➖
 ⛔️ Снятие всех ограничений
 🔖 Цена: 150 🪙
+<b>Введите:</b> <code>Донат купить 8</code>
 '''
 }
 
@@ -220,47 +274,6 @@ async def other_method_handler(call: CallbackQuery):
            '💰 После перевода, пишите в лс  с чеком!\n'
     return await call.message.edit_text(text=text,
                                         reply_markup=back_donate.as_markup())
-
-
-async def privilegia_handler(message: Message):
-    arg = message.text.split()[1:] if not bot_name.lower() in message.text.split()[0].lower() else message.text.split()[
-                                                                                                   2:]
-    try:
-        if not arg[0].lower().isdigit():
-            return await message.reply('❌ Введите номер доната!')
-    except IndexError:
-        return
-    arg = int(arg[0].lower())
-    user = User(user=message.from_user)
-    if arg > 0 and arg <= 5:
-        item = donates[arg]
-        donate = user.donate
-
-        if user.coins < item["price"]:
-            return await message.reply(f'🪙 Недостаточно коинов, нужно: <code>{item["price"]}</code>',
-                                       reply_markup=donate_kb.as_markup() if message.chat.id != message.from_user.id else donate_kbi.as_markup())
-        elif donate and donate.id >= arg:
-            return await message.reply('➖ У вас и так такая привилегия или выше!')
-        limitvidach: int = 0
-        last_vidacha = None
-        if arg == 4:
-            limitvidach = 10_000_000
-            last_vidacha = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-        if arg == 5:
-            limitvidach = 30_000_000
-            last_vidacha = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-
-        user.editmany(donate_source=f'{arg},{datetime.now().strftime("%d-%m-%Y %H:%M")},True,None',
-                      coins=user.coins - item['price'], limitvidach=limitvidach, last_vidacha=last_vidacha)
-
-        return await message.reply(f'✅ Вы успешно приобрели привилегию <b>{item["name"]}</b> за {item["price"]}🪙')
-    elif arg == 6:
-        if user.coins < 100:
-            return await message.reply(f'🪙 Недостаточно коинов, нужно: <code>100🪙</code>',
-                                       reply_markup=donate_kb.as_markup() if message.chat.id != message.from_user.id else donate_kbi.as_markup())
-        user.editmany(donate_videocards=user.donate_videocards + 1000, coins=user.coins - 100)
-        return await message.reply(f'✅ Вы успешно приобрели <b>📼 Увеличение видеокарт x1000</b> за 100🪙')
-    return await message.reply('❌ Такого доната не существует!')
 
 
 async def cobmen_handler(message: Message):

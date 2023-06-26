@@ -1,4 +1,5 @@
 import random
+import time
 from contextlib import suppress
 from uuid import uuid4
 
@@ -29,7 +30,6 @@ async def check_state2(message: Message, state: FSMContext, fsm_storage: BaseSto
     smile = ['♠', '🃏', '♣', '♥', '♦', '🎴']
     rsmile = random.choice(smile)
     if isinstance(message, CallbackQuery):
-
         state_get = await fsm_storage.get_state(bot=bot, key=StorageKey(
             user_id=message.from_user.id,
             chat_id=message.from_user.id,
@@ -250,107 +250,284 @@ async def check_state2(message: Message, state: FSMContext, fsm_storage: BaseSto
                 BlackjackGame.waiting_for_action)
 async def action_blackjack_ls(message: Message, state: FSMContext,
                               fsm_storage: BaseStorage, bot: Bot):
-    data = await fsm_storage.get_data(bot=bot, key=StorageKey(
-        user_id=message.from_user.id,
-        chat_id=message.from_user.id,
-        bot_id=bot.id))
-    summ5 = data.get("summ")
-    deck = data.get("deck")
-    player_hand = data.get("player_hand")
-    player_hand2 = data.get("player_hand2")
-    dealer_hand = data.get("dealer_hand")
-
-    user = User(user=message.from_user)
-    if user.balance < summ5:
-        return await message.answer('❌ Ошибка. Недостаточно денег на руках для ставки! 💸'
-                                    f'💰Требуется: {to_str3(summ5)} ', show_alert=True)
-    smile = ['♠', '🃏', '♣', '♥', '♦', '🎴']
-    rsmile = random.choice(smile)
-    try:
-        action = message.text.split()[1]
-    except:
-        state_get = await fsm_storage.get_state(bot=bot, key=StorageKey(
+    flood = await flood_handler_bj(message)
+    if flood:
+        data = await fsm_storage.get_data(bot=bot, key=StorageKey(
             user_id=message.from_user.id,
             chat_id=message.from_user.id,
             bot_id=bot.id))
-        if state_get == 'BlackjackGame:waiting_for_action':
-            return await check_state2(message, state, fsm_storage, bot)
-        if state_get == 'BlackjackGame:waiting_for_action2':
-            return await check_state2(message, state, fsm_storage, bot)
-        if state_get == 'BlackjackGame:waiting_for_action3':
-            return await check_state2(message, state, fsm_storage, bot)
+        summ5 = data.get("summ")
+        deck = data.get("deck")
+        player_hand = data.get("player_hand")
+        player_hand2 = data.get("player_hand2")
+        dealer_hand = data.get("dealer_hand")
 
-    if action == "сплит":
-        if get_card_value(player_hand[0]) != get_card_value(player_hand[1]) or len(
-                player_hand) != 2 or len(player_hand2) > 0:
-            text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
-            with suppress(TelegramBadRequest):
-                await message.reply(
-                    f"{rsmile} {user.link}, разделять можно только пару одного достоинства 👍🏻:"
-                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
-                    f"\n{text_player}",
-                    disable_web_page_preview=True)
-            return
-        if user.balance < summ5 * 2:
-            text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
-            text_dil = f'{await get_numerate_cards(dealer_hand)}'
-            with suppress(TelegramBadRequest):
-                await message.reply(
-                    f"{rsmile} {user.link},Для разделения требуется({to_str(summ5 * 2)}):"
-                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
-                    f"\n{text_player}"
-                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                    f"\n{text_dil}"
-                    ,
-
-                    disable_web_page_preview=True)
-            return
-        player_hand2.append(player_hand[1])
-        player_hand2.append(deck.pop())
-        player_hand.pop()
-        player_hand.append(deck.pop())
-
-        text_player = f'➖ 1-я рука - (Текущая): \n{await get_numerate_cards(player_hand)}'
-        text_player2 = f'➖ 2-я рука: \n{await get_numerate_cards(player_hand2)}'
-        text_dil = f'{await get_numerate_cards(dealer_hand)}'
-
-        with suppress(TelegramBadRequest):
-            await message.reply(f"{rsmile} {user.link} , Ваши очки:"
-                                f"\n🎫 Ваши руки: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
-                                f"{text_player}"
-                                f"{text_player2}"
-                                f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                                f"\n {text_dil}"
-                                ,
-                                disable_web_page_preview=True)
-            newgamedata_dict = {"deck": deck, 'player_hand': player_hand, 'player_hand2': player_hand2,
-                                'dealer_hand': dealer_hand}
-
-            await fsm_storage.update_data(bot=bot, data=newgamedata_dict, key=StorageKey(
+        user = User(user=message.from_user)
+        if user.balance < summ5:
+            return await message.answer('❌ Ошибка. Недостаточно денег на руках для ставки! 💸'
+                                        f'💰Требуется: {to_str3(summ5)} ', show_alert=True)
+        smile = ['♠', '🃏', '♣', '♥', '♦', '🎴']
+        rsmile = random.choice(smile)
+        try:
+            action = message.text.split()[1]
+        except:
+            state_get = await fsm_storage.get_state(bot=bot, key=StorageKey(
                 user_id=message.from_user.id,
                 chat_id=message.from_user.id,
                 bot_id=bot.id))
-            await fsm_storage.set_state(bot=bot, state=BlackjackGame.waiting_for_action, key=StorageKey(
-                user_id=message.from_user.id,
-                chat_id=message.from_user.id,
-                bot_id=bot.id))
+            if state_get == 'BlackjackGame:waiting_for_action':
+                return await check_state2(message, state, fsm_storage, bot)
+            if state_get == 'BlackjackGame:waiting_for_action2':
+                return await check_state2(message, state, fsm_storage, bot)
+            if state_get == 'BlackjackGame:waiting_for_action3':
+                return await check_state2(message, state, fsm_storage, bot)
 
-        return
-    if action in ["еще", "ещё"]:
-
-        if player_hand2:
-            player_hand_value2 = get_hand_value(player_hand2)
-            text_player2 = f'➖ 2-я рука: \n{await get_numerate_cards(player_hand2)}'
-            if user.balance < summ5 * 2:
-                text_player = f'➖ 1-я рука - (Текущая): \n{await get_numerate_cards(player_hand)}'
-                text_dil = f'{await get_numerate_cards(dealer_hand)}'
-
+        if action == "сплит":
+            if get_card_value(player_hand[0]) != get_card_value(player_hand[1]) or len(
+                    player_hand) != 2 or len(player_hand2) > 0:
+                text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
                 with suppress(TelegramBadRequest):
                     await message.reply(
-                        f"{rsmile} {user.link},Для продолжения требуется({to_str(summ5 * 2)}):"
-                        f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {player_hand_value2}\n"
+                        f"{rsmile} {user.link}, разделять можно только пару одного достоинства 👍🏻:"
+                        f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
+                        f"\n{text_player}",
+                        disable_web_page_preview=True)
+                return
+            if user.balance < summ5 * 2:
+                text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
+                text_dil = f'{await get_numerate_cards(dealer_hand)}'
+                with suppress(TelegramBadRequest):
+                    await message.reply(
+                        f"{rsmile} {user.link},Для разделения требуется({to_str(summ5 * 2)}):"
+                        f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
+                        f"\n{text_player}"
+                        f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                        f"\n{text_dil}"
+                        ,
+
+                        disable_web_page_preview=True)
+                return
+            player_hand2.append(player_hand[1])
+            player_hand2.append(deck.pop())
+            player_hand.pop()
+            player_hand.append(deck.pop())
+
+            text_player = f'➖ 1-я рука - (Текущая): \n{await get_numerate_cards(player_hand)}'
+            text_player2 = f'➖ 2-я рука: \n{await get_numerate_cards(player_hand2)}'
+            text_dil = f'{await get_numerate_cards(dealer_hand)}'
+
+            with suppress(TelegramBadRequest):
+                await message.reply(f"{rsmile} {user.link} , Ваши очки:"
+                                    f"\n🎫 Ваши руки: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
+                                    f"{text_player}"
+                                    f"{text_player2}"
+                                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                                    f"\n {text_dil}"
+                                    ,
+                                    disable_web_page_preview=True)
+                newgamedata_dict = {"deck": deck, 'player_hand': player_hand, 'player_hand2': player_hand2,
+                                    'dealer_hand': dealer_hand}
+
+                await fsm_storage.update_data(bot=bot, data=newgamedata_dict, key=StorageKey(
+                    user_id=message.from_user.id,
+                    chat_id=message.from_user.id,
+                    bot_id=bot.id))
+                await fsm_storage.set_state(bot=bot, state=BlackjackGame.waiting_for_action, key=StorageKey(
+                    user_id=message.from_user.id,
+                    chat_id=message.from_user.id,
+                    bot_id=bot.id))
+
+            return
+        if action in ["еще", "ещё"]:
+
+            if player_hand2:
+                player_hand_value2 = get_hand_value(player_hand2)
+                text_player2 = f'➖ 2-я рука: \n{await get_numerate_cards(player_hand2)}'
+                if user.balance < summ5 * 2:
+                    text_player = f'➖ 1-я рука - (Текущая): \n{await get_numerate_cards(player_hand)}'
+                    text_dil = f'{await get_numerate_cards(dealer_hand)}'
+
+                    with suppress(TelegramBadRequest):
+                        await message.reply(
+                            f"{rsmile} {user.link},Для продолжения требуется({to_str(summ5 * 2)}):"
+                            f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {player_hand_value2}\n"
+                            f"{text_player}"
+                            f"{text_player2}"
+                            f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                            f"\n {text_dil}"
+                            ,
+
+                            disable_web_page_preview=True)
+                    return
+                player_hand.append(deck.pop())
+                player_hand_value = get_hand_value(player_hand)
+
+                if player_hand_value > 21:
+                    text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
+                    text_player2 = f'➖ 2-я рука - (Текущая): \n{await get_numerate_cards(player_hand2)}'
+                    text_dil = f'{await get_numerate_cards(dealer_hand)}'
+                    with suppress(TelegramBadRequest):
+
+                        await message.reply(f"{rsmile} {user.link},Вы вытянули {player_hand[-1]}: "
+                                            f"\n🎫 Ваша рука: {player_hand_value} & {player_hand_value2}\n"
+                                            f"{text_player}"
+                                            f"{text_player2}"
+                                            f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                                            f"\n {text_dil}"
+                                            ,
+
+                                            disable_web_page_preview=True)
+                        newgamedata_dict = {"deck": deck, 'player_hand': player_hand, 'player_hand2': player_hand2,
+                                            'dealer_hand': dealer_hand}
+                        await fsm_storage.update_data(bot=bot, data=newgamedata_dict, key=StorageKey(
+                            user_id=message.from_user.id,
+                            chat_id=message.from_user.id,
+                            bot_id=bot.id))
+                        await fsm_storage.set_state(bot=bot, state=BlackjackGame.waiting_for_action2, key=StorageKey(
+                            user_id=message.from_user.id,
+                            chat_id=message.from_user.id,
+                            bot_id=bot.id))
+
+                    return
+                else:
+                    with suppress(TelegramBadRequest):
+                        text_player = f'➖ 1-я рука - (Текущая): \n{await get_numerate_cards(player_hand)}'
+                        text_player2 = f'➖ 2-я рука: \n{await get_numerate_cards(player_hand2)}'
+                        text_dil = f'{await get_numerate_cards(dealer_hand)}'
+                        await message.reply(f"{rsmile} {user.link},Вы вытянули {player_hand[-1]}:"
+                                            f"\n🎫 Ваша рука: {player_hand_value} & {player_hand_value2}\n"
+                                            f"{text_player}"
+                                            f"{text_player2}"
+                                            f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                                            f"\n{text_dil}"
+                                            ,
+                                            disable_web_page_preview=True)
+
+                        newgamedata_dict = {"deck": deck, 'player_hand': player_hand, 'player_hand2': player_hand2,
+                                            'dealer_hand': dealer_hand}
+                        await fsm_storage.update_data(bot=bot, data=newgamedata_dict, key=StorageKey(
+                            user_id=message.from_user.id,
+                            chat_id=message.from_user.id,
+                            bot_id=bot.id))
+                        await fsm_storage.set_state(bot=bot, state=BlackjackGame.waiting_for_action, key=StorageKey(
+                            user_id=message.from_user.id,
+                            chat_id=message.from_user.id,
+                            bot_id=bot.id))
+
+                    return
+
+            player_hand.append(deck.pop())
+            player_hand_value = get_hand_value(player_hand)
+            text_player = '➖ 1-я рука:\n'
+            for index, cards in enumerate(player_hand, start=1):
+                emoji = ''.join(numbers_emoji[int(i)] for i in str(index))
+                text_player += f'  {emoji} {cards}\n'
+            if player_hand_value > 21:
+                with suppress(TelegramBadRequest):
+
+                    await message.reply(f"{rsmile} {user.link},Вы вытянули {player_hand[-1]}: "
+                                        f"\n🎫 Ваша рука: {player_hand_value}\n"
+                                        f"{text_player}"
+                                        f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                                        f"\n 1️⃣ {dealer_hand[0]}"
+                                        f"\nПровал! Вы проиграли!\n"
+                                        f"вы потеряли {to_str(summ5)}!",
+
+                                        disable_web_page_preview=True)
+                    user.edit('balance', user.balance - summ5)
+                    await state.clear()
+                return
+            else:
+                with suppress(TelegramBadRequest):
+                    await message.reply(f"{rsmile} {user.link},Вы вытянули {player_hand[-1]}:"
+                                        f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
+                                        f"{text_player}"
+                                        f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                                        f"\n 1️⃣ {dealer_hand[0]}"
+                                        ,
+                                        disable_web_page_preview=True)
+                    newgamedata_dict = {"deck": deck, 'player_hand': player_hand,
+                                        'dealer_hand': dealer_hand}
+                    await fsm_storage.update_data(bot=bot, data=newgamedata_dict, key=StorageKey(
+                        user_id=message.from_user.id,
+                        chat_id=message.from_user.id,
+                        bot_id=bot.id))
+
+                return
+
+        if action == 'стоп':
+            if player_hand2:
+                text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
+
+                text_player2 = f'➖ 2-я рука:(текущая)\n{await get_numerate_cards(player_hand2)}'
+
+                if user.balance < summ5 * 2:
+                    with suppress(TelegramBadRequest):
+                        text_dil = f'{await get_numerate_cards(dealer_hand)}'
+                        await message.reply(
+                            f"{rsmile} {user.link},Для продолжения требуется({to_str(summ5 * 2)}):"
+                            f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
+                            f"{text_player}"
+                            f"{text_player2}"
+                            f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                            f"\n {text_dil}"
+                            ,
+
+                            disable_web_page_preview=True)
+                    return
+                with suppress(TelegramBadRequest):
+                    text_dil = f'{await get_numerate_cards(dealer_hand)}'
+                    await message.reply(f"{rsmile} {user.link}:"
+                                        f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
+                                        f"{text_player}"
+                                        f"{text_player2}"
+                                        f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                                        f"\n {text_dil}"
+                                        ,
+                                        disable_web_page_preview=True)
+                    newgamedata_dict = {"deck": deck, 'player_hand': player_hand, 'player_hand2': player_hand2,
+                                        'dealer_hand': dealer_hand}
+                    await fsm_storage.update_data(bot=bot, data=newgamedata_dict, key=StorageKey(
+                        user_id=message.from_user.id,
+                        chat_id=message.from_user.id,
+                        bot_id=bot.id))
+
+                    await fsm_storage.set_state(bot=bot, state=BlackjackGame.waiting_for_action2, key=StorageKey(
+                        user_id=message.from_user.id,
+                        chat_id=message.from_user.id,
+                        bot_id=bot.id))
+                return
+            dealer_hand_value = get_hand_value(dealer_hand)
+            while dealer_hand_value < 17:
+                dealer_hand.append(deck.pop())
+                dealer_hand_value = get_hand_value(dealer_hand)
+            result = await check_win(player_hand, dealer_hand, user.id, summ5)
+            with suppress(TelegramBadRequest):
+                await message.reply(result,
+
+                                    disable_web_page_preview=True)
+
+            return await state.clear()
+        if action == 'удвоить':
+            text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
+            text_dil = f'{await get_numerate_cards(dealer_hand)}'
+            if len(player_hand) != 2 or len(player_hand2) > 0:
+                with suppress(TelegramBadRequest):
+                    await message.reply(
+                        f"{rsmile} {user.link}, Удвоить можно только в начале игры:"
+                        f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
+                        f"\n{text_player}"
+                        f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                        f"\n{text_dil}"
+                        , disable_web_page_preview=True)
+                return
+            if user.balance < summ5 * 2:
+                with suppress(TelegramBadRequest):
+                    return await message.reply(
+                        f"{rsmile} {user.link},Для удвоения требуется({to_str(summ5 * 2)}):"
+                        f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
                         f"{text_player}"
-                        f"{text_player2}"
+
                         f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
                         f"\n {text_dil}"
                         ,
@@ -358,23 +535,177 @@ async def action_blackjack_ls(message: Message, state: FSMContext,
                         disable_web_page_preview=True)
                 return
             player_hand.append(deck.pop())
-            player_hand_value = get_hand_value(player_hand)
+            dealer_hand_value = get_hand_value(dealer_hand)
+            while dealer_hand_value < 17:
+                dealer_hand.append(deck.pop())
+                dealer_hand_value = get_hand_value(dealer_hand)
+            with suppress(TelegramBadRequest):
+                result = await check_win(player_hand, dealer_hand, user.id, summ5 * 2)
+                await message.reply(result,
 
-            if player_hand_value > 21:
-                text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
-                text_player2 = f'➖ 2-я рука - (Текущая): \n{await get_numerate_cards(player_hand2)}'
-                text_dil = f'{await get_numerate_cards(dealer_hand)}'
+                                    disable_web_page_preview=True)
+
+            return await state.clear()
+
+        if action == 'отказ':
+            text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
+            text_dil = f'{await get_numerate_cards(dealer_hand)}'
+            if len(player_hand) != 2 or len(player_hand2) > 0:
                 with suppress(TelegramBadRequest):
+                    await message.reply(
+                        f"{rsmile} {user.link}, Отказаться можно только в начале игры:"
+                        f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
+                        f"\n{text_player}"
+                        f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                        f"\n{text_dil}"
+                        , disable_web_page_preview=True)
+                return
+            user.edit('balance', user.balance - round(summ5 / 2))
+            with suppress(TelegramBadRequest):
+                await message.reply(
+                    f"{rsmile} {user.link}:"
+                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
+                    f"{text_player}"
+                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                    f"\n {text_dil}"
+                    f"\n\n🚫 Вы отказались от игры и потеряли половину своей суммы!"
+                    ,
 
-                    await message.reply(f"{rsmile} {user.link},Вы вытянули {player_hand[-1]}: "
-                                        f"\n🎫 Ваша рука: {player_hand_value} & {player_hand_value2}\n"
+                    disable_web_page_preview=True)
+
+            return await state.clear()
+        if action == 'страховка':
+            text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
+            text_dil = f'{await get_numerate_cards(dealer_hand)}'
+            if dealer_hand and get_card_value(dealer_hand[0]) != 11 or len(player_hand2) > 0:
+                with suppress(TelegramBadRequest):
+                    await message.reply(
+                        f"{rsmile} {user.link}, Доступно только при наличии у бота туза :"
+                        f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
+                        f"\n{text_player}"
+                        f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                        f"\n{text_dil}"
+                        , disable_web_page_preview=True)
+                return
+            if user.balance < (round(summ5 / 2)) + summ5:
+                with suppress(TelegramBadRequest):
+                    await message.reply(
+                        f"{rsmile} {user.link}, для страхования дополнительно требуется ({to_str(round(summ5 / 2))}):"
+                        f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
+                        f"\n{text_player}"
+                        f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                        f"\n{text_dil}"
+                        ,
+
+                        disable_web_page_preview=True)
+                return
+            with suppress(TelegramBadRequest):
+                await message.reply(
+                    f"{rsmile} {user.link}:"
+                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
+                    f"{text_player}"
+                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                    f"\n {text_dil}"
+                    f"\n\nВы застраховали свою ставку за {to_str(round(summ5 / 2))} 👍🏼!"
+                    ,
+
+                    disable_web_page_preview=True)
+            newgamedata_dict = {"deck": deck, 'player_hand': player_hand,
+                                'dealer_hand': dealer_hand, 'insurance': round(summ5 / 2)}
+            await fsm_storage.update_data(bot=bot, data=newgamedata_dict, key=StorageKey(
+                user_id=message.from_user.id,
+                chat_id=message.from_user.id,
+                bot_id=bot.id))
+            await fsm_storage.set_state(bot=bot, state=BlackjackGame.waiting_for_action3, key=StorageKey(
+                user_id=message.from_user.id,
+                chat_id=message.from_user.id,
+                bot_id=bot.id))
+
+
+@router.message(Trigger(["бд еще", "бд ещё", "бд стоп"]),
+                BlackjackGame.waiting_for_action2)
+async def action2_blackjack_ls(message: Message, state: FSMContext,
+                               fsm_storage: BaseStorage, bot: Bot):
+    flood = await flood_handler_bj(message)
+    if flood:
+        data = await fsm_storage.get_data(bot=bot, key=StorageKey(
+            user_id=message.from_user.id,
+            chat_id=message.from_user.id,
+            bot_id=bot.id))
+        summ5 = data.get("summ")
+        deck = data.get("deck")
+
+        player_hand = data.get("player_hand")
+        dealer_hand = data.get("dealer_hand")
+        player_hand2 = data.get("player_hand2")
+
+        user = User(user=message.from_user)
+        if user.balance < summ5 * 2:
+            return await message.answer('❌ Ошибка. Недостаточно денег на руках для ставки! 💸'
+                                        f'💰Требуется: {to_str3(summ5 * 2)} ', show_alert=True)
+        smile = ['♠', '🃏', '♣', '♥', '♦', '🎴']
+        rsmile = random.choice(smile)
+        try:
+            action = message.text.split()[1]
+
+        except:
+            state_get = await fsm_storage.get_state(bot=bot, key=StorageKey(
+                user_id=message.from_user.id,
+                chat_id=message.from_user.id,
+                bot_id=bot.id))
+            if state_get == 'BlackjackGame:waiting_for_action':
+                return await check_state2(message, state, fsm_storage, bot)
+            if state_get == 'BlackjackGame:waiting_for_action2':
+                return await check_state2(message, state, fsm_storage, bot)
+            if state_get == 'BlackjackGame:waiting_for_action3':
+                return await check_state2(message, state, fsm_storage, bot)
+        if action in ["еще", "ещё"]:
+            player_hand2.append(deck.pop())
+            player_hand_value2 = get_hand_value(player_hand2)
+            text_player2 = f'➖ 2-я рука:(текущая)\n{await get_numerate_cards(player_hand2)}'
+
+            if user.balance < summ5 * 2:
+                text_diller = f'{await get_numerate_cards(dealer_hand)}'
+                text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
+                with suppress(TelegramBadRequest):
+                    await message.reply(
+                        f"{rsmile} {user.link},Для продолжения требуется({to_str(summ5 * 2)}):"
+                        f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {player_hand_value2}\n"
+                        f"{text_player}"
+                        f"{text_player2}"
+                        f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                        f"\n{text_diller} "
+                        ,
+
+                        disable_web_page_preview=True)
+                return
+            player_hand_value2 = get_hand_value(player_hand2)
+            text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
+            if player_hand_value2 > 21:
+                dealer_hand_value = get_hand_value(dealer_hand)
+                while dealer_hand_value < 17:
+                    dealer_hand.append(deck.pop())
+                    dealer_hand_value = get_hand_value(dealer_hand)
+                result = await check_result(player_hand, player_hand2, dealer_hand, user.id, summ5)
+                with suppress(TelegramBadRequest):
+                    await message.reply(result,
+
+                                        disable_web_page_preview=True)
+
+                    await state.clear()
+                return
+
+            else:
+                with suppress(TelegramBadRequest):
+                    await message.reply(f"{rsmile} {user.link},Вы вытянули {player_hand[-1]}:"
+                                        f"\n🎫 Ваша рука: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
                                         f"{text_player}"
                                         f"{text_player2}"
                                         f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                                        f"\n {text_dil}"
+                                        f"\n 1️⃣ {dealer_hand[0]}"
                                         ,
-
                                         disable_web_page_preview=True)
+
                     newgamedata_dict = {"deck": deck, 'player_hand': player_hand, 'player_hand2': player_hand2,
                                         'dealer_hand': dealer_hand}
                     await fsm_storage.update_data(bot=bot, data=newgamedata_dict, key=StorageKey(
@@ -386,298 +717,8 @@ async def action_blackjack_ls(message: Message, state: FSMContext,
                         chat_id=message.from_user.id,
                         bot_id=bot.id))
 
-                return
-            else:
-                with suppress(TelegramBadRequest):
-                    text_player = f'➖ 1-я рука - (Текущая): \n{await get_numerate_cards(player_hand)}'
-                    text_player2 = f'➖ 2-я рука: \n{await get_numerate_cards(player_hand2)}'
-                    text_dil = f'{await get_numerate_cards(dealer_hand)}'
-                    await message.reply(f"{rsmile} {user.link},Вы вытянули {player_hand[-1]}:"
-                                        f"\n🎫 Ваша рука: {player_hand_value} & {player_hand_value2}\n"
-                                        f"{text_player}"
-                                        f"{text_player2}"
-                                        f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                                        f"\n{text_dil}"
-                                        ,
-                                        disable_web_page_preview=True)
-
-                    newgamedata_dict = {"deck": deck, 'player_hand': player_hand, 'player_hand2': player_hand2,
-                                        'dealer_hand': dealer_hand}
-                    await fsm_storage.update_data(bot=bot, data=newgamedata_dict, key=StorageKey(
-                        user_id=message.from_user.id,
-                        chat_id=message.from_user.id,
-                        bot_id=bot.id))
-                    await fsm_storage.set_state(bot=bot, state=BlackjackGame.waiting_for_action, key=StorageKey(
-                        user_id=message.from_user.id,
-                        chat_id=message.from_user.id,
-                        bot_id=bot.id))
-
-                return
-
-        player_hand.append(deck.pop())
-        player_hand_value = get_hand_value(player_hand)
-        text_player = '➖ 1-я рука:\n'
-        for index, cards in enumerate(player_hand, start=1):
-            emoji = ''.join(numbers_emoji[int(i)] for i in str(index))
-            text_player += f'  {emoji} {cards}\n'
-        if player_hand_value > 21:
-            with suppress(TelegramBadRequest):
-
-                await message.reply(f"{rsmile} {user.link},Вы вытянули {player_hand[-1]}: "
-                                    f"\n🎫 Ваша рука: {player_hand_value}\n"
-                                    f"{text_player}"
-                                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                                    f"\n 1️⃣ {dealer_hand[0]}"
-                                    f"\nПровал! Вы проиграли!\n"
-                                    f"вы потеряли {to_str(summ5)}!",
-
-                                    disable_web_page_preview=True)
-                user.edit('balance', user.balance - summ5)
-                await state.clear()
             return
-        else:
-            with suppress(TelegramBadRequest):
-                await message.reply(f"{rsmile} {user.link},Вы вытянули {player_hand[-1]}:"
-                                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
-                                    f"{text_player}"
-                                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                                    f"\n 1️⃣ {dealer_hand[0]}"
-                                    ,
-                                    disable_web_page_preview=True)
-                newgamedata_dict = {"deck": deck, 'player_hand': player_hand,
-                                    'dealer_hand': dealer_hand}
-                await fsm_storage.update_data(bot=bot, data=newgamedata_dict, key=StorageKey(
-                    user_id=message.from_user.id,
-                    chat_id=message.from_user.id,
-                    bot_id=bot.id))
-
-            return
-
-    if action == 'стоп':
-        if player_hand2:
-            text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
-
-            text_player2 = f'➖ 2-я рука:(текущая)\n{await get_numerate_cards(player_hand2)}'
-
-            if user.balance < summ5 * 2:
-                with suppress(TelegramBadRequest):
-                    text_dil = f'{await get_numerate_cards(dealer_hand)}'
-                    await message.reply(
-                        f"{rsmile} {user.link},Для продолжения требуется({to_str(summ5 * 2)}):"
-                        f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
-                        f"{text_player}"
-                        f"{text_player2}"
-                        f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                        f"\n {text_dil}"
-                        ,
-
-                        disable_web_page_preview=True)
-                return
-            with suppress(TelegramBadRequest):
-                text_dil = f'{await get_numerate_cards(dealer_hand)}'
-                await message.reply(f"{rsmile} {user.link}:"
-                                    f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
-                                    f"{text_player}"
-                                    f"{text_player2}"
-                                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                                    f"\n {text_dil}"
-                                    ,
-                                    disable_web_page_preview=True)
-                newgamedata_dict = {"deck": deck, 'player_hand': player_hand, 'player_hand2': player_hand2,
-                                    'dealer_hand': dealer_hand}
-                await fsm_storage.update_data(bot=bot, data=newgamedata_dict, key=StorageKey(
-                    user_id=message.from_user.id,
-                    chat_id=message.from_user.id,
-                    bot_id=bot.id))
-
-                await fsm_storage.set_state(bot=bot, state=BlackjackGame.waiting_for_action2, key=StorageKey(
-                    user_id=message.from_user.id,
-                    chat_id=message.from_user.id,
-                    bot_id=bot.id))
-            return
-        dealer_hand_value = get_hand_value(dealer_hand)
-        while dealer_hand_value < 17:
-            dealer_hand.append(deck.pop())
-            dealer_hand_value = get_hand_value(dealer_hand)
-        result = await check_win(player_hand, dealer_hand, user.id, summ5)
-        with suppress(TelegramBadRequest):
-            await message.reply(result,
-
-                                disable_web_page_preview=True)
-
-        return await state.clear()
-    if action == 'удвоить':
-        text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
-        text_dil = f'{await get_numerate_cards(dealer_hand)}'
-        if len(player_hand) != 2 or len(player_hand2) > 0:
-            with suppress(TelegramBadRequest):
-                await message.reply(
-                    f"{rsmile} {user.link}, Удвоить можно только в начале игры:"
-                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
-                    f"\n{text_player}"
-                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                    f"\n{text_dil}"
-                    , disable_web_page_preview=True)
-            return
-        if user.balance < summ5 * 2:
-            with suppress(TelegramBadRequest):
-                return await message.reply(
-                    f"{rsmile} {user.link},Для удвоения требуется({to_str(summ5 * 2)}):"
-                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
-                    f"{text_player}"
-
-                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                    f"\n {text_dil}"
-                    ,
-
-                    disable_web_page_preview=True)
-            return
-        player_hand.append(deck.pop())
-        dealer_hand_value = get_hand_value(dealer_hand)
-        while dealer_hand_value < 17:
-            dealer_hand.append(deck.pop())
-            dealer_hand_value = get_hand_value(dealer_hand)
-        with suppress(TelegramBadRequest):
-            result = await check_win(player_hand, dealer_hand, user.id, summ5 * 2)
-            await message.reply(result,
-
-                                disable_web_page_preview=True)
-
-        return await state.clear()
-
-    if action == 'отказ':
-        text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
-        text_dil = f'{await get_numerate_cards(dealer_hand)}'
-        if len(player_hand) != 2 or len(player_hand2) > 0:
-            with suppress(TelegramBadRequest):
-                await message.reply(
-                    f"{rsmile} {user.link}, Отказаться можно только в начале игры:"
-                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
-                    f"\n{text_player}"
-                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                    f"\n{text_dil}"
-                    , disable_web_page_preview=True)
-            return
-        user.edit('balance', user.balance - round(summ5 / 2))
-        with suppress(TelegramBadRequest):
-            await message.reply(
-                f"{rsmile} {user.link}:"
-                f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
-                f"{text_player}"
-                f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                f"\n {text_dil}"
-                f"\n\n🚫 Вы отказались от игры и потеряли половину своей суммы!"
-                ,
-
-                disable_web_page_preview=True)
-
-        return await state.clear()
-    if action == 'страховка':
-        text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
-        text_dil = f'{await get_numerate_cards(dealer_hand)}'
-        if dealer_hand and get_card_value(dealer_hand[0]) != 11 or len(player_hand2) > 0:
-            with suppress(TelegramBadRequest):
-                await message.reply(
-                    f"{rsmile} {user.link}, Доступно только при наличии у бота туза :"
-                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
-                    f"\n{text_player}"
-                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                    f"\n{text_dil}"
-                    , disable_web_page_preview=True)
-            return
-        if user.balance < (round(summ5 / 2)) + summ5:
-            with suppress(TelegramBadRequest):
-                await message.reply(
-                    f"{rsmile} {user.link}, для страхования дополнительно требуется ({to_str(round(summ5 / 2))}):"
-                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
-                    f"\n{text_player}"
-                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                    f"\n{text_dil}"
-                    ,
-
-                    disable_web_page_preview=True)
-            return
-        with suppress(TelegramBadRequest):
-            await message.reply(
-                f"{rsmile} {user.link}:"
-                f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
-                f"{text_player}"
-                f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                f"\n {text_dil}"
-                f"\n\nВы застраховали свою ставку за {to_str(round(summ5 / 2))} 👍🏼!"
-                ,
-
-                disable_web_page_preview=True)
-        newgamedata_dict = {"deck": deck, 'player_hand': player_hand,
-                            'dealer_hand': dealer_hand, 'insurance': round(summ5 / 2)}
-        await fsm_storage.update_data(bot=bot, data=newgamedata_dict, key=StorageKey(
-            user_id=message.from_user.id,
-            chat_id=message.from_user.id,
-            bot_id=bot.id))
-        await fsm_storage.set_state(bot=bot, state=BlackjackGame.waiting_for_action3, key=StorageKey(
-            user_id=message.from_user.id,
-            chat_id=message.from_user.id,
-            bot_id=bot.id))
-
-
-@router.message(Trigger(["бд еще", "бд ещё", "бд стоп"]),
-                BlackjackGame.waiting_for_action2)
-async def action2_blackjack_ls(message: Message, state: FSMContext,
-                               fsm_storage: BaseStorage, bot: Bot):
-    data = await fsm_storage.get_data(bot=bot, key=StorageKey(
-        user_id=message.from_user.id,
-        chat_id=message.from_user.id,
-        bot_id=bot.id))
-    summ5 = data.get("summ")
-    deck = data.get("deck")
-
-    player_hand = data.get("player_hand")
-    dealer_hand = data.get("dealer_hand")
-    player_hand2 = data.get("player_hand2")
-
-    user = User(user=message.from_user)
-    if user.balance < summ5 * 2:
-        return await message.answer('❌ Ошибка. Недостаточно денег на руках для ставки! 💸'
-                                    f'💰Требуется: {to_str3(summ5 * 2)} ', show_alert=True)
-    smile = ['♠', '🃏', '♣', '♥', '♦', '🎴']
-    rsmile = random.choice(smile)
-    try:
-        action = message.text.split()[1]
-
-    except:
-        state_get = await fsm_storage.get_state(bot=bot, key=StorageKey(
-            user_id=message.from_user.id,
-            chat_id=message.from_user.id,
-            bot_id=bot.id))
-        if state_get == 'BlackjackGame:waiting_for_action':
-            return await check_state2(message, state, fsm_storage, bot)
-        if state_get == 'BlackjackGame:waiting_for_action2':
-            return await check_state2(message, state, fsm_storage, bot)
-        if state_get == 'BlackjackGame:waiting_for_action3':
-            return await check_state2(message, state, fsm_storage, bot)
-    if action in ["еще", "ещё"]:
-        player_hand2.append(deck.pop())
-        player_hand_value2 = get_hand_value(player_hand2)
-        text_player2 = f'➖ 2-я рука:(текущая)\n{await get_numerate_cards(player_hand2)}'
-
-        if user.balance < summ5 * 2:
-            text_diller = f'{await get_numerate_cards(dealer_hand)}'
-            text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
-            with suppress(TelegramBadRequest):
-                await message.reply(
-                    f"{rsmile} {user.link},Для продолжения требуется({to_str(summ5 * 2)}):"
-                    f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {player_hand_value2}\n"
-                    f"{text_player}"
-                    f"{text_player2}"
-                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                    f"\n{text_diller} "
-                    ,
-
-                    disable_web_page_preview=True)
-            return
-        player_hand_value2 = get_hand_value(player_hand2)
-        text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
-        if player_hand_value2 > 21:
+        if action == 'стоп':
             dealer_hand_value = get_hand_value(dealer_hand)
             while dealer_hand_value < 17:
                 dealer_hand.append(deck.pop())
@@ -687,149 +728,127 @@ async def action2_blackjack_ls(message: Message, state: FSMContext,
                 await message.reply(result,
 
                                     disable_web_page_preview=True)
-
                 await state.clear()
             return
-
-        else:
-            with suppress(TelegramBadRequest):
-                await message.reply(f"{rsmile} {user.link},Вы вытянули {player_hand[-1]}:"
-                                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
-                                    f"{text_player}"
-                                    f"{text_player2}"
-                                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                                    f"\n 1️⃣ {dealer_hand[0]}"
-                                    ,
-                                    disable_web_page_preview=True)
-
-                newgamedata_dict = {"deck": deck, 'player_hand': player_hand, 'player_hand2': player_hand2,
-                                    'dealer_hand': dealer_hand}
-                await fsm_storage.update_data(bot=bot, data=newgamedata_dict, key=StorageKey(
-                    user_id=message.from_user.id,
-                    chat_id=message.from_user.id,
-                    bot_id=bot.id))
-                await fsm_storage.set_state(bot=bot, state=BlackjackGame.waiting_for_action2, key=StorageKey(
-                    user_id=message.from_user.id,
-                    chat_id=message.from_user.id,
-                    bot_id=bot.id))
-
-        return
-    if action == 'стоп':
-        dealer_hand_value = get_hand_value(dealer_hand)
-        while dealer_hand_value < 17:
-            dealer_hand.append(deck.pop())
-            dealer_hand_value = get_hand_value(dealer_hand)
-        result = await check_result(player_hand, player_hand2, dealer_hand, user.id, summ5)
-        with suppress(TelegramBadRequest):
-            await message.reply(result,
-
-                                disable_web_page_preview=True)
-            await state.clear()
-        return
 
 
 @router.message(Trigger(["бд еще", "бд стоп", "бд удвоить"]),
                 BlackjackGame.waiting_for_action3)
 async def action3_blackjack(message: Message, state: FSMContext,
                             fsm_storage: BaseStorage, bot: Bot):
-    data = await fsm_storage.get_data(bot=bot, key=StorageKey(
-        user_id=message.from_user.id,
-        chat_id=message.from_user.id,
-        bot_id=bot.id))
-    insurance = data.get("insurance")
-    summ5 = data.get("summ")
-    deck = data.get("deck")
+    flood = await flood_handler_bj(message)
+    if flood:
+        data = await fsm_storage.get_data(bot=bot, key=StorageKey(
+            user_id=message.from_user.id,
+            chat_id=message.from_user.id,
+            bot_id=bot.id))
+        insurance = data.get("insurance")
+        summ5 = data.get("summ")
+        deck = data.get("deck")
 
-    player_hand = data.get("player_hand")
-    dealer_hand = data.get("dealer_hand")
-    action = message.text.split()[1]
-    user = User(user=message.from_user)
-    if user.balance < summ5 + insurance:
-        return await message.answer('❌ Ошибка. Недостаточно денег на руках для ставки! 💸'
-                                    f'💰Требуется: {to_str3(summ5 + insurance)} ', show_alert=True)
-    smile = ['♠', '🃏', '♣', '♥', '♦', '🎴']
-    rsmile = random.choice(smile)
-    if action == "еще":
-        player_hand.append(deck.pop())
-        player_hand_value = get_hand_value(player_hand)
-        text_player = '➖ 1-я рука:\n'
-        for index, cards in enumerate(player_hand, start=1):
-            emoji = ''.join(numbers_emoji[int(i)] for i in str(index))
-            text_player += f'  {emoji} {cards}\n'
-        if player_hand_value > 21:
+        player_hand = data.get("player_hand")
+        dealer_hand = data.get("dealer_hand")
+        action = message.text.split()[1]
+        user = User(user=message.from_user)
+        if user.balance < summ5 + insurance:
+            return await message.answer('❌ Ошибка. Недостаточно денег на руках для ставки! 💸'
+                                        f'💰Требуется: {to_str3(summ5 + insurance)} ', show_alert=True)
+        smile = ['♠', '🃏', '♣', '♥', '♦', '🎴']
+        rsmile = random.choice(smile)
+        if action == "еще":
+            player_hand.append(deck.pop())
+            player_hand_value = get_hand_value(player_hand)
+            text_player = '➖ 1-я рука:\n'
+            for index, cards in enumerate(player_hand, start=1):
+                emoji = ''.join(numbers_emoji[int(i)] for i in str(index))
+                text_player += f'  {emoji} {cards}\n'
+            if player_hand_value > 21:
+                with suppress(TelegramBadRequest):
+
+                    await message.reply(f"{rsmile} {user.link},Вы вытянули {player_hand[-1]}: "
+                                        f"\n🎫 Ваша рука: {player_hand_value}\n"
+                                        f"{text_player}"
+                                        f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                                        f"\n 1️⃣ {dealer_hand[0]}"
+                                        f"\nПровал! Вы проиграли!\n"
+                                        f"вы потеряли {to_str(summ5)}!",
+
+                                        disable_web_page_preview=True)
+                    user.edit('balance', user.balance - summ5 + insurance)
+                    await state.clear()
+                return
+            else:
+                with suppress(TelegramBadRequest):
+                    await message.reply(f"{rsmile} {user.link},Вы вытянули {player_hand[-1]}:"
+                                        f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
+                                        f"{text_player}"
+                                        f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                                        f"\n 1️⃣ {dealer_hand[0]}"
+                                        ,
+                                        disable_web_page_preview=True)
+                    newgamedata_dict = {"deck": deck, 'player_hand': player_hand,
+                                        'dealer_hand': dealer_hand}
+                    await fsm_storage.update_data(bot=bot, data=newgamedata_dict, key=StorageKey(
+                        user_id=message.from_user.id,
+                        chat_id=message.from_user.id,
+                        bot_id=bot.id))
+                    await fsm_storage.set_state(bot=bot, state=BlackjackGame.waiting_for_action3, key=StorageKey(
+                        user_id=message.from_user.id,
+                        chat_id=message.from_user.id,
+                        bot_id=bot.id))
+                return
+        if action == 'стоп':
+            dealer_hand_value = get_hand_value(dealer_hand)
+            while dealer_hand_value < 17:
+                dealer_hand.append(deck.pop())
+                dealer_hand_value = get_hand_value(dealer_hand)
+            result = await check_win(player_hand, dealer_hand, user.id, summ5, insurance)
             with suppress(TelegramBadRequest):
-
-                await message.reply(f"{rsmile} {user.link},Вы вытянули {player_hand[-1]}: "
-                                    f"\n🎫 Ваша рука: {player_hand_value}\n"
-                                    f"{text_player}"
-                                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                                    f"\n 1️⃣ {dealer_hand[0]}"
-                                    f"\nПровал! Вы проиграли!\n"
-                                    f"вы потеряли {to_str(summ5)}!",
+                await message.reply(result,
 
                                     disable_web_page_preview=True)
-                user.edit('balance', user.balance - summ5 + insurance)
                 await state.clear()
             return
-        else:
+        if action == 'удвоить':
+            if user.balance < summ5 * 2 + insurance:
+                text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
+                text_dil = f'{await get_numerate_cards(dealer_hand)}'
+                with suppress(TelegramBadRequest):
+                    return await message.reply(
+                        f"{rsmile} {user.link},Для удвоения требуется({to_str(summ5 * 2)}) + Cтраховка:"
+                        f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
+                        f"{text_player}"
+
+                        f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                        f"\n {text_dil}"
+                        ,
+
+                        disable_web_page_preview=True)
+                return
+            player_hand.append(deck.pop())
+            dealer_hand_value = get_hand_value(dealer_hand)
+            while dealer_hand_value < 17:
+                dealer_hand.append(deck.pop())
+                dealer_hand_value = get_hand_value(dealer_hand)
             with suppress(TelegramBadRequest):
-                await message.reply(f"{rsmile} {user.link},Вы вытянули {player_hand[-1]}:"
-                                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
-                                    f"{text_player}"
-                                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                                    f"\n 1️⃣ {dealer_hand[0]}"
-                                    ,
+                result = await check_win(player_hand, dealer_hand, user.id, summ5 * 2, insurance)
+                await message.reply(result,
                                     disable_web_page_preview=True)
-                newgamedata_dict = {"deck": deck, 'player_hand': player_hand,
-                                    'dealer_hand': dealer_hand}
-                await fsm_storage.update_data(bot=bot, data=newgamedata_dict, key=StorageKey(
-                    user_id=message.from_user.id,
-                    chat_id=message.from_user.id,
-                    bot_id=bot.id))
-                await fsm_storage.set_state(bot=bot, state=BlackjackGame.waiting_for_action3, key=StorageKey(
-                    user_id=message.from_user.id,
-                    chat_id=message.from_user.id,
-                    bot_id=bot.id))
-            return
-    if action == 'стоп':
-        dealer_hand_value = get_hand_value(dealer_hand)
-        while dealer_hand_value < 17:
-            dealer_hand.append(deck.pop())
-            dealer_hand_value = get_hand_value(dealer_hand)
-        result = await check_win(player_hand, dealer_hand, user.id, summ5, insurance)
-        with suppress(TelegramBadRequest):
-            await message.reply(result,
 
-                                disable_web_page_preview=True)
-            await state.clear()
+            return await state.clear()
+
+
+last_use_bj = {}
+
+
+async def flood_handler_bj(message: Message):
+    if message.from_user.is_bot == True:
         return
-    if action == 'удвоить':
-        if user.balance < summ5 * 2 + insurance:
-            text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
-            text_dil = f'{await get_numerate_cards(dealer_hand)}'
-            with suppress(TelegramBadRequest):
-                return await message.reply(
-                    f"{rsmile} {user.link},Для удвоения требуется({to_str(summ5 * 2)}) + Cтраховка:"
-                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}\n"
-                    f"{text_player}"
-
-                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                    f"\n {text_dil}"
-                    ,
-
-                    disable_web_page_preview=True)
-            return
-        player_hand.append(deck.pop())
-        dealer_hand_value = get_hand_value(dealer_hand)
-        while dealer_hand_value < 17:
-            dealer_hand.append(deck.pop())
-            dealer_hand_value = get_hand_value(dealer_hand)
-        with suppress(TelegramBadRequest):
-            result = await check_win(player_hand, dealer_hand, user.id, summ5 * 2, insurance)
-            await message.reply(result,
-                                disable_web_page_preview=True)
-
-        return await state.clear()
+    if last_use_bj.get(message.from_user.id):
+        if time.time() - last_use_bj[message.from_user.id] < 1:
+            return False
+    last_use_bj[message.from_user.id] = time.time()
+    return True
 
 
 @router.message(Trigger(["блэкджек", "бд"]))

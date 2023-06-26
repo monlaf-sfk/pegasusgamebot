@@ -71,8 +71,7 @@ async def flood_handler2(message: Message):
     if message.from_user.is_bot == True:
         return
     if last_use2.get(message.from_user.id):
-        if time.time() - last_use2[message.from_user.id] < 3:
-            await message.reply("⏰ Играть можно раз в 3 сек !")
+        if time.time() - last_use2[message.from_user.id] < 1.5:
             return False
     last_use2[message.from_user.id] = time.time()
     return True
