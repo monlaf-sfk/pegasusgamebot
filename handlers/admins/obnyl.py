@@ -75,7 +75,7 @@ async def obnyn_user_handler(message: Message):
                 f"bonus ='{datetime.now().strftime('%d-%m-%Y %H:%M:%S')}', lock = FALSE, credit = 0, credit_time = NULL, energy = 10, energy_time =" \
                 f"NULL, xp = 0, sell_count = 0, level = 0, job_index = 0, job_time = NULL," \
                 f" work_time = NULL, prefix = NULL, last_vidacha = NULL," \
-                f" last_rob = NULL, shield_count = 0, autonalogs = FALSE, health = 100,cases = '',state_ruletka=NULL WHERE id={to_user.id};\n"
+                f" last_rob = NULL, shield_count = 0, autonalogs = FALSE, health = 100,cases = '',state_ruletka=NULL, bitcoins=0 WHERE id={to_user.id};\n"
         query += f'DELETE FROM airplanes WHERE owner={to_user.id};\n' \
                  f'DELETE FROM bitcoin WHERE owner={to_user.id};\n' \
                  f'DELETE FROM businesses WHERE owner={to_user.id};\n' \
