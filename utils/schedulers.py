@@ -1,11 +1,16 @@
+import decimal
 import time
 from contextlib import suppress
 from datetime import datetime, timedelta
 
-from aiogram.exceptions import TelegramBadRequest
+import asyncio
+
+import numpy as np
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from psycopg2 import Error, OperationalError
+from psycopg2.extras import execute_values
 
 import config
 from config import donates, set_bitcoin_price, bitcoin_price, uah_price, set_uah_price, set_euro_price, euro_price
@@ -14,9 +19,7 @@ from loader import bot
 from utils.bosses import bosses
 
 from utils.items.items import item_case
-from utils.jobs.jobs import jobs, levels
 
-from utils.main.cars import cars
 from utils.main.cash import to_str
 from utils.main.db import sql
 
@@ -24,7 +27,7 @@ from threading import Lock
 
 from utils.main.users import User
 from utils.promo.promo import Promocode, all_promo
-from utils.main.moto import motos
+
 import random
 import string
 
@@ -39,7 +42,7 @@ async def limit_check():
             cursor = sql.conn.cursor()
             query = ''
             data = sql.execute('SELECT id, donate_source FROM users WHERE last_vidacha'
-                               f" IS NOT NULL AND TIMESTAMP without time zone '{datetime.now().strftime('%d-%m-%Y %H:%M:%S')}' -  last_vidacha >= '{timedelta(minutes=1439)}'",
+                               f" IS NOT NULL AND current_timestamp - last_vidacha >= interval '1 day';",
                                False, True)
         if data != None:
             for i in data:
@@ -90,9 +93,12 @@ async def deposit_check():
             sql.executescript(cursor=cursor,
                               commit=True,
                               query=query)
-        query = f'UPDATE users SET credit_time = {time.time()}, bank = bank - cast(ROUND(credit / 10, ' \
-                f'0) as int) ' \
-                f'WHERE credit_time IS NOT NULL AND ({time.time()} - credit_time) >= 7200;\n'
+        query = f'UPDATE users SET credit_time = {time.time()}, \n' \
+                f'bank = ' \
+                f'CASE WHEN bank - cast(ROUND(credit / 10,0) as int)>=0  THEN bank - cast(ROUND(credit / 10,0) as int) ELSE bank END ,\n' \
+                f'balance = ' \
+                f'CASE WHEN NOT (bank - cast(ROUND(credit / 10,0) as int)>=0) AND (balance - cast(ROUND(credit / 10,0) as int)>=0) THEN balance - cast(ROUND(credit / 10,0) as int) ELSE balance END ' \
+                f'WHERE credit_time IS NOT NULL AND ({time.time()} - credit_time) >= 0;\n'
 
         query += f'UPDATE users SET energy = energy + 1, energy_time = {time.time()}' \
                  f' WHERE energy < 20 AND energy_time IS NOT NULL AND (' \
@@ -109,21 +115,24 @@ async def check_jobs():
     try:
         with lock:
             cursor = sql.conn.cursor()
-
-            query = 'SELECT id, job_index, level FROM users WHERE work_time' \
-                    f' IS NOT NULL AND (job_index > 0 OR (level > 6 AND level < 12)) AND ({time.time()} - ' \
-                    f'work_time) >= 3600'
-            users = sql.execute(query,
-                                False, True, cursor)
-
         query = f'UPDATE users SET job_time = {time.time()}, level = level + 1 WHERE ({time.time()} - job_time) >= ' \
                 f'43200;\n'
 
-        for user in users:
-            uid, index, level = user
-            job = jobs[index] if index > 0 else levels[level]
-            query += f'UPDATE users SET work_time = {time.time()}, bank = bank + {job["doxod"]} WHERE id = {uid};\n'
-
+        query += f'UPDATE users SET work_time = {time.time()}, ' \
+                 f'bank =  ' \
+                 f'CASE ' \
+                 f'WHEN job_index=1 THEN bank + 120000 ' \
+                 f'WHEN job_index=2 THEN bank + 90000 ' \
+                 f'WHEN job_index=3 THEN bank + 85000 ' \
+                 f'WHEN job_index=4 THEN bank + 64500 ' \
+                 f'WHEN job_index=5 THEN bank + 53500 ' \
+                 f'WHEN job_index=6 THEN bank + 42500 ' \
+                 f'WHEN job_index=7 THEN bank + 31500 ' \
+                 f'WHEN job_index=8 THEN bank + 20500 ' \
+                 f'ELSE bank END \n' \
+                 f'WHERE  work_time' \
+                 f' IS NOT NULL AND job_index > 0 AND ({time.time()} - ' \
+                 f'work_time) >= 3600'
         with lock:
             sql.executescript(cursor=cursor,
                               query=query,
@@ -135,28 +144,12 @@ async def check_jobs():
 
 async def cars_check():
     try:
-
         cursor = sql.conn.cursor()
-
-        query2 = f'SELECT  "index", nalog, owner FROM cars WHERE last is NOT NULL AND ' \
-                 f'({time.time()} - last) >= ' \
-                 f'3600 AND energy < 10'
         with lock:
-            result = sql.execute(query2, False, True, cursor=cursor)
+            query3 = f'UPDATE cars SET nalog = nalog + stock_nalog, ' \
+                     f'last = {time.time()}, energy = energy + 1 WHERE  last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*11 >= nalog AND energy < 10'
 
-        query3 = ''
-
-        for car_s in result:
-            index, nalog, owner = car_s
-            car = cars[index]
-            if nalog + car["nalog"] > car['limit']:
-                pass
-            else:
-                query3 += f'UPDATE cars SET nalog = nalog + {car["nalog"]}, ' \
-                          f'last = {time.time()}, energy = energy + 1 WHERE owner = {owner};\n'
-        if query3 != '':
-            with lock:
-                sql.executescript(query3, True, False, cursor=cursor)
+            sql.executescript(query3, True, False, cursor=cursor)
     except Exception as ex:
         print('cars_check:', ex)
 
@@ -166,7 +159,7 @@ async def houses_check():
         cursor = sql.conn.cursor()
         with lock:
             query3 = f'UPDATE houses SET nalog = nalog + stock_nalog, ' \
-                     f'last = {time.time()}, cash = ROUND(cash + stock_doxod) WHERE last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*11 >= nalog'
+                     f'last = {time.time()}, cash = ROUND(cash + stock_doxod) WHERE arenda IS TRUE AND last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*11 >= nalog'
             sql.executescript(query3, True, False, cursor=cursor)
     except Exception as ex:
         print('businesses_check:', ex)
@@ -186,26 +179,11 @@ async def businesses_check():
 async def yaxti_check():
     try:
         cursor = sql.conn.cursor()
-
-        query2 = f'SELECT "index", nalog, owner FROM yaxti WHERE last is NOT NULL AND ' \
-                 f'({time.time()} - last) >= ' \
-                 f'3600 AND energy < 10'
         with lock:
-            result = sql.execute(query2, False, True, cursor=cursor)
+            query3 = f'UPDATE yaxti SET nalog = nalog + stock_nalog, ' \
+                     f'last = {time.time()}, energy = energy + 1 WHERE last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*11 >= nalog AND energy < 10'
 
-        query3 = ''
-
-        for car_s in result:
-            index, nalog, owner = car_s
-            car = cars[index]
-            if nalog + car["nalog"] > car['limit']:
-                pass
-            else:
-                query3 += f'UPDATE yaxti SET nalog = nalog + {car["nalog"]}, ' \
-                          f'last = {time.time()}, energy = energy + 1 WHERE owner = {owner};\n'
-        if query3 != '':
-            with lock:
-                sql.executescript(query3, True, False, cursor=cursor)
+            sql.executescript(query3, True, False, cursor=cursor)
     except Exception as ex:
         print('yaxti_check:', ex)
 
@@ -213,53 +191,24 @@ async def yaxti_check():
 async def vertoleti_check():
     try:
         cursor = sql.conn.cursor()
-
-        query2 = f'SELECT "index", nalog, owner FROM vertoleti WHERE last is NOT NULL AND ' \
-                 f'({time.time()} - last) >= ' \
-                 f'3600 AND energy < 10'
         with lock:
-            result = sql.execute(query2, False, True, cursor=cursor)
+            query3 = f'UPDATE vertoleti SET nalog = nalog + stock_nalog, ' \
+                     f'last = {time.time()}, energy = energy + 1 WHERE last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*11 >= nalog AND energy < 10'
 
-        query3 = ''
-
-        for car_s in result:
-            index, nalog, owner = car_s
-            car = cars[index]
-            if nalog + car["nalog"] > car['limit']:
-                pass
-            else:
-                query3 += f'UPDATE vertoleti SET nalog = nalog + {car["nalog"]}, ' \
-                          f'last = {time.time()}, energy = energy + 1 WHERE owner = {owner};\n'
-        if query3 != '':
-            with lock:
-                sql.executescript(query3, True, False, cursor=cursor)
+            sql.executescript(query3, True, False, cursor=cursor)
     except Exception as ex:
         print('vertoleti_check:', ex)
 
 
 async def airplanes_check():
     try:
+
         cursor = sql.conn.cursor()
-
-        query2 = f'SELECT  "index", nalog, owner FROM airplanes WHERE last is NOT NULL AND ' \
-                 f'({time.time()} - last) >= ' \
-                 f'3600 AND energy < 10'
         with lock:
-            result = sql.execute(query2, False, True, cursor=cursor)
+            query3 = f'UPDATE airplanes SET nalog = nalog + stock_nalog, ' \
+                     f'last = {time.time()}, energy = energy + 1 WHERE last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*11 >= nalog AND energy < 10'
 
-        query3 = ''
-
-        for car_s in result:
-            index, nalog, owner = car_s
-            car = cars[index]
-            if nalog + car["nalog"] > car['limit']:
-                pass
-            else:
-                query3 += f'UPDATE airplanes SET nalog = nalog + {car["nalog"]}, ' \
-                          f'last = {time.time()}, energy = energy + 1 WHERE owner = {owner};\n'
-        if query3 != '':
-            with lock:
-                sql.executescript(query3, True, False, cursor=cursor)
+            sql.executescript(query3, True, False, cursor=cursor)
     except Exception as ex:
         print('airplanes_check:', ex)
 
@@ -267,26 +216,11 @@ async def airplanes_check():
 async def moto_check():
     try:
         cursor = sql.conn.cursor()
-
-        query2 = f'SELECT "index", nalog, owner FROM moto WHERE last is NOT NULL AND ' \
-                 f'({time.time()} - last) >= ' \
-                 f'3600 AND energy < 10'
         with lock:
-            result = sql.execute(query2, False, True, cursor=cursor)
+            query3 = f'UPDATE moto SET nalog = nalog + stock_nalog, ' \
+                     f'last = {time.time()}, energy = energy + 1 WHERE  last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*11 >= nalog AND energy < 10'
 
-        query3 = ''
-
-        for car_s in result:
-            index, nalog, owner = car_s
-            car = motos[index]
-            if nalog + car["nalog"] > car['limit']:
-                pass
-            else:
-                query3 += f'UPDATE moto SET nalog = nalog + {car["nalog"]}, ' \
-                          f'last = {time.time()}, energy = energy + 1 WHERE owner = {owner};\n'
-        if query3 != '':
-            with lock:
-                sql.executescript(query3, True, False, cursor=cursor)
+            sql.executescript(query3, True, False, cursor=cursor)
     except Exception as ex:
         print('moto_check:', ex)
 
@@ -319,21 +253,18 @@ async def btc_change():
         await set_uah_price(now)
 
 
-name_by_index = ['cars', 'airplanes', 'houses', 'businesses',
-                 'moto', 'vertoleti', 'yaxti', 'bitcoin']
-
-
 async def city_check():
     try:
         cursor = sql.conn.cursor()
 
         try:
-            query3 = f"UPDATE city SET workers=CAST (water->'2'->>'work_place' AS INTEGER) * CAST (water->'2'->>'count_build' AS INTEGER)" \
-                     f" + CAST (water->'1'->>'work_place' AS INTEGER) * CAST (water->'1'->>'count_build' AS INTEGER)+ " \
-                     f"CAST (energy->'2'->>'work_place' AS INTEGER) * CAST (energy->'2'->>'count_build' AS INTEGER)" \
-                     f"+ CAST (energy->'1'->>'work_place' AS INTEGER) * CAST (energy->'1'->>'count_build' AS INTEGER) " \
-                     f" WHERE happynes > 20;"
-            query3 += f"UPDATE city SET kazna=kazna+((taxes/100) * workers) WHERE happynes > 20;"
+            query3 = f"UPDATE city SET workers=" \
+                     "(CAST(water #>> '{2,work_place}' AS INTEGER) * CAST(water #>> '{2,count_build}' AS INTEGER))" \
+                     "  + (CAST(water #>> '{1,work_place}' AS INTEGER) * CAST(water #>> '{1,count_build}' AS INTEGER))" \
+                     "  + (CAST(energy #>> '{2,work_place}' AS INTEGER) * CAST(energy #>> '{2,count_build}' AS INTEGER))" \
+                     "  + (CAST(energy #>> '{1,work_place}' AS INTEGER) * CAST(energy #>> '{1,count_build}' AS INTEGER))" \
+                     f" WHERE happynes > 20 AND current_timestamp - last_online < interval '1 day';"
+            query3 += f"UPDATE city SET kazna=ROUND(kazna+(CAST(taxes AS DECIMAL) / 100 * workers)) WHERE happynes > 20  AND current_timestamp - last_online < interval '1 day';"
             with lock:
                 sql.executescript(query3, True, False, cursor=cursor)
         except Exception as ex:
@@ -342,48 +273,56 @@ async def city_check():
         try:
             query5 = f"UPDATE city SET citizens = CAST (house->'2'->>'capacity' AS INTEGER)* CAST (house->'2'->>'count_build' AS INTEGER) " \
                      f"+ CAST (house->'1'->>'capacity' AS INTEGER) * CAST (house->'1'->>'count_build' AS INTEGER)" \
-                     f"WHERE happynes > 20;"
+                     f"WHERE happynes > 20 AND current_timestamp - last_online < interval '1 day';"
             with lock:
                 sql.executescript(query5, True, False, cursor=cursor)
         except Exception as ex:
             print('city_check capacity:', ex)
         ##############################################################################################
 
-        query7 = f" UPDATE city SET happynes = 101-taxes-{random.uniform(0.01, 0.99)};"
+        query7 = f" UPDATE city SET happynes = 101-taxes-{random.uniform(0.01, 0.99)} WHERE  current_timestamp - last_online < interval '1 day';"
         with lock:
             sql.executescript(query7, True, False, cursor=cursor)
     except (Exception, Error) as error:
         print('city_check:', error)
 
 
+name_by_index = ['cars', 'airplanes', 'houses', 'businesses',
+                 'moto', 'vertoleti', 'yaxti', 'bitcoin']
+
+
 async def autonalog_check():
     with lock:
         query = 'SELECT id, bank FROM users WHERE autonalogs IS TRUE AND bank > 1000'
         data = sql.execute(query, False, True)
-        query2 = ''
+
+        update_queries = []
+        delete_queries = []
+
         for user_id, bank in data:
             owner = user_id
-            data = []
+            nalog_summ = 0
             for i in name_by_index:
-                x = sql.execute(f'SELECT nalog FROM {i} WHERE owner = {owner}',
-                                False, True)
+                x = sql.execute(f'SELECT nalog FROM {i} WHERE owner = %s',
+                                data=owner, fetch=True)
 
-                data.append(x[0][0] if len(x) > 0 else None)
-            if len(data) == 0:
-                continue
-            nalog = data
-            nalog_summ = sum(i for i in nalog if i is not None)
+                if x and x[0][0] is not None:
+                    nalog_summ += x[0][0]
+                    delete_queries.append((i, owner))
 
-            if nalog_summ > bank or nalog_summ == 0:
-                continue
+            if nalog_summ <= bank and nalog_summ != 0:
+                update_queries.append((nalog_summ, owner))
 
-            query2 += f'UPDATE users SET bank = bank - {nalog_summ} WHERE id = {owner};\n'
+        if update_queries:
 
-            for index, value in enumerate(nalog):
-                if value is not None:
-                    query2 += f'UPDATE {name_by_index[index]} SET nalog = 0 WHERE owner = {owner};\n'
-        if query2 != '':
-            sql.executescript(query2, True, False)
+            query = "UPDATE users SET bank = bank - %s WHERE id = %s;"
+            query2 = 'UPDATE %s SET nalog = 0 WHERE owner = %s;'
+            curs = sql.conn.cursor()
+            curs.executemany(query, update_queries)
+            for table_name, owner in delete_queries:
+                dynamic_query = query2 % (table_name, owner)
+                curs.execute(dynamic_query)
+            sql.commit()
 
 
 async def autopromo_handler():
@@ -428,12 +367,12 @@ async def auction_handler():
             if costumers == None:
                 query3 += f'UPDATE users SET coins = coins + {count} ' \
                           f'WHERE id = {seller};\n'
-                with suppress(TelegramBadRequest):
+                with suppress(TelegramBadRequest, TelegramForbiddenError):
                     await bot.send_message(
                         text=f'⚖️ Ваш лот №{uuid4} \nНе был продан за {to_str(price)}\n',
                         chat_id=seller)
 
-                with suppress(TelegramBadRequest):
+                with suppress(TelegramBadRequest, TelegramForbiddenError):
                     await bot.edit_message_text(
                         text=
                         f'<b>⚖️ Лот №{uuid4} не был продан</b>\n'
@@ -445,17 +384,17 @@ async def auction_handler():
             else:
                 query3 += f"UPDATE users SET balance=balance + {price - int((float(price) * 0.05))} WHERE id = {seller};"
                 query3 += f'UPDATE users SET coins = coins + {count} WHERE id = {costumers};\n'
-                with suppress(TelegramBadRequest):
+                with suppress(TelegramBadRequest, TelegramForbiddenError):
                     await bot.send_message(
                         text=f'⚖️ Твоя ставка 🪙x{count} стала победной за лот Лот №{uuid4}\n',
                         chat_id=costumers)
 
-                with suppress(TelegramBadRequest):
+                with suppress(TelegramBadRequest, TelegramForbiddenError):
                     await bot.send_message(
                         text=f'⚖️ Ваш лот №{uuid4} был продан за {to_str(price)}\n'
                              f'💰 Ты получил {to_str(price - int((float(price) * 0.05)))}<i>(Комиссия 5%)</i>',
                         chat_id=seller)
-                with suppress(TelegramBadRequest):
+                with suppress(TelegramBadRequest, TelegramForbiddenError):
                     await bot.edit_message_text(
                         text=
                         f'<b>⚖️ Лот №{uuid4} продан</b>\n'
@@ -506,36 +445,204 @@ async def boss_check():
                 fragments = random.randint(10, 25)
                 armory_inv = ArmoryInv(user_id)
                 armory_inv.editmany(tokens=armory_inv.tokens + tokens, fragments=armory_inv.fragments + fragments)
-                if index == 1:
+
+                if index <= 3:
                     user = User(id=user_id)
-                    user.cases = list(user.cases)
-                    user.set_case(item_id=3, x=1)
-                    with suppress(TelegramBadRequest):
+                    case_index = 4 - index
+                    case_count_key = f'{case_index}, count'
+
+                    sql.execute(
+                        "UPDATE users SET cases = jsonb_set(cases, "
+                        f"'{{{case_count_key}}}', "
+                        f"to_jsonb((cases->'{case_count_key}'->>'count')::int + 1)::text::jsonb) "
+                        f"WHERE id = {user.id}",
+                        commit=True
+                    )
+
+                    with suppress(TelegramBadRequest, TelegramForbiddenError):
                         await bot.send_message(user_id,
                                                text=f'За убийство босса {bosses[boss_id]["name"]} ты получаешь\n'
-                                                    f'🎁 {item_case[3]["name"]}, x{tokens}💠 и x{fragments}💦')
-                elif index == 2:
-                    user = User(id=user_id)
-                    user.cases = list(user.cases)
-                    user.set_case(item_id=2, x=1)
-                    with suppress(TelegramBadRequest):
-                        await bot.send_message(user_id,
-                                               text=f'За убийство босса {bosses[boss_id]["name"]} ты получаешь\n'
-                                                    f'🎁 {item_case[2]["name"]}, x{tokens}💠 и x{fragments}💦')
-                elif index == 3:
-                    user = User(id=user_id)
-                    user.cases = list(user.cases)
-                    user.set_case(item_id=1, x=1)
-                    with suppress(TelegramBadRequest):
-                        await bot.send_message(user_id,
-                                               text=f'За убийство босса {bosses[boss_id]["name"]} ты получаешь\n'
-                                                    f'🎁 {item_case[1]["name"]}, x{tokens}💠 и x{fragments}💦')
+                                                    f'🎁 {item_case[case_index]["name"]}, x{tokens}💠 и x{fragments}💦'
+                                               )
+
                 else:
-                    with suppress(TelegramBadRequest):
+                    with suppress(TelegramBadRequest, TelegramForbiddenError):
                         await bot.send_message(user_id,
                                                text=f'За убийство босса {bosses[boss_id]["name"]} ты получаешь\n'
-                                                    f'x{tokens}💠 и x{fragments}💦')
-            sql.execute(f"DELETE FROM user_bosses WHERE boss_id ={boss_id} ", commit=True)
+                                                    f'x{tokens}💠 и x{fragments}💦'
+                                               )
+
+            sql.execute(f"DELETE FROM user_bosses WHERE boss_id = {boss_id}", commit=True)
+
+
+async def clanwarprepare_check():
+    with lock:
+        sql.execute(
+            f"UPDATE ClanWars SET prepare=False WHERE time_war IS NOT NULL AND time_war - current_timestamp <= interval '3 hours'",
+            commit=True)
+
+
+async def clanwarfind_check():
+    with lock:
+        clans = sql.execute(f"SELECT * FROM ClanWarFind WHERE status='FINDING'",
+                            fetch=True)
+
+    if not clans:
+        return
+
+    clans_groups = [clans[i:i + 2] for i in range(0, len(clans), 2)]
+
+    for group in clans_groups:
+        if len(group) % 2 != 0:
+            continue
+        dt = datetime.now()
+        time_war = dt + timedelta(hours=6)
+        res = (group[0][3], group[1][3], group[0][4], group[1][4], 0, 0, True,
+               time_war.strftime('%d-%m-%Y %H:%M:%S'))
+        len_title = "%s," * (len(list(res)) - 1) + "%s"
+        sql.get_cursor().execute(f"INSERT INTO ClanWars VALUES(DEFAULT,{len_title})", res)
+        sql.execute(
+            f"UPDATE ClanWarFind SET end_time='{datetime.now().strftime('%d-%m-%Y %H:%M:%S')}',status='FINDED' WHERE clan_id={group[0][3]};"
+            f"UPDATE ClanWarFind SET end_time='{datetime.now().strftime('%d-%m-%Y %H:%M:%S')}',status='FINDED' WHERE clan_id={group[1][3]};",
+            commit=True)
+        owner = sql.execute(f"SELECT owner FROM Clans WHERE id={group[0][3]}",
+                            fetchone=True)[0]
+        owner2 = sql.execute(f"SELECT owner FROM Clans WHERE id={group[1][3]}",
+                             fetchone=True)[0]
+        with suppress(TelegramBadRequest):
+            await bot.send_message(chat_id=owner2, text='[КЛАНОВАЯ ВОЙНА]\n'
+                                                        f' Война началась! Противник - «{group[0][4]}» ⚔\n'
+                                                        '➖ У Вас есть 3 часа на начальную подготовку.\n'
+                                                        '➖ Участвуйте в одиночных боях и получайте дополнительные награды! \n',
+                                   disable_web_page_preview=True)
+        with suppress(TelegramBadRequest):
+            await bot.send_message(chat_id=owner, text='[КЛАНОВАЯ ВОЙНА]\n'
+                                                       f' Война началась! Противник - «{group[1][4]}» ⚔\n'
+                                                       '➖ У Вас есть 3 часа на начальную подготовку.\n'
+                                                       '➖ Участвуйте в одиночных боях и получайте дополнительные награды! \n',
+                                   disable_web_page_preview=True)
+
+
+async def clanwars_check():
+    with lock:
+        clan_sql = sql.execute(
+            f"SELECT id_first, id_second, name_first, name_second,rating_first,rating_second FROM ClanWars WHERE time_war IS NOT NULL "
+            f"AND prepare = False "
+            f"AND time_war - current_timestamp <= interval '6 hours'",
+            fetch=True)
+    if not clan_sql:
+        return
+
+    for clan in clan_sql:
+        clan_id_first, clan_id_second, name_first, name_second, rating_first, rating_second = clan
+        query = ''
+        if rating_first > rating_second:
+            games = 0
+            members_mine = sql.select_data(table='WarParticipants', title='clan_id', name=clan_id_first)
+            if members_mine:
+                for member in members_mine:
+                    games += member['attacks']
+            sql.execute(
+                f"UPDATE Clans SET win=win+1,last_attack={time.time()},rating = rating + 5000 + {games},kazna = kazna+{150_000_000}  WHERE id={clan_id_first};"
+                f"UPDATE Clans SET lose=lose+1,last_attack={time.time()},rating = rating + 1000,kazna = kazna+{50_000_000} WHERE id={clan_id_second};"
+                f"UPDATE ClanUsers SET rating = rating + 500 "
+                f"FROM WarParticipants WHERE WarParticipants.member_id = ClanUsers.user_id AND ClanUsers.clan_id={clan_id_first};"
+                f"UPDATE ClanUsers SET rating = rating + 100 "
+                f"FROM WarParticipants WHERE WarParticipants.member_id = ClanUsers.user_id AND ClanUsers.clan_id={clan_id_second}",
+                commit=True)
+            user_ids = sql.execute(query=f'SELECT user_id FROM ClanUsers WHERE clan_id={clan_id_first}', commit=False,
+                                   fetch=True)
+            for user in user_ids:
+                query += \
+                    "UPDATE users SET cases = jsonb_set(cases, '{5, count}', " \
+                    f"to_jsonb((cases->'5'->>'count')::int + 1)::text::jsonb) WHERE id={user['user_id']};"
+                with suppress(TelegramBadRequest, TelegramForbiddenError):
+                    await bot.send_message(user[0], text='⚔️[КЛАНОВАЯ ВОЙНА] Результаты:\n'
+                                                         f'🏅 Поздравляю с победой над кланом {name_first}!\n'
+                                                         '🎁 Выигрышные призы:\n'
+                                                         '🔥 Рейтинг клана: +5.000 ед.\n'
+                                                         '💰 Валюта: 150.000.000$\n'
+                                                         '👑 Рейтинг: +500 ед.\n'
+                                                         '🥇 Выигрышный кейс (1x)\n')
+                await asyncio.sleep(0.5)
+            user_ids2 = sql.execute(query=f'SELECT user_id FROM ClanUsers WHERE clan_id={clan_id_second}', commit=False,
+                                    fetch=True)
+            for user in user_ids2:
+                query += \
+                    "UPDATE users SET cases = jsonb_set(cases, '{6, count}', " \
+                    f"to_jsonb((cases->'6'->>'count')::int + 1)::text::jsonb) WHERE id={user['user_id']};"
+                with suppress(TelegramBadRequest, TelegramForbiddenError):
+                    await bot.send_message(user[0], text='⚔️[КЛАНОВАЯ ВОЙНА] Результаты:\n'
+                                                         '▶️ К сожалению, Ваш клан проиграл в этой войне!\n'
+                                                         '🎁 Утешительные призы:\n'
+                                                         '🔥 Рейтинг клана: +1.000 ед.\n'
+                                                         '💰 Валюта: 50.000.000$\n'
+                                                         '👑 Рейтинг: +100 ед.\n'
+                                                         '🥈 Утешительный кейс (1x)\n')
+                await asyncio.sleep(0.5)
+
+        elif rating_first < rating_second:
+
+            games = 0
+            members_mine = sql.select_data(table='WarParticipants', title='clan_id', name=clan_id_second)
+            if members_mine:
+                for member in members_mine:
+                    games += member['attacks']
+            sql.execute(
+                f"UPDATE Clans SET win=win+1,last_attack={time.time()},rating = rating + 5000 + {games},kazna = kazna+{150_000_000} WHERE id={clan_id_second};"
+                f"UPDATE Clans SET lose=lose+1,last_attack={time.time()},rating = rating + 1000,kazna = kazna+{50_000_000} WHERE id={clan_id_first};"
+                f"UPDATE ClanUsers SET rating = rating + 500 "
+                f"FROM WarParticipants WHERE WarParticipants.member_id = ClanUsers.user_id AND ClanUsers.clan_id={clan_id_second};"
+                f"UPDATE ClanUsers SET rating = rating + 100 "
+                f"FROM WarParticipants WHERE WarParticipants.member_id = ClanUsers.user_id AND ClanUsers.clan_id={clan_id_first}",
+                commit=True)
+            user_ids = sql.execute(query=f'SELECT user_id FROM ClanUsers WHERE clan_id={clan_id_second}', commit=False,
+                                   fetch=True)
+            for user in user_ids:
+                query += \
+                    "UPDATE users SET cases = jsonb_set(cases, '{5, count}', " \
+                    f"to_jsonb((cases->'5'->>'count')::int + 1)::text::jsonb) WHERE id={user['user_id']};"
+                with suppress(TelegramBadRequest, TelegramForbiddenError):
+                    await bot.send_message(user['user_id'], text='⚔️[КЛАНОВАЯ ВОЙНА] Результаты:\n'
+                                                                 f'🏅 Поздравляю с победой над кланом {name_first}!\n'
+                                                                 '🎁 Выигрышные призы:\n'
+                                                                 '🔥 Рейтинг клана: +5.000 ед.\n'
+                                                                 '💰 Валюта: 150.000.000$\n'
+                                                                 '👑 Рейтинг: +500 ед\n.'
+                                                                 '🥇 Выигрышный кейс (1x)\n')
+                await asyncio.sleep(0.5)
+            user_ids2 = sql.execute(query=f'SELECT user_id FROM ClanUsers WHERE clan_id={clan_id_first}', commit=False,
+                                    fetch=True)
+            for user in user_ids2:
+                query += \
+                    "UPDATE users SET cases = jsonb_set(cases, '{6, count}', " \
+                    f"to_jsonb((cases->'6'->>'count')::int + 1)::text::jsonb) WHERE id={user['user_id']};"
+                with suppress(TelegramBadRequest, TelegramForbiddenError):
+                    await bot.send_message(user['user_id'], text='⚔️[КЛАНОВАЯ ВОЙНА] Результаты:\n'
+                                                                 '▶️ К сожалению, Ваш клан проиграл в этой войне!\n'
+                                                                 '🎁 Утешительные призы:\n'
+                                                                 '🔥 Рейтинг клана: +1.000 ед.\n'
+                                                                 '💰 Валюта: 50.000.000$\n'
+                                                                 '👑 Рейтинг: +100 ед.\n'
+                                                                 '🥈 Утешительный кейс (1x)\n')
+                await asyncio.sleep(0.5)
+
+
+        else:
+            user_ids = sql.execute(
+                query=f'SELECT user_id FROM ClanUsers WHERE clan_id={clan_id_second} or clan_id={clan_id_first}',
+                commit=False,
+                fetch=True)
+            for user in user_ids:
+                with suppress(TelegramBadRequest, TelegramForbiddenError):
+                    await bot.send_message(user[0], text='⚔️[КЛАНОВАЯ ВОЙНА] Результаты:\n'
+                                                         '🟰 Ничья Кланы равны по силе !\n')
+                await asyncio.sleep(0.5)
+
+        sql.execute(f"DELETE FROM WarParticipants WHERE clan_id = {clan_id_first} or clan_id={clan_id_second};"
+                    f"DELETE FROM ClanWars WHERE id_first = {clan_id_first} and id_second={clan_id_second};"
+                    f'{query}',
+                    commit=True)
 
 
 job_defaults = {
@@ -545,6 +652,12 @@ job_defaults = {
 shedualer = AsyncIOScheduler(job_defaults=job_defaults)
 
 shedualer.add_job(boss_check, 'cron', minute='*', misfire_grace_time=1000)
+
+shedualer.add_job(clanwars_check, 'cron', minute='*', misfire_grace_time=1000)
+
+shedualer.add_job(clanwarfind_check, 'cron', minute='*', misfire_grace_time=1000)
+
+shedualer.add_job(clanwarprepare_check, 'cron', minute='*', misfire_grace_time=1000)
 
 shedualer.add_job(boss_spavn, 'interval', hours=3, misfire_grace_time=3600)
 

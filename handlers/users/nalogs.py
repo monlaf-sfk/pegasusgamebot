@@ -95,7 +95,7 @@ async def autonalog_handler(message: Message):
         else:
             x1 = 'Выключены 🚫'
         if len(arg) == 0:
-            return await message.reply(f'Авто-налоги были успешно <b>{x1}</b>\n'
+            return await message.reply(f'Авто-налоги статус: <b>{x1}</b>\n'
                                        )
         elif arg[0].lower().startswith('вкл'):
             now = True

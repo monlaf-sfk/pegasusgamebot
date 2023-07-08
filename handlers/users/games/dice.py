@@ -36,11 +36,15 @@ async def dice_handler(message: Message):
         summ = get_cash(arg[0] if arg[0].lower() not in ['всё', 'все'] else str(user.balance))
         index = int(arg[1])
 
+        if summ <= 0:
+            return await message.reply(f'❌ {user.link}, Ставка меньше или равна нулю', disable_web_page_preview=True)
+
         if user.balance < summ:
-            return await message.reply('❌ Ошибка. Недостаточно денег на руках для ставки! 💸',
+            return await message.reply(f'❌ {user.link}, Недостаточно денег на руках для ставки! 💸',
+                                       disable_web_page_preview=True,
                                        reply_markup=show_balance_kb.as_markup())
         elif index < 1 or index > 6:
-            return await message.reply('❌ Ошибка. Число должно быть от 1 до 6!')
+            return await message.reply(f'❌  {user.link}, Число должно быть от 1 до 6!', disable_web_page_preview=True)
 
         dice = (await message.reply_dice()).dice
         if dice.value != index:

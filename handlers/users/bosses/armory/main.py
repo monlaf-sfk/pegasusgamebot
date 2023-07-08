@@ -1,5 +1,6 @@
 from aiogram import flags
 from aiogram.enums import ContentType
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Message
 from aiogram_dialog import (
     Dialog, Window, LaunchMode, DialogManager, StartMode,
@@ -13,6 +14,7 @@ from aiogram_dialog.widgets.text import Const, Format
 
 from config import armory_img
 from handlers.users.bosses.armory import states
+from keyboard.main import check_ls_kb
 from utils.main.db import sql
 from utils.weapons.swords import ArmoryInv, Armory
 
@@ -22,7 +24,8 @@ async def product_getter(dialog_manager: DialogManager, **_kwargs):
     image = MediaAttachment(
         ContentType.PHOTO, file_id=MediaId(armory_img['armory_menu'])
     )
-    uniq_id = sql.execute("SELECT uniq_id FROM armory WHERE armed=True", fetchone=True)
+    uniq_id = sql.execute(
+        f"SELECT uniq_id FROM armory WHERE armed=True and user_id={dialog_manager.event.from_user.id}", fetchone=True)
     if uniq_id:
         armory = Armory(uniq_id)
         damage = armory.weapon['min_attack'] + armory.weapon['max_attack']
@@ -103,4 +106,8 @@ MAIN_MENU_BUTTON = Start(
 @flags.throttling_key('games')
 async def start_armory(message: Message, dialog_manager: DialogManager):
     # it is important to reset stack because user wants to restart everything
+    if message.chat.type != 'private':
+        return await message.reply('⚔ Оружейная работает только в Личных сообщениях',
+                                   reply_markup=check_ls_kb.as_markup())
+
     await dialog_manager.start(states.Armory.MAIN, mode=StartMode.NEW_STACK)

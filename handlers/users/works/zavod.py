@@ -6,12 +6,13 @@ from config import bot_name
 from keyboard.jobs import rabotat_kb
 from utils.items.items import works_items
 from utils.main.cash import to_str
+from utils.main.db import sql
 from utils.main.users import User
 import time
 from filters.users import flood_handler
 
 
-@flags.rate_limit(rate=1, key='zavod_handler')
+@flags.throttling_key('default')
 async def zavod_handler(message: Message):
     flood = await flood_handler(message)
     if flood:
@@ -24,35 +25,28 @@ async def zavod_handler(message: Message):
 
         user = User(user=message.from_user)
 
-        xd = [28]
+        xd = [7]
         if user.xp >= 150:
-            xd.append(29)
-        else:
-            xd.append(28)
+            xd.append(8)
+
         if user.xp >= 500:
-            xd.append(30)
-        else:
-            xd.append(28)
+            xd.append(9)
+
         if user.xp >= 1000:
-            xd.append(31)
-        else:
-            xd.append(28)
+            xd.append(10)
+
         if user.xp >= 5000:
-            xd.append(32)
-        else:
-            xd.append(28)
+            xd.append(11)
 
         if len(arg) == 0:
             text = ''
-            for index, i in enumerate(list(range(28, 33)), start=1):
+            for index, i in enumerate(list(range(7, 12)), start=1):
                 item = works_items[i]
                 a = f'<code>{index}</code>. <b>{item["name"]} {item["emoji"]}</b> - {to_str(item["sell_price"])} (💡️ ' \
                     f'{item["xp"]})\n'
-
                 if i in xd:
                     text += a
-                else:
-                    text += a
+
             return await message.reply(f'⛏️ Доступные вам механки:\n' + text + '\n\n'
                                        + f'⚡ Энергия: {user.energy}, 💡️ Опыт: {user.xp}',
                                        reply_markup=rabotat_kb.as_markup())
@@ -81,11 +75,11 @@ async def zavod_handler(message: Message):
                     completed[i] = len(item_counts)
                     item_counts.append(random.randint(1, 30) if i not in [1, 5, 6, 7, 8, 10] else random.randint(1, 10))
 
-            user.items = list(user.items)
-
-            item_id = list(completed.keys())
-
-            user.set_item_many(item_ids=item_id, counts=item_counts)
+            count_user = user.items[f'{item_id[0]}']['count'] + item_counts[0]
+            sql.execute(
+                "UPDATE users SET items = jsonb_set(items, "
+                f"'{{{item_id[0]}, count}}', "
+                f"'{count_user}') WHERE id={user.id}", commit=True)
 
             text = ''
             for i, index in completed.items():

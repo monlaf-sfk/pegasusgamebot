@@ -114,7 +114,9 @@ async def marry_handler(message: Message):
 
             if summ <= 0:
                 return await message.reply('❌ Минимум $1')
-
+            if user.payban:
+                return await message.reply(f'❌ {user.link},На ваш аккаунт наложено ограничение на переводы !',
+                                           disable_web_page_preview=True)
             elif summ > marry.balance:
                 return await message.reply('❌ Недостаточно средств на счету семьи!')
 
@@ -139,7 +141,9 @@ async def marry_handler(message: Message):
 
             elif summ > user.balance:
                 return await message.reply('❌ Недостаточно средств на руках!')
-
+            if user.payban:
+                return await message.reply(f'❌ {user.link},На ваш аккаунт наложено ограничение на переводы !',
+                                           disable_web_page_preview=True)
             sql.executescript(f'UPDATE users SET balance = balance - {summ} WHERE id = {message.from_user.id};\n'
                               f'UPDATE marries SET balance = balance + {summ} WHERE (user1 = {message.from_user.id}) OR (user2 = {message.from_user.id})',
                               True, False)

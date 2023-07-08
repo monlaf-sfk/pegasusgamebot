@@ -53,17 +53,18 @@ class Yaxta:
         self.source: tuple = sql.select_data(user_id, 'owner', True, 'yaxti')
         if self.source is None:
             raise Exception('Not have yaxta')
-        self.index: int = self.source[0]
+        self.owner: int = self.source[0]
+        self.index: int = self.source[1]
         self.yaxta = yaxti[self.index]
         self.name: str = self.yaxta["name"]
-        self.number: str = self.source[1]
-        self.cash: int = self.source[2]
-        self.last: int = self.source[3]
-        self.nalog: int = self.source[4]
-        self.fuel: int = self.source[5]
-        self.energy: int = self.source[6]
-        self.owner: int = self.source[7]
+        self.number: str = self.source[2]
+        self.cash: int = self.source[3]
+        self.last: int = self.source[4]
+        self.nalog: int = self.source[5]
+        self.fuel: int = self.source[6]
+        self.energy: int = self.source[7]
         self.time_buy: datetime = datetime.strptime(self.source[8], '%d-%m-%Y %H:%M:%S')
+        self.stock_nalog: int = self.source[9]
 
     @property
     def text(self):
@@ -100,8 +101,8 @@ class Yaxta:
     @staticmethod
     def create(user_id, yaxta_index):
         global all_yaxti_
-        res = (yaxta_index, None, 0, None, 0, yaxti[yaxta_index]["fuel"], 10, user_id,
-               datetime.now().strftime('%d-%m-%Y %H:%M:%S'))
+        res = (user_id, yaxta_index, None, 0, None, 0, yaxti[yaxta_index]["fuel"], 10,
+               datetime.now().strftime('%d-%m-%Y %H:%M:%S'), yaxti[yaxta_index]["nalog"])
         sql.insert_data([res], 'yaxti')
         all_yaxti_.append(res[0])
         return True

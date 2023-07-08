@@ -18,20 +18,15 @@ numbers_emoji = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣
 @flags.throttling_key('default')
 async def airplanes_list_handler(message: Message):
     text = '✈️Список самолетов:\n'
-    asd = sql.execute(f'SELECT sell_count FROM users WHERE id = {message.from_user.id}', False, True)[0][0]
-    if asd is None:
-        asd = 0
-    xa = asd = float(f'0.{asd}')
+
     for index, i in airplanes.items():
         emoji = ''.join(numbers_emoji[int(i)] for i in str(index))
-        price = i["price"] - int(i["price"] * xa)
+
         text += f'<code>{emoji}</code>.{i["name"]}\n' \
-                f'💵 Цена: {to_str(price)} \n' \
+                f'💵 Цена: {to_str(i["price"])} \n' \
                 f'💲 Налог: {to_str(i["nalog"])}\n\n'
-    return await message.reply(
-        f'<i>(Ваша скидка: x{asd})</i>\n\n'
-        + text + '\nИспользуйте: <code>Самолёт купить (номер)</code> чтобы купить!',
-        reply_markup=buy_airplane_kb.as_markup())
+    return await message.reply(text + '\nИспользуйте: <code>Самолёт купить (номер)</code> чтобы купить!',
+                               reply_markup=buy_airplane_kb.as_markup())
 
 
 @flags.throttling_key('default')
@@ -71,19 +66,16 @@ async def airplanes_handler(message: Message):
                 i = airplanes[int(arg[1])]
             except:
                 return await message.reply('❌ Ошибка. Неверный номер самолёты! 1-4')
-            xa = sql.execute(f'SELECT sell_count, balance FROM users WHERE id = {message.from_user.id}', False, True)[0]
-            balance = xa[1]
-            xa = xa[0]
-            if xa is None:
-                xa = 0
-            xa = float(f'0.{xa}')
-            price = i["price"] - int(i["price"] * xa)
+            balance = \
+                sql.execute(f'SELECT balance FROM users WHERE id = {message.from_user.id}', commit=False,
+                            fetchone=True)[0]
+            price = i["price"]
 
             if balance < price:
                 return await message.reply(
                     f'💲 На руках недостаточно денег для покупки, нужно: {to_str(price)}')
             Airplane.create(user_id=message.from_user.id, airplane_index=int(arg[1]))
-            sql.execute(f'UPDATE users SET balance = balance - {price}, sell_count = 0 WHERE id ='
+            sql.execute(f'UPDATE users SET balance = balance - {price}, WHERE id ='
                         f' {message.from_user.id}', True)
             await message.reply(f'✅ Вы успешно приобрели самолёт <b>{i["name"]}</b> за'
                                 f' {to_str(price)}', reply_markup=show_airplane_kb.as_markup())
@@ -132,22 +124,16 @@ async def airplanes_handler(message: Message):
 
         elif arg[0].lower() in ['починить', 'чинить', 'починка']:
             items = sql.execute(f'SELECT items FROM users WHERE id = {message.from_user.id}', False, True)[0][0]
-            if '22:' not in items:
-                return await message.reply('❌ У вас нет <b>Болтик 🔩</b> (x10) в инвентаре!',
-                                           reply_markup=show_inv_kb.as_markup())
-            count = int(items.split('22:')[1].split(',')[0])
-            if count < 10:
-                return await message.reply(f'❌ Не хватает {10 - count} <b>Болтиков 🔩</b> для починки!',
-                                           reply_markup=show_inv_kb.as_markup())
-            user_items = [[int(x.split(':')[0]), int(x.split(':')[1])] for x in items.split(',') if x]
-            for index, i in enumerate(user_items):
-                if i[0] == 22:
-                    break
-            user_items[index] = [22, i[1] - 10]
-            if (i[1] - 10) <= 0:
-                user_items.remove(user_items[index])
-            str_items = ','.join(f'{x[0]}:{x[1]}' for x in user_items if x)
-            sql.executescript(f"UPDATE users SET items = '{str_items}' WHERE id = {message.from_user.id};\n"
+
+            if items['8']['count'] < 10:
+                return await message.reply(
+                    f"❌ Не хватает {10 - items['8']['count']} <b>Болтиков 🔩</b> для починки!'",
+                    reply_markup=show_inv_kb.as_markup())
+
+            count_items = items['8']['count'] - 10
+            sql.executescript(f"UPDATE users SET items = jsonb_set(items, "
+                              "'{8, count}', "
+                              f"'{count_items}') WHERE id={message.from_user.id};\n"
                               f'UPDATE airplanes SET fuel = fuel + 1 WHERE owner = {message.from_user.id};')
             await message.reply('✅ Самолёт восстановлен на +1%')
 

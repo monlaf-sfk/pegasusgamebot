@@ -5,7 +5,7 @@ from datetime import datetime
 
 import psycopg2
 from psycopg2 import Error, OperationalError
-from psycopg2.extras import RealDictCursor
+from psycopg2.extras import RealDictCursor, DictCursor
 
 import config
 from config import log
@@ -88,40 +88,44 @@ class Lsql:
                                      password=password,
                                      host=host,
                                      port=port,
-                                     dbname=dbname)
+                                     dbname=dbname,
+                                     cursor_factory=DictCursor)
         self.cursor = self.conn.cursor()
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS users(
             id NUMERIC PRIMARY KEY,
             name text ,username text ,first_name text ,reg_date text ,
             notifies BOOLEAN ,balance NUMERIC ,bank INT,deposit NUMERIC ,
-            items text ,deposit_date NUMERIC ,bonus text ,ref NUMERIC,refs NUMERIC ,
+            items jsonb ,deposit_date NUMERIC ,bonus text ,ref NUMERIC,refs NUMERIC ,
             lock BOOLEAN ,credit NUMERIC ,credit_time NUMERIC ,energy INT ,energy_time NUMERIC,
             xp NUMERIC ,sell_count INT,level NUMERIC ,job_index NUMERIC ,job_time NUMERIC , 
             work_time NUMERIC ,percent INT ,coins NUMERIC,donate_source text ,prefix text ,
             last_vidacha timestamp without time zone ,last_rob NUMERIC ,shield_count NUMERIC ,
-            autonalogs BOOLEAN,ban_source TEXT ,health NUMERIC  ,cases text,
+            autonalogs BOOLEAN,ban_source TEXT ,health NUMERIC  ,cases jsonb,
             state_ruletka text,nickban boolean,payban boolean,donate_videocards numeric,
             bitcoins numeric,
-            limitvidach NUMERIC, clan_teg boolean)
+            limitvidach NUMERIC, clan_teg boolean,blocked boolean)
         """)
         self.conn.commit()
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS computers(
+            owner NUMERIC PRIMARY KEY,index NUMERIC ,name text ,cash NUMERIC ,last NUMERIC ,strength NUMERIC ,progress NUMERIC)
+                """)
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS airplanes(
-            index NUMERIC ,number text ,cash NUMERIC ,last NUMERIC ,nalog NUMERIC ,fuel NUMERIC ,energy INT,owner NUMERIC PRIMARY KEY,time_buy text)
+            owner NUMERIC PRIMARY KEY,index NUMERIC ,number text ,cash NUMERIC ,last NUMERIC ,nalog NUMERIC ,fuel NUMERIC ,energy INT,time_buy text, stock_nalog NUMERIC)
         """)
         self.conn.commit()
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS vertoleti(
-            index NUMERIC ,number text ,cash NUMERIC ,last NUMERIC ,nalog NUMERIC ,fuel NUMERIC ,energy INT,owner NUMERIC PRIMARY KEY,time_buy text)
+            owner NUMERIC PRIMARY KEY,index NUMERIC ,number text ,cash NUMERIC ,last NUMERIC ,nalog NUMERIC ,fuel NUMERIC ,energy INT,time_buy text , stock_nalog NUMERIC)
         """)
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS yaxti(
-            index NUMERIC ,number text ,cash NUMERIC ,last NUMERIC ,nalog NUMERIC ,fuel NUMERIC ,energy INT,owner NUMERIC PRIMARY KEY,time_buy text)
+            owner NUMERIC PRIMARY KEY,index NUMERIC ,number text ,cash NUMERIC ,last NUMERIC ,nalog NUMERIC ,fuel NUMERIC ,energy INT,time_buy text , stock_nalog NUMERIC)
         """)
         self.conn.commit()
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS moto(
-            index NUMERIC ,number text ,cash NUMERIC ,last NUMERIC ,nalog NUMERIC ,fuel NUMERIC ,energy INT,owner NUMERIC PRIMARY KEY,time_buy text)
+            owner NUMERIC PRIMARY KEY,index NUMERIC ,number text ,cash NUMERIC ,last NUMERIC ,nalog NUMERIC ,fuel NUMERIC ,energy INT,time_buy text, stock_nalog NUMERIC)
         """)
 
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS cars(
-            index NUMERIC ,number text ,cash NUMERIC ,last NUMERIC ,nalog NUMERIC ,fuel NUMERIC ,energy INT,owner NUMERIC PRIMARY KEY,time_buy text)
+            owner NUMERIC PRIMARY KEY,index NUMERIC ,number text ,cash NUMERIC ,last NUMERIC ,nalog NUMERIC ,fuel NUMERIC ,energy INT,time_buy text, stock_nalog NUMERIC)
         """)
         self.conn.commit()
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS houses(
@@ -133,20 +137,53 @@ class Lsql:
         self.conn.commit()
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS city(
             owner NUMERIC PRIMARY KEY, 
-            name text ,kazna NUMERIC ,citizens NUMERIC ,happynes NUMERIC ,workers NUMERIC ,taxes INT,water jsonb ,energy jsonb ,road NUMERIC ,house jsonb )
+            name text ,kazna NUMERIC ,citizens NUMERIC ,happynes NUMERIC ,workers NUMERIC ,taxes INT,water jsonb ,energy jsonb ,road NUMERIC ,house jsonb, last_online timestamp without time zone )
         """)
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS marries(
             id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, 
             user1 NUMERIC ,user2 NUMERIC ,reg_date text ,balance NUMERIC ,last NUMERIC ,last_sex NUMERIC ,level INT,name text )
         """)
         self.conn.commit()
-        self.cursor.execute("""CREATE TABLE IF NOT EXISTS clans(
-            id NUMERIC PRIMARY KEY,
-            name text ,owner NUMERIC ,rating NUMERIC ,kazna NUMERIC ,win NUMERIC ,lose NUMERIC ,members NUMERIC ,type INT ,power NUMERIC,prefix text,level INT,invites text,reg_date text,last_attack NUMERIC)
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS Clans(
+            id BIGSERIAL PRIMARY KEY,
+            name text ,owner NUMERIC ,rating NUMERIC ,kazna NUMERIC ,win NUMERIC ,lose NUMERIC ,members NUMERIC ,type INT ,description text,prefix text,level INT,invites text,reg_date text,last_attack NUMERIC)
         """)
-        self.cursor.execute("""CREATE TABLE IF NOT EXISTS clan_users(
-            id_clan NUMERIC,id NUMERIC,rating NUMERIC ,status INT,items text,reg_date text)
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS ClanWars(
+                    war_id SERIAL PRIMARY KEY,
+                    id_first NUMERIC UNIQUE,
+                    id_second NUMERIC UNIQUE,
+                    name_first varchar(30),name_second varchar(30),
+                    rating_first NUMERIC,rating_second NUMERIC,
+                    prepare BOOL,
+                    time_war timestamp without time zone
+                    )
+                """)
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS WarParticipants(
+                            member_id NUMERIC PRIMARY KEY,
+                            clan_id BIGINT,
+                            war_id BIGINT,
+                            power NUMERIC,
+                            attacks NUMERIC,
+                            cooldown NUMERIC,
+                            FOREIGN KEY (clan_id) REFERENCES Clans (id),
+                            FOREIGN KEY (war_id) REFERENCES ClanWars (war_id)
+                        )""")
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS ClanWarFind(
+                                    id SERIAL PRIMARY KEY,
+                                    start_time TIMESTAMP NOT NULL,
+                                    end_time TIMESTAMP,
+                                    clan_id BIGINT,
+                                    clan_name varchar(30),
+                                    power NUMERIC,
+                                    status varchar(30),
+                                    FOREIGN KEY (clan_id) REFERENCES Clans (id)
+                                )""")
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS ClanUsers(
+            user_id NUMERIC PRIMARY KEY,
+            clan_id BIGINT,rating NUMERIC ,status INT,items jsonb,reg_date text,
+            FOREIGN KEY (clan_id) REFERENCES Clans (id))
         """)
+
         self.conn.commit()
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS uah(
             owner NUMERIC PRIMARY KEY,balance NUMERIC ,level NUMERIC )
@@ -183,9 +220,7 @@ class Lsql:
 
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS auction(
                             seller NUMERIC,uuid4 varchar(50),item_name text,count NUMERIC,price NUMERIC,costumers NUMERIC,time NUMERIC, message_id NUMERIC)""")
-        self.cursor.execute("""CREATE TABLE IF NOT EXISTS computers(
-                    index NUMERIC ,name text ,cash NUMERIC ,last NUMERIC ,strength NUMERIC ,progress NUMERIC,owner NUMERIC PRIMARY KEY)
-                """)
+
         self.conn.commit()
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS bosses(
                             id INT PRIMARY KEY,
@@ -301,17 +336,21 @@ class Lsql:
             write_admins_log(f'ERROR', f'{error}\nSQL:SELECT {column} FROM {table}')
             sql.get_rollback()
 
-    def execute(self, query: str, commit: bool = False, fetch: bool = False, cursor=None, fetchone: bool = False):
+    def execute(self, query: str, commit: bool = False, fetch: bool = False, cursor=None, fetchone: bool = False,
+                data: tuple = None):
         try:
             if cursor is None:
                 cursor = self.cursor
-            with lock:
-
-                cursor.execute(query)
+            if data:
+                cursor.execute(query, (data,))
+            else:
+                with lock:
+                    cursor.execute(query)
             if commit:
                 with lock:
                     self.conn.commit()
             with lock:
+
                 # write_admins_log(f'EXECUTE', f'{query}')
                 return cursor.fetchall() if fetch else cursor.fetchone() if fetchone else None
         except (Exception, Error, OperationalError) as error:

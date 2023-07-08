@@ -68,17 +68,18 @@ class Moto:
         self.source: tuple = sql.select_data(user_id, 'owner', True, 'moto')
         if self.source is None:
             raise Exception('Not have car')
-        self.index: int = self.source[0]
+        self.owner: int = self.source[0]
+        self.index: int = self.source[1]
         self.moto = motos[self.index]
         self.name: str = self.moto["name"]
-        self.number: str = self.source[1]
-        self.cash: int = self.source[2]
-        self.last: int = self.source[3]
-        self.nalog: int = self.source[4]
-        self.fuel: int = self.source[5]
-        self.energy: int = self.source[6]
-        self.owner: int = self.source[7]
+        self.number: str = self.source[2]
+        self.cash: int = self.source[3]
+        self.last: int = self.source[4]
+        self.nalog: int = self.source[5]
+        self.fuel: int = self.source[6]
+        self.energy: int = self.source[7]
         self.time_buy: datetime = datetime.strptime(self.source[8], '%d-%m-%Y %H:%M:%S')
+        self.stock_nalog: int = self.source[9]
 
     @property
     def text(self):
@@ -115,8 +116,8 @@ class Moto:
     @staticmethod
     def create(user_id, moto_index):
         global all_moto_
-        res = (moto_index, None, 0, None, 0, motos[moto_index]["fuel"], 10, user_id,
-               datetime.now().strftime('%d-%m-%Y %H:%M:%S'))
+        res = (user_id, moto_index, None, 0, None, 0, motos[moto_index]["fuel"], 10,
+               datetime.now().strftime('%d-%m-%Y %H:%M:%S'), motos[moto_index]["nalog"])
         sql.insert_data([res], 'moto')
         all_moto_.append(res[0])
         return True

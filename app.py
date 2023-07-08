@@ -4,7 +4,7 @@ import time
 from contextlib import suppress
 
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import Message, FSInputFile
+from aiogram.types import Message, FSInputFile, BufferedInputFile
 from aiogram import Router, F, flags
 
 from handlers.admins.pyrogram import get_user_id
@@ -171,10 +171,14 @@ async def fetch_handler(message):
         try:
             query = message.text[message.text.find(' '):]
             request = sql.executescriptSql(query, False, True)
-            bot_msg = await message.answer(f'🕘Please wait while me doing SQL request', parse_mode="Markdown")
-            if bot_msg:
-                with suppress(TelegramBadRequest):
-                    return await bot_msg.edit_text(f"{request}")
+            file = f'SQL: {request}\n'
+
+            for index, i in enumerate(request, start=1):
+                file += f'{index}. {i}\n'
+            text_file = BufferedInputFile(bytes(file, 'utf-8'), filename="fetch.txt")
+            with suppress(TelegramBadRequest):
+                await message.reply_document(document=text_file,
+                                             caption=f"Запрос {query}.")
         except Exception as e:
             await message.answer(f"❌ Возникла ошибка при изменении\n⚠️ Ошибка: {e}")
     else:

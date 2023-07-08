@@ -22,11 +22,12 @@ from handlers.users.bosses.armory.main import MAIN_MENU_BUTTON
 from utils.main.db import sql
 from utils.main.users import User
 from utils.weapons.swords import Armory, ArmoryInv
+from utils.weapons.weapon import weapons_item
 
 
 async def product_getter(dialog_manager: DialogManager, **_kwargs):
     user = User(id=dialog_manager.event.from_user.id)
-    list = [(f"{Armory.get_json(i[3], i[2])['name']}",
+    list = [(f"{weapons_item[i[3]][i[2]]['name']}",
              f"{i[0]}:{i[2]}:{i[3]}") for i in
             sql.execute(f"SELECT * FROM armory WHERE user_id={user.id} ORDER BY weapon_id DESC", fetch=True) if
             i[2] > 5 and i[5] == False]
@@ -75,9 +76,9 @@ async def disassemble_action(callback: CallbackQuery, button: Button,
                 armory_inv.edit('fragments', armory_inv.fragments - armory.weapon["upgrade_cost"])
                 if chance == 2:
                     armory.editmany(weapon_id=armory.weapon_id + 1,
-                                    durability=armory.get_json(armory.type, armory.weapon_id + 1)['max_durability'])
+                                    durability=armory.weapon['max_durability'])
                     await callback.answer('Успех!\n'
-                                          f'🗡 Получено оружие {armory.get_json(armory.type, armory.weapon_id + 1)["name"]}',
+                                          f'🗡 Получено оружие {armory.weapon["name"]}',
                                           show_alert=True)
                     dialog_manager.dialog_data["photo"] = armory_img['armory_menu']
                 else:
@@ -90,9 +91,9 @@ async def disassemble_action(callback: CallbackQuery, button: Button,
             if armory_inv.fragments >= armory.weapon["upgrade_cost"] * 2:
                 armory_inv.edit('fragments', armory_inv.fragments - armory.weapon["upgrade_cost"] * 2)
                 armory.editmany(weapon_id=armory.weapon_id + 1,
-                                durability=armory.get_json(armory.type, armory.weapon_id + 1)['max_durability'])
+                                durability=armory.weapon['max_durability'])
                 await callback.answer('Успех!\n'
-                                      f'🗡 Получено оружие {armory.get_json(armory.type, armory.weapon_id + 1)["name"]}',
+                                      f'🗡 Получено оружие {armory.weapon["name"]}',
                                       show_alert=True)
                 dialog_manager.dialog_data["photo"] = armory_img['armory_menu']
             else:

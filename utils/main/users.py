@@ -10,9 +10,11 @@ import time
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest
+from psycopg2._json import Json
 
 import config
 from utils.clan.clan import Clanuser, Clan
+from utils.items.items import item_case, works_items
 from utils.jobs.jobs import Job, levels
 from utils.main.cash import to_str
 from utils.main.db import sql, timetomin, timetostr
@@ -37,14 +39,16 @@ datetime_bonus = datetime(year=1920, month=1, day=1).strftime('%d-%m-%Y %H:%M:%S
 
 
 class User:
+
     @staticmethod
     def create(user_id: int, first_name: str = None, username: str = None, ref_id: int = None):
         global all_users_
         now_date = datetime.now()
         reg_date = now_date.strftime('%d-%m-%Y %H:%M:%S')
-        res = (user_id, None, username, first_name, reg_date, False, 5000, 0, 0, '', None,
+        res = (user_id, None, username, first_name, reg_date, False, 5000, 0, 0, Json(works_items), None,
                datetime_bonus, ref_id, 0, False, 0, None, 10, None,
-               0, 0, 0, 0, None, None, 0, 0, None, None, None, 0.0, 0, False, None, 100, '', None, False, False, 0, 0,
+               0, 0, 0, 0, None, None, 0, 0, None, None, None, 0.0, 0, False, None, 100, Json(item_case), None, False,
+               False, 0, 0,
                0, False, True)
         sql.insert_data([res])
         all_users_.append(res[0])
@@ -97,8 +101,7 @@ class User:
         self.balance: int = self.source[6]
         self.bank: int = self.source[7]
         self.deposit: int = self.source[8]
-        self.items: iter | list = ([int(x.split(':')[0]), int(x.split(':')[1])] for x in self.source[9].split(',') if
-                                   x and ':' in x)
+        self.items: dict = self.source[9]
         self.deposit_date: int | None = self.source[10]
         self.bonus: datetime = datetime.strptime(str(self.source[11]), '%d-%m-%Y %H:%M:%S')
         self.ref: int | None = self.source[12]
@@ -134,8 +137,7 @@ class User:
         self.autonalogs = bool(self.source[32])
         self.ban_source = self.source[33]
         self.health = float(self.source[34]) if float(self.source[34]) >= 0 else 0
-        self.cases: iter | list = ([int(x.split(':')[0]), int(x.split(':')[1])] for x in self.source[35].split(',') if
-                                   x and ':' in x)
+        self.cases: dict = self.source[35]
         self.state_ruletka: str = self.source[36]
         self.nickban = bool(self.source[37])
         self.payban = bool(self.source[38])
@@ -213,135 +215,6 @@ class User:
             bonus += self.refs * 5_000
         self.editmany(balance=self.balance + bonus, bonus=datetime.now().strftime('%d-%m-%Y %H:%M:%S'))
         return bonus
-
-    def get_item(self, item_index: int = None, item_id: int = None):
-        if item_id is not None:
-            item = None
-            for ind, i in enumerate(self.items):
-                if item_id == i[0]:
-                    item = i
-                    break
-            if item:
-                return item
-        else:
-            if item_index > 21:
-                self.works_items[item_index]
-            else:
-                return self.items[item_index]
-
-    def set_item(self, item_index: int = None, item_id: int = None, x: int = 1):
-        if item_id is not None:
-            item = None
-            for ind, i in enumerate(self.items):
-
-                if item_id == i[0]:
-                    item = i
-                    break
-            if item is None:
-                self.items.append([item_id, 0])
-                item = [item_id, 0]
-                ind = len(self.items) - 1
-
-            self.items[ind] = [item_id, item[1] + x]
-            if (item[1] + x) <= 0:
-                self.items.remove(self.items[ind])
-            self.edit('items', ','.join(f'{x[0]}:{x[1]}' for x in self.items), False)
-        else:
-            a = self.items[item_index]
-            if (a[1] + x) <= 0:
-                self.items.remove(a)
-            else:
-                self.items[item_index] = [a[0], a[1] + x]
-
-            self.edit('items', ','.join(f'{x[0]}:{x[1]}' for x in self.items), False)
-
-    def set_item_many(self, item_indexes: list = None, item_ids: list = None, counts: list = None):
-        if item_ids is not None:
-            for item_id_index, item_id in enumerate(item_ids):
-                item = None
-                for ind, i in enumerate(self.items):
-                    if item_id == i[0]:
-                        item = i
-                        break
-                if item is None:
-                    self.items.append([item_id, 0])
-                    item = [item_id, 0]
-                    ind = len(self.items) - 1
-                self.items[ind] = [item_id, item[1] + counts[item_id_index]]
-                if (item[1] + counts[item_id_index]) <= 0:
-                    self.items.remove(self.items[ind])
-            self.edit('items', ','.join(f'{x[0]}:{x[1]}' for x in self.items), False)
-        else:
-            for item_index_index, item_index in enumerate(item_indexes):
-                a = self.items[item_index]
-                if (a[1] + counts[item_index_index]) <= 0:
-                    self.items.remove(a)
-                else:
-                    self.items[item_index] = [a[0], a[1] + counts[item_index_index]]
-            self.edit('items', ','.join(f'{x[0]}:{x[1]}' for x in self.items), False)
-
-    def get_cases(self, item_index: int = None, item_id: int = None):
-
-        if item_id is not None:
-            item = None
-
-            for ind, i in enumerate(self.cases):
-                if item_id == i[0]:
-                    item = i
-                    break
-
-            if item:
-                return item
-        else:
-            return self.cases[item_index]
-
-    def set_case(self, item_index: int = None, item_id: int = None, x: int = 1):
-        if item_id is not None:
-            item = None
-            for ind, i in enumerate(self.cases):
-                if item_id == i[0]:
-                    item = i
-                    break
-            if item is None:
-                self.cases.append([item_id, 0])
-                item = [item_id, 0]
-                ind = len(self.cases) - 1
-            self.cases[ind] = [item_id, item[1] + x]
-            if (item[1] + x) <= 0:
-                self.cases.remove(self.cases[ind])
-            self.edit('cases', ','.join(f'{x[0]}:{x[1]}' for x in self.cases), False)
-        else:
-            a = self.cases[item_index]
-            if (a[1] + x) <= 0:
-                self.cases.remove(a)
-            else:
-                self.cases[item_index] = [a[0], a[1] + x]
-            self.edit('cases', ','.join(f'{x[0]}:{x[1]}' for x in self.cases), False)
-
-    def set_case_many(self, item_indexes: list = None, item_ids: list = None, counts: list = None):
-        if item_ids is not None:
-            for item_id_index, item_id in enumerate(item_ids):
-                item = None
-                for ind, i in enumerate(self.cases):
-                    if item_id == i[0]:
-                        item = i
-                        break
-                if item is None:
-                    self.cases.append([item_id, 0])
-                    item = [item_id, 0]
-                    ind = len(self.cases) - 1
-                self.cases[ind] = [item_id, item[1] + counts[item_id_index]]
-                if (item[1] + counts[item_id_index]) <= 0:
-                    self.cases.remove(self.cases[ind])
-            self.edit('cases', ','.join(f'{x[0]}:{x[1]}' for x in self.cases), False)
-        else:
-            for item_index_index, item_index in enumerate(item_indexes):
-                a = self.cases[item_index]
-                if (a[1] + counts[item_index_index]) <= 0:
-                    self.cases.remove(a)
-                else:
-                    self.cases[item_index] = [a[0], a[1] + counts[item_index_index]]
-            self.edit('cases', ','.join(f'{x[0]}:{x[1]}' for x in self.cases), False)
 
     @property
     def text(self):

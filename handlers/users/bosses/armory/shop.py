@@ -70,7 +70,7 @@ async def on_click(callback: CallbackQuery, button: Button,
 shop_armory_dialog = Dialog(
     Window(
         DynamicMedia("image"),
-        Format('"{name}, 🏪 Товары 💠 магазина\n\n'
+        Format('{name}, 🏪 Товары 💠 магазина\n\n'
                '⬆️ +1/+2 к мин./макс. урону - 💠 7 tokens\n'
                '💦 Фрагмент оружия x1 - 💠 35 tokens\n'
                '⚒️ Ремонтный набор - 💠 5 tokens\n\n'

@@ -6,13 +6,14 @@ from config import bot_name
 from keyboard.jobs import shaxta_kb
 from utils.items.items import works_items
 from utils.main.cash import to_str
+from utils.main.db import sql
 from utils.main.users import User
 import time
 from filters.users import flood_handler
 from utils.weapons.swords import ArmoryInv
 
 
-@flags.rate_limit(rate=1, key='mine_handler')
+@flags.throttling_key('default')
 async def mine_handler(message: Message):
     flood = await flood_handler(message)
     if flood:
@@ -25,27 +26,33 @@ async def mine_handler(message: Message):
 
         user = User(user=message.from_user)
 
-        xd = [22]
+        xd = [1]
         if user.xp >= 50:
-            xd.append(23)
+            xd.append(2)
         if user.xp >= 150:
-            xd.append(24)
+            xd.append(3)
         if user.xp >= 500:
-            xd.append(25)
+            xd.append(4)
         if user.xp >= 2000:
-            xd.append(26)
+            xd.append(5)
         if user.xp >= 3000:
-            xd.append(27)
+            xd.append(6)
         if user.xp >= 6000:
-            xd.append(28)
+            xd.append(7)
         if len(arg) == 0:
             text = ''
-            for index, i in enumerate(list(range(22, 28)), start=1):
+
+            for index, i in enumerate(list(range(1, 7)), start=1):
                 item = works_items[i]
-                text += f'<code>{index}</code>. <b>{item["name"]} {item["emoji"]}</b> - {to_str(item["sell_price"])} (💡️ ' \
-                        f'{item["xp"]})\n'
-            text += f'<code>7</code>. <b>Токены 💠</b> (💡️ ' \
-                    f'6000)\n'
+                a = f'<code>{index}</code>. <b>{item["name"]} {item["emoji"]}</b> - {to_str(item["sell_price"])} (💡️ ' \
+                    f'{item["xp"]})\n'
+                if i in xd:
+                    text += a
+
+            if 7 in xd:
+                text += f'<code>7</code>. <b>Токены 💠</b> (💡️ ' \
+                        f'6000)\n'
+
             return await message.reply(f'⛏️ Доступные ископаемые:\n' + text + '\n\n'
                                        + f'⚡ Энергия: {user.energy}, 💡️ Опыт: {user.xp}',
                                        reply_markup=shaxta_kb.as_markup())
@@ -65,7 +72,7 @@ async def mine_handler(message: Message):
 
             item_id = random.choices(xd, k=count, weights=w)
 
-            if item_id[0] != 28:
+            if item_id[0] != 8:
                 item_counts = []
                 completed = {}
                 for index, i in enumerate(item_id):
@@ -76,13 +83,13 @@ async def mine_handler(message: Message):
                         completed[i] = len(item_counts)
                         item_counts.append(
                             random.randint(1, 30) if i not in [1, 5, 6, 7, 8, 10] else random.randint(1, 10))
-
-                user.items = list(user.items)
-                item_id = list(completed.keys())
-                user.set_item_many(item_ids=item_id, counts=item_counts)
+                count_user = user.items[f'{item_id[0]}']['count'] + item_counts[0]
+                sql.execute(
+                    "UPDATE users SET items = jsonb_set(items, "
+                    f"'{{{item_id[0]}, count}}', "
+                    f"'{count_user}') WHERE id={user.id}", commit=True)
 
                 text = ''
-
                 for i, index in completed.items():
                     x = i
                     i = works_items[i]

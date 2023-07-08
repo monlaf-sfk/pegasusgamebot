@@ -1,8 +1,8 @@
+from datetime import datetime
 import re
 
 from aiogram import flags
 from aiogram.types import Message
-from psycopg2._json import Json
 
 from config import bot_name
 from keyboard.generate import show_city_kb, city_water_kb, city_electro_kb, city_road_kb, city_build_kb, city_house_kb
@@ -55,6 +55,7 @@ async def city_handler(message: Message):
             0].lower() else message.text.split()[2:]
         try:
             city = City(user_id=message.from_user.id)
+            city.edit('last_online', datetime.now().strftime('%d-%m-%Y %H:%M:%S'))
         except:
             city = None
             if len(arg) < 1 or arg[0].lower() != 'основать':
@@ -62,8 +63,8 @@ async def city_handler(message: Message):
         user = User(user=message.from_user)
         if len(arg) == 0:
             count_house = count_build(city.house)
-            count_energy = count_build(city.energy)
-            count_water = count_build(city.water)
+            count_energy = count_build_get(city.energy)
+            count_water = count_build_get(city.water)
             builds = city.get_count_build()
             happynes = city.happynes
             problems = ''
@@ -85,8 +86,8 @@ async def city_handler(message: Message):
                    f'👨🏻‍🔧 Работают: {city.workers}\n' \
                    f'💸 Налоги: {city.taxes}%\n' \
                    f'➖➖➖➖➖➖➖➖➖➖➖\n' \
-                   f'💧 Вода: {count_build_get(city.water)}/{"-" if count_house * 145 == 0 else count_house * 145} м³/сутки\n' \
-                   f'⚡ Энергия: {count_build_get(city.energy)}/{"-" if count_house * 165 == 0 else count_house * 165} МВт\n' \
+                   f'💧 Вода: {count_water}/{count_house * 145} м³/сутки\n' \
+                   f'⚡ Энергия: {count_energy}/{count_house * 165} МВт\n' \
                    f'🚙 Дороги: {city.road}\n' \
                    f'{problems if problems == "" else notification}\n' \
                    f'{problems}' \
@@ -163,7 +164,7 @@ async def city_handler(message: Message):
                     sql.execute(
                         "UPDATE city SET water = jsonb_set(water, "
                         f"'{{{item_id}, count_build}}', "
-                        f"'{count}')", commit=True)
+                        f"'{count}')  WHERE owner={user.id}", commit=True)
                     return await message.reply(f'✅ Вы успешно построили «{item["name"]}» '
                                                f'📌 Информация о здании:\n'
                                                f'  💧 Количество зданий: {count} шт.\n'
@@ -203,7 +204,7 @@ async def city_handler(message: Message):
                     sql.execute(
                         "UPDATE city SET energy = jsonb_set(energy, "
                         f"'{{{item_id}, count_build}}', "
-                        f"'{count}')", commit=True)
+                        f"'{count}') WHERE owner={user.id}", commit=True)
                     return await message.reply(f'✅ Вы успешно построили  «{item["name"]}»'
                                                f'📌 Информация о здании:\n'
                                                f' ⚡ Количество зданий: {count} шт.\n'
@@ -243,7 +244,7 @@ async def city_handler(message: Message):
                     sql.execute(
                         "UPDATE city SET house = jsonb_set(house, "
                         f"'{{{item_id}, count_build}}', "
-                        f"'{count}')", commit=True)
+                        f"'{count}') WHERE owner={user.id}", commit=True)
                     return await message.reply(f'✅ Вы успешно построили  «{item["name"]}»'
                                                f'📌 Информация о здании:\n'
                                                f' 👤 Количество зданий: {count} шт.\n'

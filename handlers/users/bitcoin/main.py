@@ -34,7 +34,7 @@ async def bitcoin_handler(message: Message):
                     if arg[1].isdigit():
                         summ = get_cash(arg[1])
                     else:
-                        raise Exception('123')
+                        return await message.reply('❌ Используйте: <code>Биткоин купить (кол-во)</code>')
                 except:
                     summ = user.bitcoins
                 if summ <= 0:
@@ -58,7 +58,7 @@ async def bitcoin_handler(message: Message):
                     xa = sql.execute(f'SELECT balance FROM users WHERE id = {message.from_user.id}', False, True)[0][0]
                     summ = get_cash(arg[1]) if arg[1].lower() not in ['всё', 'все'] else int(xa / to_usd(1))
                     if summ <= 0:
-                        raise Exception('123')
+                        return await message.reply('❌ Количество не может быть меньше 0')
                 except (ValueError, OverflowError):
                     return await message.reply('❌ Используйте: <code>Биткоин купить (кол-во)</code>')
 
@@ -103,8 +103,8 @@ async def videocards_handler(message: Message):
         try:
             count = int(arg[1])
             if count <= 0:
-                raise Exception('123')
-        except ValueError:
+                return await message.reply('❌ Количество видеокарт не может быть меньше 0')
+        except (ValueError, IndexError):
             return await message.reply('❌ Используйте: <code>Видеокарты купить (кол-во)</code>')
 
         cc = bitcoin.videocards if bitcoin.videocards > 0 else 1
@@ -164,7 +164,7 @@ async def ferma_handler(message: Message):
             try:
                 index = int(arg[1])
                 if index < 1 or index > len(bitcoins):
-                    raise Exception('123')
+                    return await message.reply('❌ Неверный номер фермы! 1-4')
             except:
                 return await message.reply('❌ Неверный номер фермы! 1-4')
             xa = sql.execute(f'SELECT balance FROM users WHERE id = {message.from_user.id}', False, True)[0][0]
@@ -198,7 +198,7 @@ async def ferma_handler(message: Message):
                 if arg[1].isdigit():
                     summ = get_cash(arg[1])
                 else:
-                    raise Exception('123')
+                    return await message.reply('❌ Используйте: <code>Ферма купить\продать\снять\налог (сумма)</code>')
             except:
                 summ = bitcoin.balance_
             if summ <= 0:

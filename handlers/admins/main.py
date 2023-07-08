@@ -120,8 +120,9 @@ async def profile_handler_admin(message: Message):
             f'🔒 Кошелёк: {"Закрыт" if user.lock else "Открыт"}\n' \
             f'⚡ Энергия: {user.energy}{xd}\n' \
             f'💡️ XP: {user.xp}\n' \
-            f'🎫 Скидка: x{user.sell_count}\n' \
-            f'⭐ BTC: <b>{btc.balance if btc else 0.0}</b>\n'
+            f'⭐ BTC: <b>{btc.balance if btc else 0.0}</b>\n' \
+        # f'🎫 Скидка: x{user.sell_count}\n' \
+
     try:
         text += f'⭐ Уровень: <b>{user.level_json.get("name")}</b>({user.level})\n'
     except:
@@ -148,9 +149,9 @@ async def profile_handler_admin(message: Message):
 
     text += f'💲 Налог в сумме: {to_str(nalog)}\n'
     text += f'➖➖➖➖➖➖➖➖➖➖➖➖\n' \
-            f'{"🚫 Ограничение на переводы" if user.payban else ""}' \
-            f'{"🚫 Ограничение на смену ника" if user.nickban else ""}' \
-            f'{"📛 ЧС проекта" if user.ban else ""}' \
+            f'{"🚫 Ограничение на переводы" if user.payban else ""}\n' \
+            f'{"🚫 Ограничение на смену ника" if user.nickban else ""}\n' \
+            f'{"📛 ЧС проекта" if user.ban else ""}\n' \
         if user.payban or user.nickban or user.ban else ''
 
     await bot.send_message(chat_id=message.chat.id,
@@ -544,6 +545,42 @@ async def other_zarefa_handler(message: Message):
         return await message.reply('❌ Ошибка.  меньше или равна нулю')
     sql.execute(f"UPDATE other SET zarefa={summ}", commit=True)
     return await message.reply(f"👤 Выдача за рефа: {to_str(summ)}")
+
+
+@flags.throttling_key('default')
+async def other_credit_handler(message: Message):
+    if message.from_user.id != owner_id:
+        return
+    arg = message.text.split()[1:] if not bot_name.lower() in message.text.split()[0].lower() else message.text.split()[
+                                                                                                   2:]
+    if len(arg) == 0:
+        return await message.reply('❌ Ошибка. Используйте: <code>/credit_limit (<i>ставка</i>)</code>')
+    try:
+        summ = get_cash(arg[0])
+    except:
+        summ = 0
+    if summ <= 0:
+        return await message.reply('❌ Ошибка.  меньше или равна нулю')
+    sql.execute(f"UPDATE other SET credit_limit={summ}", commit=True)
+    return await message.reply(f"👤 Кредит лимит: {to_str(summ)}")
+
+
+@flags.throttling_key('default')
+async def other_credit_percent_handler(message: Message):
+    if message.from_user.id != owner_id:
+        return
+    arg = message.text.split()[1:] if not bot_name.lower() in message.text.split()[0].lower() else message.text.split()[
+                                                                                                   2:]
+    if len(arg) == 0:
+        return await message.reply('❌ Ошибка. Используйте: <code>/credit_percent (<i>ставка</i>)</code>')
+    try:
+        summ = get_cash(arg[0])
+    except:
+        summ = 0
+    if summ <= 0:
+        return await message.reply('❌ Ошибка.  меньше или равна нулю')
+    sql.execute(f"UPDATE other SET credit_percent={summ}", commit=True)
+    return await message.reply(f"👤 Кредит процент: {to_str(summ)}")
 
 
 stats_text = 'Ошибочка, ээээээээ!'

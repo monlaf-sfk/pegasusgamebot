@@ -53,7 +53,8 @@ async def on_click(callback: CallbackQuery, button: Button,
            f'🔒 Тип: {"Закрыт" if clan.type == 1 else "Открыт" if clan.type == 0 else "По Приглашению"}\n' \
            f'♨ Префикс: {clan.prefix if clan.prefix != "" else "Нету"}\n' \
            f'➖➖➖➖➖➖➖➖\n' \
-           f''f'🏆 Рейтинг: {clan.rating}\n' \
+           f'🏆 Рейтинг: {clan.rating}\n' \
+           f'📋 Описание: {clan.description}\n\n' \
            f'➖➖➖➖➖➖➖➖➖\n' \
            f''f' 👥 Участники ({clan.members}/50)\n' \
            f'📅 Дата: {clan.reg_date}:({xd})'

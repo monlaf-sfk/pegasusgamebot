@@ -10,7 +10,7 @@ import app
 import config
 from filters.admin import IsOwner
 from filters.triggers import Trigger
-from filters.users import IsAdmin, IsPremium, IsElite, IsBan
+from filters.users import IsAdmin, IsElite, IsBan
 from handlers import my_chat_member
 from handlers.admins import ban, rass, wdz
 from aiogram import Dispatcher, F, Router
@@ -21,7 +21,8 @@ from handlers.admins.gifts import gift_get_handler, gift_handler, gift_step1_han
 from handlers.admins.main import profile_handler_admin, givebalance_handler, takebalance_handler, multibalance_handler, \
     devidebalance_handler, givebalance_admin_handler, stats_handler, stats_dop_call, wdzy_info, get_chat_list, plan_bd, \
     plan_bd_step1, plan_bd_step2, plan_bd_finish, givedonate_handler, privilegia_handler_admin, other_handler, \
-    admin_nickname_handler, other_callhandler, other_kurs_handler, other_bonus_handler, other_zarefa_handler
+    admin_nickname_handler, other_callhandler, other_kurs_handler, other_bonus_handler, other_zarefa_handler, \
+    other_credit_handler, other_credit_percent_handler
 from handlers.admins.obnyl import obnyn_user_handler, obnyn_property_handler, obnyn_handler
 from handlers.admins.promo import promo_check_handler, promo_switch_callback
 from handlers.admins.wdz import chat_add_handler
@@ -55,6 +56,7 @@ from handlers.users.cash.pay import pay_handler
 from handlers.users.cash.rob import rob_handler, shield_handler
 from handlers.users.cash.uah import uah_handler
 from handlers.users.city.main import city_handler, city_info_handler
+from handlers.users.clan import clan_war, clan_war_group
 from handlers.users.clan.clan import clan_handler, info_callback_invate, invate_solution, mamber_handler, \
     info_callback_user
 from handlers.users.clan.list_clans import clan_list_handler, clan_dialog
@@ -76,8 +78,11 @@ from handlers.users.games.footbal import footbal_handler
 from handlers.users.games.minesweeper.game import stats_minesweeper, show_newgame_msg, Mine_help_handler1, \
     Mine_help_handler, show_newgame_cb
 from handlers.users.games.minesweeper.handler import callbacks
-from handlers.users.games.ruletka import ruletla_handler, rulet_stop_handler, rulet_push_handler, rulet_handler_call, \
-    rulet_call
+from handlers.users.games.ruletka.ruletka import ruletka_handler, rulet_stop_handler, rulet_push_handler, \
+    rulet_handler_call, rulet_call
+from handlers.users.games.ruletka.ruletka_group import ruletka_handler_group, rulet_stop_handler_group, \
+    rulet_push_handler_group
+
 from handlers.users.games.spin import spin_handler
 from handlers.users.games.tictactoe import join_game, process_callback_game
 from handlers.users.houses.houses import house_handler
@@ -95,7 +100,7 @@ from handlers.users.ref import refferal_handler
 from handlers.users.rp import rp_commands_handler, emojis
 
 from handlers.users.shop.shop import shop_dialog, shop_list_handler
-from handlers.users.shop.users import users_shop_handler
+
 from handlers.users.top import topback_handler_call, top_handler_call, top_handler
 from handlers.users.works.mine import mine_handler
 from handlers.users.works.zavod import zavod_handler
@@ -162,6 +167,8 @@ async def main():
     dp.include_router(wdz.router)
     dp.include_router(blackjack_ls.router)
     dp.include_router(blackjack.router)
+    dp.include_router(clan_war.router)
+    dp.include_router(clan_war_group.router)
     dp.callback_query.register(show_newgame_cb, F.data == "choose_newgame")
     dp.message.register(stats_minesweeper, Trigger(
         ["стат сапер", "стат сапёр", 'статистика сапер', 'статистика сапёр', "стат саппер", "стат саппёр",
@@ -186,6 +193,8 @@ async def main():
     dp.message.register(other_kurs_handler, Trigger(["kurs"]), IsOwner())
     dp.message.register(other_bonus_handler, Trigger(["bonus"]), IsOwner())
     dp.message.register(other_zarefa_handler, Trigger(["zarefa"]), IsOwner())
+    dp.message.register(other_credit_handler, Trigger(["credit_limit"]), IsOwner())
+    dp.message.register(other_credit_percent_handler, Trigger(["credit_percent"]), IsOwner())
 
     # Last
     dp.message.register(app.logs_handler, Trigger(["logs"]), IsOwner())
@@ -247,7 +256,7 @@ async def main():
         auction_help_handler, Trigger(['помощь аукцион'])
     )
     dp.message.register(Mine_help_handler1, Trigger(["помощь сапёр", "помощь сапер", "помощь саппёр", "помощь саппер"]))
-    dp.message.register(help_handler, Trigger(["помощь"]))
+    dp.message.register(help_handler, Trigger(["помощь", "команды", "help"]))
     dp.callback_query.register(
         help_call_handler, F.data.startswith("help_")
     )
@@ -314,9 +323,14 @@ async def main():
     dp.message.register(footbal_handler, Trigger(["футбол", "footbal"]))
     dp.message.register(darts_handler, Trigger(["дартс", "darts"]))
 
-    dp.message.register(ruletla_handler, Trigger(["рулетка"]))
-    dp.message.register(rulet_stop_handler, Trigger(["ррулетка"]))
-    dp.message.register(rulet_push_handler, Trigger(["выстрел"]))
+    dp.message.register(ruletka_handler, Trigger(["рулетка"]), F.chat.type.in_({"private"}))
+    dp.message.register(rulet_stop_handler, Trigger(["ррулетка"]), F.chat.type.in_({"private"}))
+    dp.message.register(rulet_push_handler, Trigger(["выстрел"]), F.chat.type.in_({"private"}))
+
+    dp.message.register(ruletka_handler_group, Trigger(["рулетка"]), F.chat.type.in_({"group", "supergroup"}))
+    dp.message.register(rulet_stop_handler_group, Trigger(["ррулетка"]), F.chat.type.in_({"group", "supergroup"}))
+    dp.message.register(rulet_push_handler_group, Trigger(["выстрел"]), F.chat.type.in_({"group", "supergroup"}))
+
     dp.callback_query.register(rulet_handler_call, F.data.startswith("return_ruletka"))
     dp.callback_query.register(rulet_call, F.data.startswith("rulet"))
 
@@ -360,7 +374,7 @@ async def main():
 
     # Airplanes system
     dp.message.register(
-        airplanes_handler, Trigger(["airplane", "airplanes", "самолёт", "самолёты"])
+        airplanes_handler, Trigger(["airplane", "airplanes", "самолёт", "самолёты", "самолет"])
     )
 
     # Vertoleti system
@@ -525,8 +539,8 @@ async def main():
     dp.callback_query.register(bosses_callbackatttack_handler, BosseAttackData.filter())
     dp.callback_query.register(bosses_callbackinfo_handler, BosseInfoData.filter())
     # Shop
-    dp.message.register(users_shop_handler, Trigger(["shop", "шоп", "магазин"]))
-    dp.message.register(shop_list_handler, F.text.lower == "shop" or F.text.lower == "шоп" or F.text.lower == "магазин")
+    dp.message.register(shop_list_handler, Trigger(["shop", "шоп", "магазин"]))
+
     # RP
     dp.message.register(
         rp_commands_handler, Trigger(["рп"] + list(emojis.keys()))

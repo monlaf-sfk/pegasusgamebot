@@ -2,10 +2,12 @@ import decimal
 import random
 import re
 import time
+from contextlib import suppress
 from datetime import datetime
 
-from aiogram import flags
+from aiogram import flags, Bot
 from aiogram.client import bot
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from filters.users import flood_handler
@@ -14,11 +16,12 @@ from aiogram.types import Message, InlineKeyboardButton, CallbackQuery
 from keyboard.clans import member_kb, info_clan
 
 from config import bot_name
-from utils.clan.clan import Clanuser, Clan, status_clan
+from utils.clan.clan import Clanuser, Clan, status_clan, level_clan, ClanWarFind, ClanWar
 from utils.logs import writelog
 from utils.main.cash import get_cash, to_str
-from utils.main.db import sql, timetostr
+from utils.main.db import sql
 from utils.main.users import User
+from utils.weapons.swords import ArmoryInv
 
 
 @flags.throttling_key('default')
@@ -32,59 +35,104 @@ async def clan_handler(message: Message):
             clanuser = Clanuser(user_id=message.from_user.id)
         except:
             clanuser = None
-
-        if len(arg) == 0 or arg[0].lower() in ['мой', 'моя', 'моё']:
-            if clanuser is None:
-                return await message.reply('❌ У вас нет клана :(')
-            clan = Clan(clan_id=clanuser.id_clan)
-            lol = datetime.now() - clan.reg_date
-            xd = f'{lol.days} дн.' if lol.days > 0 else f'{int(lol.total_seconds() // 3600)} час.' \
-                if lol.total_seconds() > 59 else f'{int(lol.seconds)} сек.'
-
-            text = f'{user.link}, информация о Вашем клане:\n' \
-                   f'✏️ Название: {clan.name}\n' f'🛡 Уровень: {clan.level}\n' \
-                   f'🔎 ID клана: {clan.id}\n'f'👑 Ваш ранг: {status_clan[clanuser.status]["name"]}\n' \
-                   f'🔒 Тип: {"Закрыт" if clan.type == 1 else "Открыт" if clan.type == 0 else "По Приглашению"}\n' \
-                   f'♨ Префикс: {clan.prefix if clan.prefix != "" else "Нету"}\n' \
-                   f'➖➖➖➖➖➖➖➖\n'f'🏆 Рейтинг: {clan.rating}\n' \
-                   f'💰 В казне: {clan.kazna}\n'f'🗡 Сил: {clan.power}\n' \
-                   f'🥇 Побед: {clan.win}\n'f'💀 Проигрышей: {clan.lose}\n' \
-                   f'➖➖➖➖➖➖➖➖➖\n'f' 👥 Участники ({clan.members}/50)\n' \
-                   f'📅 Дата: {clan.reg_date}:({xd})'
-            # f'➖➖➖➖➖➖➖➖\n'f'💵 Ограбление: \n'\
-            return await message.reply(text=text, reply_markup=member_kb(clanuser.id_clan).as_markup(),
-                                       disable_web_page_preview=True)
-        elif arg[0].lower() in ['создать', 'основать']:
+        if len(arg) != 0 and arg[0].lower() in ['создать', 'основать']:
             if clanuser:
-                return await message.reply('❌ У вас уже есть клан... Предатель найден!')
-            price = 10000000
-
-            if price > user.balance:
-                return await message.reply(
-                    f'❌ Недостаточно средств на руках! Нужно еще: {to_str(price - user.balance)}')
-
+                return await message.reply(f'❌ {user.link}, У вас уже есть клан... Предатель найден!',
+                                           disable_web_page_preview=True)
+            price = 200
+            armory_inv = ArmoryInv(message.from_user.id)
+            if price > armory_inv.tokens:
+                return await message.reply(f'❌ Недостаточно 💠 tokens для покупки!\n'
+                                           f'▶ Нужно : {price} 💠', show_alert=True)
             try:
                 name = re.sub('''[@"'%<>💎👨‍🔬🌟⚡👮‍♂➪👾🥲⛏😎👑💖🐟🍆😈🏿🐥👶🏿🇷🇺🇺🇦]''', '', arg[1])
             except:
-                return await message.reply('❌ Используйте: <code>Клан создать {название}</code>')
+                return await message.reply(f'❌ {user.link}, Используйте: <code>Клан создать [название]</code>',
+                                           disable_web_page_preview=True)
             if len(name) < 4 or len(name) > 16:
-                return await message.reply('❌ Длина больше 16 или меньше 4. Запрещены символы.')
+                return await message.reply(f'❌ {user.link}, Длина больше 16 или меньше 4. Запрещены символы.',
+                                           disable_web_page_preview=True)
+            names = sql.execute("SELECT name FROM Clans", fetch=True)
+
+            if name in str(names):
+                return await message.reply(
+                    f'{user.link}, клан с названием «{name}» уже существует\n'
+                    '▶️ Придумайте другое название', disable_web_page_preview=True)
+            armory_inv.editmany(tokens=armory_inv.tokens - price)
             Clan.create(message.from_user.id, name)
             clan = Clan(owner=message.from_user.id)
-            Clanuser.create(message.from_user.id, clan.id)
-            await message.reply(f'✅ Вы успешно создали клан {name}', disable_web_page_preview=True)
-            # await writelog(message.from_user.id, f'Приючение {user2.link}')
+            Clanuser.create(message.from_user.id, clan.id, 2)
+            await message.reply(f'✅ {user.link}, Вы успешно создали клан {name}', disable_web_page_preview=True)
+
             return
+        if clanuser is None:
+            return await message.reply(f'❌ {user.link}, У вас нет клана :(', disable_web_page_preview=True)
+        if len(arg) == 0 or arg[0].lower() in ['мой', 'моя', 'моё']:
+            clan = Clan(clan_id=clanuser.clan_id)
+            text_clanwar = ''
+            try:
+                clanwar = ClanWar(clan_id=clan.id)
+                members_mine = sql.select_data(table='WarParticipants', title='clan_id', name=clan.id)
+                members_enemy = sql.select_data(table='WarParticipants', title='clan_id', name=
+                clanwar.id_first if clanwar.id_first != clan.id else clanwar.id_second)
+                games = 0
+                if members_mine:
+                    for member in members_mine:
+                        games += member[4]
+                if clanwar.prepare:
+                    text_clanwar = \
+                        f'⚔️ Война против «{clanwar.name_first if clanwar.name_first != clan.name else clanwar.name_second}»(👥{len(members_enemy if members_enemy else [])})\n' \
+                        f'  🗡 Текущая стадия: отбор участников 👤\n' \
+                        f'  🎮 Игр: {games}\n'
+                else:
+                    text_clanwar = \
+                        f'⚔️ Война против «{clanwar.name_first if clanwar.name_first != clan.name else clanwar.name_second}»(👥{len(members_enemy if members_enemy else [])})\n' \
+                        f'  🗡 Текущая стадия: собирание звезд ⭐️\n' \
+                        f'  🎮 Игр: {games}\n'
+            except:
+                try:
+                    find = ClanWarFind(clan_id=clan.id)
+                except:
+                    find = None
+                if find:
+                    text_clanwar = \
+                        f'⚔️ Идёт поиск противника...\n' \
+                        f'  🗡 Текущая стадия: подбор противника️\n' \
+                        f'  🎮 Игр: {games}\n'
+
+            text = f'{user.link} ,\nинформация о Вашем клане:\n' \
+                   f'✏️ Название: {clan.name}\n' \
+                   f'🛡 Уровень: {level_clan[clan.level]["symbol"]}\n' \
+                   f'🔎 ID клана: {clan.id}\n' \
+                   f'👑 Ваш ранг: {status_clan[clanuser.status]["name"]}\n' \
+                   f'🔒 Тип: {"Закрыт" if clan.type == 1 else "Открыт" if clan.type == 0 else "По Приглашению"}\n' \
+                   f'♨ Префикс: {clan.prefix if clan.prefix != "" else "Нету"}\n\n' \
+                   f'🏆 Рейтинг: {clan.rating}\n' \
+                   f'💰 В казне: {to_str(clan.kazna)}\n\n' \
+                   f'📋 Описание: {clan.description}\n\n' \
+                   f'{text_clanwar}\n' \
+                   f'💪 БМ: {clan.power}\n' \
+                   f'🥇 Побед: {clan.win}\n' \
+                   f'💀 Проигрышей: {clan.lose}\n\n' \
+                   f' 👥 Участники ({clan.members}/{level_clan[clan.level]["members"]})\n'
+            # f'➖➖➖➖➖➖➖➖\n'f'💵 Ограбление: \n'\
+            return await message.reply(text=text, reply_markup=member_kb(clanuser.clan_id).as_markup(),
+                                       disable_web_page_preview=True)
         elif arg[0].lower() in ['выйти', 'удалить', 'покинуть']:
-            if clanuser is None:
-                return await message.reply('❌ У вас нет клана :(')
-            clan = Clan(clan_id=clanuser.id_clan)
+            try:
+                clanwar = ClanWar(clan_id=clanuser.id)
+            except:
+                clanwar = None
+            if clanwar:
+                return await message.reply(f'❌ {user.link}, Вы не можете выйти пока идет Клановая война!',
+                                           disable_web_page_preview=True)
+            clan = Clan(clan_id=clanuser.clan_id)
             if clanuser.status == 2:
                 clanuser.dellclan()
                 clan.edit('members', clan.members - 1)
                 clan.edit('owner', None)
                 if clan.members > 0:
-                    user_ids = sql.execute(query=f'SELECT id FROM clan_users WHERE id_clan={clan.id}', commit=False,
+                    user_ids = sql.execute(query=f'SELECT user_id FROM ClanUsers WHERE clan_id={clan.id}', commit=False,
                                            fetch=True)
                     list_user = []
                     for user in user_ids:
@@ -100,13 +148,10 @@ async def clan_handler(message: Message):
                 clanuser.dellclan()
                 clan.edit('members', clan.members - 1)
 
-            return await message.reply('✅ Вы успешно покинули')
-
+            return await message.reply(f'✅ {user.link}, Вы успешно покинули', disable_web_page_preview=True)
 
         elif arg[0].lower() in ['снять', 'вывести']:
-            if clanuser.id_clan is None:
-                return await message.reply('❌ У вас нет клана :(')
-            clan = Clan(clan_id=clanuser.id_clan)
+            clan = Clan(clan_id=clanuser.clan_id)
             summ = 0
             try:
                 summ = get_cash(arg[1])
@@ -114,119 +159,114 @@ async def clan_handler(message: Message):
                 pass
 
             if summ <= 0:
-                return await message.reply('❌ Минимум $1')
+                return await message.reply(f'❌ {user.link}, Минимум $1', disable_web_page_preview=True)
 
             elif summ > clan.kazna:
-                return await message.reply('❌ Недостаточно средств на счету клана!')
+                return await message.reply(f'❌ {user.link}, Недостаточно средств на счету клана!',
+                                           disable_web_page_preview=True)
             if clanuser.status <= 0:
-                return await message.reply('❌ Низкий ранг!')
+                return await message.reply(f'❌ {user.link}, Низкий ранг!', disable_web_page_preview=True)
             sql.executescript(f'UPDATE users SET balance = balance + {summ} WHERE id = {message.from_user.id};\n'
-                              f'UPDATE clans SET kazna = kazna - {summ} WHERE id = {clanuser.id_clan}',
+                              f'UPDATE Clans SET kazna = kazna - {summ} WHERE id = {clanuser.clan_id}',
                               True, False)
 
             await message.reply(f'✅ Вы успешно сняли {to_str(summ)} с бюджета клана!')
             await writelog(message.from_user.id, f'Снятие {to_str(summ)} с бюджета клана')
             return
         elif arg[0].lower() in ['положить', 'вложить', 'пополнить']:
-            if clanuser is None:
-                return await message.reply('❌ У вас нет клана :(')
+            clan = Clan(clan_id=clanuser.clan_id)
             summ = 0
             try:
                 summ = get_cash(arg[1])
             except:
                 pass
             if user.payban:
-                return await message.reply('❌ На ваш аккаунт наложено ограничение на переводы !')
+                return await message.reply(f'❌ {user.link},На ваш аккаунт наложено ограничение на переводы !',
+                                           disable_web_page_preview=True)
             if summ <= 0:
-                return await message.reply('❌ Минимум $1')
+                return await message.reply(f'❌ {user.link}, Минимум $1', disable_web_page_preview=True)
 
             elif summ > user.balance:
-                return await message.reply('❌ Недостаточно средств на руках!')
+                return await message.reply(f'❌ {user.link}, Недостаточно средств на руках!',
+                                           disable_web_page_preview=True)
 
+            if clan.kazna + summ > level_clan[clan.level]['kazna']:
+                return await message.reply(f'❌ {user.link}, В казне нету места для вклада',
+                                           disable_web_page_preview=True)
             sql.executescript(f'UPDATE users SET balance = balance - {summ} WHERE id = {message.from_user.id};\n'
-                              f'UPDATE clans SET kazna = kazna + {summ} WHERE id = {clanuser.id_clan}',
+                              f'UPDATE Clans SET kazna = kazna + {summ} WHERE id = {clanuser.clan_id}',
                               True, False)
 
             await message.reply(f'✅ Вы успешно пополнили бюджет клана на +{to_str(summ)}')
             await writelog(message.from_user.id, f'Пополнение {to_str(summ)} в бюджет клана')
             return
-        elif arg[0].lower() in ['сила', 'усилить']:
-            if clanuser is None:
-                return await message.reply('❌ У вас нет клана :(')
-            summ = 0
-            try:
-                summ = get_cash(arg[1])
-            except:
-                pass
-            price = 100000 * summ
-            if summ <= 0:
-                return await message.reply('❌ Минимум 1🗡')
 
-            elif price > user.balance:
-                return await message.reply(
-                    f'❌ Недостаточно средств на руках! Нужно еще: {to_str(price - user.balance)}')
-
-            sql.executescript(f'UPDATE users SET balance = balance - {price} WHERE id = {message.from_user.id};\n'
-                              f'UPDATE clans SET power = power + {summ} WHERE id = {clanuser.id_clan}',
-                              True, False)
-
-            await message.reply(f'✅ Вы успешно усилили свою крепость  +{summ}🗡')
-            await writelog(message.from_user.id, f'усилили свою крепость +{to_str(summ)}🗡')
-            return
 
         elif arg[0].lower() in ['улучшить']:
-            if not clanuser:
-                return await message.reply('❌ У вас нет клана :(')
-            clan = Clan(clan_id=clanuser.id_clan)
+            clan = Clan(clan_id=clanuser.clan_id)
+            if clanuser.status <= 1:
+                return await message.reply(f'❌ {user.link}, у вас низкий ранг для этого действия!',
+                                           disable_web_page_preview=True)
             if clan.level == 3:
                 return await message.reply(
-                    f'У вашего клана максимальный уровень!')
-            price = 10000000 * (clan.level + 1)
+                    f'{user.link}, Ваш клан максимально улучшен ☺', disable_web_page_preview=True)
+            price = 125_500_000 * (clan.level + 1)
             if user.balance < price:
                 return await message.reply(
                     f'💲 Недостаточно денег на руках для улучшения клана. Нужно: {to_str(price)}')
 
             query = f'UPDATE users SET balance = balance - {price} WHERE id = {message.from_user.id};\n' \
-                    f'UPDATE clans SET level = level + 1 WHERE id = {clanuser.id_clan};'
+                    f'UPDATE Clans SET level = level + 1 WHERE id = {clanuser.clan_id};'
 
             sql.executescript(query=query, commit=True, fetch=False)
-
-            return await message.reply(f'✅ Вы улучшили уровень клана на +1, текущий уровень: {clan.level + 1}')
+            text = f'✅ {user.link}, клан улучшен до {level_clan[clan.level + 1]["symbol"]} уровня\n' \
+                   f'👥 Максимальное количество участников: {level_clan[clan.level + 1]["members"]}\n' \
+                   f'💰 Максимальная сумма в банке клана: {to_str(level_clan[clan.level + 1]["kazna"])}\n' \
+                   f'📝 Увеличена максимальная длина названия\n'
+            if clan.level + 1 == 3:
+                text += '\n🔥 Максимальный уровень клана!'
+            else:
+                text += f'\n⏫ Следующее улучшение - {to_str(125_500_000 * (clan.level + 2))}'
+            return await message.reply(text,
+                                       disable_web_page_preview=True)
         elif arg[0].lower() in ['закрыть', 'открыть', 'пригл']:
-            if not clanuser:
-                return await message.reply('❌ У вас нет клана :(')
-            clan = Clan(clan_id=clanuser.id_clan)
+            clan = Clan(clan_id=clanuser.clan_id)
 
             if clanuser.status <= 1:
-                return await message.reply('❌ Низкий ранг!')
+                return await message.reply(f'❌ {user.link},у вас низкий ранг для этого действия!',
+                                           disable_web_page_preview=True)
             if arg[0].lower() in ['закрыть']:
                 clan.edit('type', 1)
-                return await message.reply(f'✅ Клан закрыт')
+                return await message.reply(f'✅ {user.link}, Клан закрыт', disable_web_page_preview=True)
             if arg[0].lower() in ['открыть']:
                 clan.edit('type', 0)
-                return await message.reply(f'✅ Клан открыт')
+                return await message.reply(f'✅ {user.link}, Клан открыт', disable_web_page_preview=True)
             if arg[0].lower() in ['пригл']:
                 clan.edit('type', 2)
-                return await message.reply(f'✅ Вступление по приглашению')
+                return await message.reply(f'✅ {user.link}, Вступление по приглашению', disable_web_page_preview=True)
         elif arg[0].lower() in ['вступить']:
-            if clanuser:
-                return await message.reply('❌ У вас уже есть клан !')
             try:
                 clan = Clan(clan_id=arg[1])
             except:
-                return await message.reply('❌ Ошибка. Не найден клан с таким айди!')
+                return await message.reply(f'❌ {user.link}, Не найден клан с таким айди!',
+                                           disable_web_page_preview=True)
+            if level_clan[clan.level]["members"] < clan.members + 1:
+                return await message.reply(f'❌ {user.link}, Клан  переполнен!',
+                                           disable_web_page_preview=True)
             if clan.owner == None and clan.members == 0:
-                Clanuser.create(message.from_user.id, clan.id)
+                Clanuser.create(message.from_user.id, clan.id, 2)
                 clan.edit('members', clan.members + 1)
                 clan.edit('owner', message.from_user.id)
-                return await message.reply(f'✅ Вы вступили в клан {clan.name}\n'
-                                           f'Прошлый владелц струсил и убежал и теперь ты стал главой клана!')
+                return await message.reply(f'✅ {user.link}, Вы вступили в клан {clan.name}\n'
+                                           f'Прошлый владелц струсил и убежал и теперь ты стал главой клана!',
+                                           disable_web_page_preview=True)
             if clan.type == 0:
-                Clanuser.create2(message.from_user.id, clan.id)
+                Clanuser.create(message.from_user.id, clan.id, 0)
                 clan.edit('members', clan.members + 1)
-                return await message.reply(f'✅ Вы вступили в клан {clan.name}')
+                return await message.reply(f'✅ {user.link}, Вы вступили в клан {clan.name}',
+                                           disable_web_page_preview=True)
             if clan.type == 1:
-                return await message.reply(f'❌ Клан {clan.name} закрыт!')
+                return await message.reply(f'❌ {user.link}, Клан {clan.name} закрыт!', disable_web_page_preview=True)
             if clan.type == 2:
                 clan.add_invites(message.from_user.id)
                 await message.reply(f'Заявка в клан отправлена!!')
@@ -236,11 +276,10 @@ async def clan_handler(message: Message):
                     pass
                 return
         elif arg[0].lower() in ['заявки']:
-            if clanuser is None:
-                return await message.reply('❌ У вас нет клана :(')
-            clan = Clan(clan_id=clanuser.id_clan)
+            clan = Clan(clan_id=clanuser.clan_id)
             if clanuser.status <= 0:
-                return await message.reply('❌ Низкий ранг!')
+                return await message.reply(f'❌ {user.link},у вас низкий ранг для этого действия!',
+                                           disable_web_page_preview=True)
             clan.invites = list(clan.invites)
             if clan.invites[0] != '':
                 text = '🛃 Заявки:\n'
@@ -249,17 +288,17 @@ async def clan_handler(message: Message):
                     user = User(id=int(i))
                     text += f'👤 Пользователь: {user.link}\n'
                     button = InlineKeyboardButton(text=f'{user.first_name}',
-                                                  callback_data=f"invite_{int(i)} {clan.id} {clanuser.id}")
+                                                  callback_data=f"invite_{int(i)} {clan.id} {clanuser.user_id}")
                     keyboard.add(button)
                 return await message.reply(text=text, reply_markup=keyboard.adjust(1).as_markup(),
                                            disable_web_page_preview=True)
             else:
-                return await message.reply('❌ На данный момент нету заявок!')
+                return await message.reply(f'❌ {user.link}, На данный момент нету заявок!',
+                                           disable_web_page_preview=True)
         elif arg[0].lower() in ['повысить']:
-            if clanuser is None:
-                return await message.reply('❌ У вас нет клана :(')
             if clanuser.status <= 1:
-                return await message.reply('❌ Низкий ранг!')
+                return await message.reply(f'❌ {user.link},у вас низкий ранг для этого действия!',
+                                           disable_web_page_preview=True)
             try:
                 if arg[1].isdigit():
                     id = int(arg[1])
@@ -267,28 +306,31 @@ async def clan_handler(message: Message):
                         clanuser2 = Clanuser(user_id=id)
                     except:
                         return await message.reply(
-                            text='❕ Он не состоит в вашем клане!')
+                            text=f'❕ {user.link}, Он не состоит в вашем клане!', disable_web_page_preview=True)
                     if clanuser2.status + 1 == 2:
-                        return await message.reply(text='❕ У пользователя макс. ранг!')
+                        return await message.reply(text=f'❕ {user.link}, У пользователя макс. ранг!',
+                                                   disable_web_page_preview=True)
 
-                    if clanuser.id_clan != clanuser2.id_clan and clanuser.id != id:
+                    if clanuser.clan_id != clanuser2.clan_id and clanuser.user_id != id:
                         return await message.reply(
-                            text='❕ Он не состоит в вашем клане!')
+                            text=f'❕ {user.link}, Он не состоит в вашем клане!', disable_web_page_preview=True)
                     clanuser2.edit('status', clanuser2.status + 1)
-                    return await message.reply(text='✅ Вы успешно повысили игрока!')
+                    return await message.reply(text=f'✅ {user.link}, Вы успешно повысили игрока!',
+                                               disable_web_page_preview=True)
                 else:
 
-                    return await message.reply(text='🆔 Введите id пользователя которого хотите повысить\понизить!\n'
-                                                    '➖ Клан повысить\понизить id')
+                    return await message.reply(
+                        text=f'🆔 {user.link}, Введите id пользователя которого хотите повысить\понизить!\n'
+                             '➖ Клан повысить\понизить id', disable_web_page_preview=True)
             except Exception as e:
                 print(e)
-                return await message.reply(text='🆔 Введите id пользователя которого хотите повысить\понизить!\n'
-                                                '➖ Клан повысить\понизить id')
+                return await message.reply(
+                    text=f'🆔 {user.link}, Введите id пользователя которого хотите повысить\понизить!\n'
+                         '➖ Клан повысить\понизить id', disable_web_page_preview=True)
         elif arg[0].lower() in ['понизить']:
-            if clanuser is None:
-                return await message.reply('❌ У вас нет клана :(')
             if clanuser.status <= 1:
-                return await message.reply('❌ Низкий ранг!')
+                return await message.reply(f'❌ {user.link},у вас низкий ранг для этого действия!',
+                                           disable_web_page_preview=True)
             try:
                 if arg[1].isdigit():
                     id = arg[1]
@@ -296,128 +338,86 @@ async def clan_handler(message: Message):
                         clanuser2 = Clanuser(user_id=id)
                     except:
                         return await message.reply(
-                            text='❕ Он не состоит в вашем клане!')
+                            text=f'❕ {user.link}, Он не состоит в вашем клане!', disable_web_page_preview=True)
                     if clanuser2.status - 1 < 0:
-                        return await message.reply(text='❕ У пользователя мин. ранг!')
+                        return await message.reply(text=f'❕ {user.link}, У пользователя мин. ранг!',
+                                                   disable_web_page_preview=True)
 
-                    if clanuser.id_clan != clanuser2.id_clan and clanuser.id != id:
+                    if clanuser.clan_id != clanuser2.clan_id and clanuser.user_id != id:
                         return await message.reply(
-                            text='❕ Он не состоит в вашем клане!')
+                            text=f'❕ {user.link}, Он не состоит в вашем клане!', disable_web_page_preview=True)
                     clanuser2.edit('status', clanuser2.status - 1)
-                    return await message.reply(text='✅ Вы успешно понизили игрока!')
+                    return await message.reply(text=f'✅ {user.link}, Вы успешно понизили игрока!',
+                                               disable_web_page_preview=True)
                 else:
-                    return await message.reply(text='🆔 Введите id пользователя которого хотите повысить\понизить!\n'
-                                                    '➖ Клан повысить\понизить id')
+                    return await message.reply(
+                        text=f'🆔 {user.link}, Введите id пользователя которого хотите повысить\понизить!\n'
+                             '➖ Клан повысить\понизить id', disable_web_page_preview=True)
             except:
-                return await message.reply(text='🆔 Введите id пользователя которого хотите повысить\понизить!\n'
-                                                '➖ Клан повысить\понизить id')
+                return await message.reply(
+                    text=f'🆔 {user.link}, Введите id пользователя которого хотите повысить\понизить!\n'
+                         '➖ Клан повысить\понизить id', disable_web_page_preview=True)
 
         elif arg[0].lower() in ['кик']:
-            if clanuser is None:
-                return await message.reply('❌ У вас нет клана :(')
             if clanuser.status <= 0:
-                return await message.reply('❌ Низкий ранг!')
+                return await message.reply(f'❌ {user.link},у вас низкий ранг для этого действия!',
+                                           disable_web_page_preview=True)
+
             try:
-                clan = Clan(clan_id=clanuser.id_clan)
+                clanwar = ClanWar(clan_id=clanuser.id)
+            except:
+                clanwar = None
+            if clanwar:
+                return await message.reply(f'❌ {user.link}, Вы не можете кикать пока идет Клановая война!',
+                                           disable_web_page_preview=True)
+            try:
+                clan = Clan(clan_id=clanuser.clan_id)
                 if arg[1].isdigit():
                     id = arg[1]
                     try:
                         clanuser2 = Clanuser(user_id=id)
                     except:
                         return await message.reply(
-                            text='❕ Он не состоит в вашем клане!')
+                            text=f'❕ {user.link}, Он не состоит в вашем клане!', disable_web_page_preview=True)
 
-                    if clanuser.id_clan != clanuser2.id_clan and clanuser.id != id:
+                    if clanuser.clan_id != clanuser2.clan_id and clanuser.user_id != id:
                         return await message.reply(
-                            text='❕ Он не состоит в вашем клане!')
+                            text=f'❕ {user.link}, Он не состоит в вашем клане!', disable_web_page_preview=True)
                     clanuser2.dellclan()
                     clan.edit('members', clan.members - 1)
-                    return await message.reply(text='✅ Вы успешно кикнули игрока!')
+                    return await message.reply(text=f'✅ {user.link}, Вы успешно кикнули игрока!',
+                                               disable_web_page_preview=True)
                 else:
-                    return await message.reply(text='🆔 Введите id пользователя которого хотите кикнуть!\n'
-                                                    '➖ Клан кикнуть id')
+                    return await message.reply(
+                        text=f'🆔 {user.link}, Введите id пользователя которого хотите кикнуть!\n'
+                             '➖ Клан кикнуть id', disable_web_page_preview=True)
             except:
-                return await message.reply(text='🆔 Введите id пользователя которого хотите кикнуть!\n'
-                                                '➖ Клан кикнуть id')
+                return await message.reply(text=f'🆔 {user.link}, Введите id пользователя которого хотите кикнуть!\n'
+                                                '➖ Клан кикнуть id', disable_web_page_preview=True)
         elif arg[0].lower() in ['участники']:
-            if clanuser is None:
-                return await message.reply('❌ У вас нет клана :(')
-            clan = Clan(clan_id=clanuser.id_clan)
+            clan = Clan(clan_id=clanuser.clan_id)
             user = User(id=message.from_user.id)
-            user_ids = sql.execute(query=f'SELECT id FROM clan_users WHERE id_clan={clan.id}', commit=False, fetch=True)
+            user_ids = sql.execute(query=f'SELECT user_id FROM ClanUsers WHERE clan_id={clan.id}', commit=False,
+                                   fetch=True)
             text = f"{user.link}, участники клана [{clan.name}]\n"
             for user in user_ids:
                 user1 = User(id=user[0])
                 clanuser = Clanuser(user_id=user[0])
                 if clanuser.status == 0:
-                    text += f'[👤]{user1.link}(<code>{user1.id}</code>)— 🏆 {clanuser.rating}\n'
+                    text += f'[👤]{user1.link}(<code>{user1.id}</code>)— 🏆 {clanuser.rating}\n' \
+                            f'💪 БМ: {clanuser.power}\n'
                 if clanuser.status == 1:
-                    text += f'[💎]{user1.link}(<code>{user1.id}</code>)— 🏆 {clanuser.rating}\n'
+                    text += f'[💎]{user1.link}(<code>{user1.id}</code>)— 🏆 {clanuser.rating}\n' \
+                            f'💪 БМ: {clanuser.power}\n'
                 if clanuser.status == 2:
-                    text += f'[👑]{user1.link}(<code>{user1.id}</code>)— 🏆 {clanuser.rating}\n'
+                    text += f'[👑]{user1.link}(<code>{user1.id}</code>)— 🏆 {clanuser.rating}\n' \
+                            f'💪 БМ: {clanuser.power}\n'
             return await message.reply(text=text, disable_web_page_preview=True)
-        elif arg[0].lower() in ['атака']:
-            if clanuser is None:
-                return await message.reply('❌ У вас нет клана :(')
-            if clanuser.status <= 0:
-                return await message.reply('❌ Низкий ранг!')
-            try:
-                if arg[1].isdigit():
-                    id = int(arg[1])
-                    clan = Clan(clan_id=clanuser.id_clan)
-                    user = User(id=clanuser.id)
-                    try:
-                        сlan2 = Clan(clan_id=id)
-                    except:
-                        return await message.reply(
-                            text='❕ Нету клана с таким id')
-                    if clan.level <= 2:
-                        return await message.reply(
-                            text='❕ Необходима уровень клана 3!\n'
-                                 '➖ Клан улучшить')
-                    if сlan2.level <= 2:
-                        return await message.reply(
-                            text='❕ Уровень клана противника недостаточен для участь в войне!')
-                    if clan.id == сlan2.id:
-                        return await message.reply(
-                            text='❕ Вы не можете атаковать самого себя!')
-                    if сlan2.power < 1 or clan.power < 1:
-                        return await message.reply(
-                            text='❕ У даного клана мало сил или же у вас!')
 
-                    if clan.last_attack != None and (decimal.Decimal(time.time()) - clan.last_attack) < 3600 * 12:
-                        return await message.reply('⌚ Вы недавно уже атаковали, ващим товарищам нужно восстановиться!\n'
-                                                   f'Через: {timetostr(3600 * 12 + clan.last_attack - decimal.Decimal(time.time()))}')
-
-                    if clan.power > сlan2.power:
-                        await message.reply(text=f'⚔️{user.link} атакавал клан {сlan2.name}\n'
-                                                 '📋Результат:\n'
-                                                 f'🏅 Поздравляю с победой над кланом {сlan2.name}!\n'
-                                                 f'🗡 Потерено сил (-{сlan2.power})', disable_web_page_preview=True)
-                        clan.editmany(win=clan.win + 1, power=clan.power - сlan2.power, last_attack=time.time())
-                        сlan2.editmany(lose=clan.lose + 1, power=0)
-
-                        return
-                    elif clan.power < сlan2.power:
-                        await message.reply(text=f'⚔️{user.link} атакавал клан {сlan2.name}\n'
-                                                 '📋Результат:\n'
-                                                 f'💀 К сожелению вражеский клан оказался сильнее\n'
-                                                 f'🗡 Потерены все силы', disable_web_page_preview=True)
-                        сlan2.editmany(win=сlan2.win + 1, power=сlan2.power - clan.power)
-                        clan.editmany(lose=clan.lose + 1, power=0, last_attack=time.time())
-                        return
-                else:
-
-                    return await message.reply(text='🆔 Введите id клана которого хотите атаковать!\n'
-                                                    '➖ Клан атака id')
-            except:
-                return await message.reply(text='🆔 Введите id клана которого хотите атаковать!\n'
-                                                '➖ Клан атака id')
         elif arg[0].lower() in ['инфо']:
-            if clanuser is None:
-                return await message.reply('❌ У вас нет клана :(')
             if clanuser.status <= 0:
-                return await message.reply('❌ Низкий ранг!')
+                return await message.reply(f'❌ {user.link},у вас низкий ранг для этого действия!',
+                                           disable_web_page_preview=True)
             try:
                 if arg[1].isdigit():
                     id = int(arg[1])
@@ -425,54 +425,74 @@ async def clan_handler(message: Message):
                         clanuser2 = Clanuser(user_id=id)
                     except:
                         return await message.reply(
-                            text='❕ Он не состоит в вашем клане!')
+                            text=f'❕ {user.link}, Он не состоит в вашем клане!', disable_web_page_preview=True)
 
-                    if clanuser.id_clan != clanuser2.id_clan and clanuser.id != id:
+                    if clanuser.clan_id != clanuser2.clan_id and clanuser.user_id != id:
                         return await message.reply(
-                            text='❕ Он не состоит в вашем клане!')
+                            text=f'❕ {user.link}, Он не состоит в вашем клане!', disable_web_page_preview=True)
                     user = User(id=id)
-                    clan = Clan(clan_id=clanuser.id_clan)
+                    clan = Clan(clan_id=clanuser.clan_id)
                     if clan.owner == id:
                         return await message.reply(text=f'👤 Игрок: {user.link}\n'
                                                         f'👑 Ранг: {status_clan[clanuser2.status]["name"]}\n'
-                                                        f'🏆 Рейтинг: {clanuser2.rating}🏆\n'
+                                                        f'🏆 Рейтинг: {clanuser2.rating}🏆\n' \
+                                                        f'💪 БМ: {clanuser.power}\n'
                                                         f'📅 Дата рег: {clanuser2.reg_date}\n')
                     return await message.reply(text=f'👤 Игрок: {user.link}\n'
                                                     f'👑 Ранг: {status_clan[clanuser2.status]["name"]}\n'
-                                                    f'🏆 Рейтинг: {clanuser2.rating}🏆\n'
+                                                    f'🏆 Рейтинг: {clanuser2.rating}🏆\n' \
+                                                    f'💪 БМ: {clanuser.power}\n'
                                                     f'📅 Дата рег: {clanuser2.reg_date}\n'
-                                               , reply_markup=info_clan(id, clanuser.id, clanuser2.status).adjust(
+                                               , reply_markup=info_clan(id, clanuser.user_id, clanuser2.status).adjust(
                             1).as_markup(), disable_web_page_preview=True)
                 else:
-                    return await message.reply(text='🆔 Введите id игрока !\n'
-                                                    '➖ Клан инфо id')
+                    return await message.reply(text=f'🆔 {user.link}, Введите id игрока !\n'
+                                                    '➖ Клан инфо id', disable_web_page_preview=True)
             except:
-                return await message.reply(text='🆔 Введите id игрока !\n'
-                                                '➖ Клан инфо id')
+                return await message.reply(text=f'🆔 {user.link}, Введите id игрока !\n'
+                                                '➖ Клан инфо id', disable_web_page_preview=True)
 
         elif arg[0].lower() in ['преф', 'префикс']:
-            if not clanuser:
-                return await message.reply('❌ У вас нет клана :(')
-            clan = Clan(clan_id=clanuser.id_clan)
+            clan = Clan(clan_id=clanuser.clan_id)
             if clanuser.status <= 0:
-                return await message.reply('❌ Низкий ранг!')
+                return await message.reply(f'❌ {user.link},у вас низкий ранг для этого действия!',
+                                           disable_web_page_preview=True)
             try:
                 name = re.sub('''[@"'%<>💎👨‍🔬🌟⚡👮‍♂➪👾🥲⛏😎👑💖🐟🍆😈🏿🐥👶🏿🇷🇺🇺🇦]''', '', arg[1])
             except:
-                return await message.reply('❌ Используйте: <code>Клан преф {название}</code>')
+                return await message.reply(f'❌ {user.link}, Используйте: <code>Клан преф [название]</code>',
+                                           disable_web_page_preview=True)
             if len(name) > 4 or len(name) < 3:
-                return await message.reply('''❌ Длина 4-3. Запрещеные символы.''')
-            prefixes = sql.execute("SELECT prefix FROM clans", fetch=True)
+                return await message.reply(f'''❌ {user.link}, Длина 4-3. Запрещеные символы.''',
+                                           disable_web_page_preview=True)
+            prefixes = sql.execute("SELECT prefix FROM Clans", fetch=True)
 
             if name.upper() in str(prefixes):
                 return await message.reply(
-                    '''❌ Данный префикс уже занят''')
+                    f'''❌ {user.link}, Данный префикс уже занят''', disable_web_page_preview=True)
             clan.edit('prefix', name.upper())
             return await message.reply(
-                f'❕ Успешно сменили префикс на: [{name.upper()}]')
+                f'❕ {user.link}, Успешно сменили префикс на: [{name.upper()}]', disable_web_page_preview=True)
+        elif arg[0].lower() in ['описание']:
+            clan = Clan(clan_id=clanuser.clan_id)
+            if clanuser.status <= 0:
+                return await message.reply(f'❌ {user.link},у вас низкий ранг для этого действия!',
+                                           disable_web_page_preview=True)
+
+            try:
+                description = re.sub('''[@"'%<>]''', '', ' '.join(arg[1:]))
+            except:
+                return await message.reply(f'❌ {user.link}, Используйте: <code>Клан описание [текст]</code>',
+                                           disable_web_page_preview=True)
+            if len(description) > level_clan[clan.level]['description'] or len(description) < 0:
+                return await message.reply(
+                    f'''❌ {user.link}, Длина {level_clan[clan.level]['description']}-0. Запрещеные символы.''',
+                    disable_web_page_preview=True)
+
+            clan.edit('description', description)
+            return await message.reply(
+                f'❕ {user.link}, Успешно сменили описание клана', disable_web_page_preview=True)
         elif arg[0].lower() in ['тег']:
-            if not clanuser:
-                return await message.reply('❌ У вас нет клана :(')
             if arg[1].lower() == 'выкл':
                 user.edit('clan_teg', False)
                 text = f'{user.link}, отображение клана в нике отключено! 👍'
@@ -482,67 +502,81 @@ async def clan_handler(message: Message):
                 text = f'{user.link}, теперь Ваш клан отображается в нике!'
                 await message.reply(text=text, disable_web_page_preview=True)
         else:
-            return await message.reply('❌ Ошибка. Используйте помощь чтобы узнать команды!')
+            return await message.reply(f'❌ {user.link},  Используйте помощь чтобы узнать команды!',
+                                       disable_web_page_preview=True)
 
 
 @flags.throttling_key('default')
 async def info_callback_user(callback_query: CallbackQuery):
     call = callback_query.data.split('claninfo_')[1]
-    action, user2, user = call.split(':')
+    action, user2, user_id = call.split(':')
     try:
-        clanuser = Clanuser(user_id=user)
+        clanuser = Clanuser(user_id=user_id)
     except:
         return await callback_query.message.edit_text(
-            text='❕ вы не состоите в клане!')
-    clan = Clan(clan_id=clanuser.id_clan)
-    if int(user) == callback_query.from_user.id:
+            text=f'❕ вы не состоите в клане!', disable_web_page_preview=True)
+    clan = Clan(clan_id=clanuser.clan_id)
+    if int(user_id) == callback_query.from_user.id:
         if clanuser is None:
-            return await callback_query.message.edit_text('❌ У вас нет клана :(')
+            return await callback_query.message.edit_text(f'❌ У вас нет клана :(', disable_web_page_preview=True)
         try:
             clanuser2 = Clanuser(user_id=user2)
         except:
             return await callback_query.message.edit_text(
-                text='❕ Он не состоит в вашем клане!')
+                text=f'❕ Он не состоит в вашем клане!', disable_web_page_preview=True)
 
-        if clanuser.id_clan != clanuser2.id_clan and clanuser.id != user2:
+        if clanuser.clan_id != clanuser2.clan_id and clanuser.user_id != user2:
             return await callback_query.message.edit_text(
-                text='❕ Он не состоит в вашем клане!')
+                text=f'❕ Он не состоит в вашем клане!', disable_web_page_preview=True)
 
         if clanuser.status <= 0:
-            return await callback_query.message.edit_text('❌ Низкий ранг!')
+            return await callback_query.message.edit_text(f'❌ Низкий ранг!', disable_web_page_preview=True)
         if clan.owner == user2:
-            return await callback_query.message.edit_text('❌ Нельзя изменить статус главы!')
+            return await callback_query.message.edit_text(f'❌ Нельзя изменить статус главы!',
+                                                          disable_web_page_preview=True)
         if action == 'k':
+            try:
+                clanwar = ClanWar(clan_id=clanuser.id)
+            except:
+                clanwar = None
+            if clanwar:
+                return await callback_query.message.edit_text(f'❌ Вы не можете кикать пока идет Клановая война!',
+                                                              disable_web_page_preview=True)
             clanuser2.dellclan()
             clan.edit('members', clan.members - 1)
-            return await callback_query.message.edit_text(text='✅ Вы успешно кикнули игрока!')
+            return await callback_query.message.edit_text(text=f'✅ Вы успешно кикнули игрока!',
+                                                          disable_web_page_preview=True)
         if action == 'up':
             if clanuser2.status + 1 == 2:
-                return await callback_query.message.edit_text(text='❕ У пользователя макс. ранг!')
+                return await callback_query.message.edit_text(text=f'❕ У пользователя макс. ранг!',
+                                                              disable_web_page_preview=True)
             clanuser2.edit('status', clanuser2.status + 1)
             user = User(id=user2)
             return await callback_query.message.edit_text(text=f'👤 Игрок: {user.link}\n'
                                                                f'👑 Ранг: {status_clan[clanuser2.status]["name"]}\n'
-                                                               f'🏆 Рейтинг: {clanuser2.rating}🏆\n'
+                                                               f'🏆 Рейтинг: {clanuser2.rating}🏆\n' \
+                                                               f'💪 БМ: {clanuser.power}\n'
                                                                f'📅 Дата рег: {clanuser2.reg_date}\n'
-                                                          , reply_markup=info_clan(user2, clanuser.id,
+                                                          , reply_markup=info_clan(user2, clanuser.user_id,
                                                                                    clanuser2.status).adjust(
                     1).as_markup(), disable_web_page_preview=True)
         if action == 'dow':
             if clanuser2.status - 1 < 0:
-                return await callback_query.message.edit_text(text='❕ У пользователя мин. ранг!')
+                return await callback_query.message.edit_text(text='❕ У пользователя мин. ранг!',
+                                                              disable_web_page_preview=True)
             clanuser2.edit('status', clanuser2.status - 1)
             user = User(id=user2)
             return await callback_query.message.edit_text(text=f'👤 Игрок: {user.link}\n'
                                                                f'👑 Ранг: {status_clan[clanuser2.status]["name"]}\n'
-                                                               f'🏆 Рейтинг: {clanuser2.rating}🏆\n'
+                                                               f'🏆 Рейтинг: {clanuser2.rating}🏆\n' \
+                                                               f'💪 БМ: {clanuser.power}\n'
                                                                f'📅 Дата рег: {clanuser2.reg_date}\n'
-                                                          , reply_markup=info_clan(user2, clanuser.id,
+                                                          , reply_markup=info_clan(user2, clanuser.user_id,
                                                                                    clanuser2.status).adjust(
                     1).as_markup(), disable_web_page_preview=True)
 
     else:
-        await callback_query.answer("❌ Не трожь не твое!", show_alert=False)
+        await callback_query.answer("❌ Не трожь не твое!", show_alert=False, cache_time=3)
 
 
 @flags.throttling_key('default')
@@ -560,11 +594,11 @@ async def info_callback_invate(callback_query: CallbackQuery):
                                                       reply_markup=keyboard.adjust(1).as_markup(),
                                                       disable_web_page_preview=True)
     else:
-        await callback_query.answer("❌ Не трожь не твое!", show_alert=False)
+        await callback_query.answer("❌ Не трожь не твое!", show_alert=False, cache_time=3)
 
 
 @flags.throttling_key('default')
-async def invate_solution(callback_query: CallbackQuery):
+async def invate_solution(callback_query: CallbackQuery, bot: Bot):
     call = callback_query.data.split('clan_')[1]
     action, user1, clan_id, owner = call.split(':')
     clan = Clan(clan_id=int(clan_id))
@@ -572,16 +606,29 @@ async def invate_solution(callback_query: CallbackQuery):
     if action == 'd' and callback_query.from_user.id == int(owner):
         clan.invites = list(clan.invites)
         if clan.invites[0] == '':
-            return await callback_query.message.edit_text('❕ На данный момент нету заявок!')
+            return await callback_query.message.edit_text('❕ На данный момент нету заявок!',
+                                                          disable_web_page_preview=True)
         clan.dell_invites(user1)
+        with suppress(TelegramBadRequest):
+            await bot.send_message(user.id, '[КЛАН]\n'
+                                            f'▶ Ваша заявка в клан «{clan.name}» отклонена')
         return await callback_query.message.edit_text(f'Игрок {user.link} отказ', disable_web_page_preview=True)
     elif action == 'a' and callback_query.from_user.id == int(owner):
+
         clan.invites = list(clan.invites)
         if clan.invites[0] == '':
-            return await callback_query.message.edit_text('❕ На данный момент нету заявок!')
+            return await callback_query.message.edit_text('❕ На данный момент нету заявок!',
+                                                          disable_web_page_preview=True)
+        if level_clan[clan.level]["members"] < clan.members + 1:
+            return await callback_query.message.edit_text(f'❌  Клан  переполнен!',
+                                                          disable_web_page_preview=True)
         clan.dell_invites(user1)
-        Clanuser.create2(user1, clan.id)
+        Clanuser.create(user1, clan.id, 0)
         clan.edit('members', clan.members + 1)
+        with suppress(TelegramBadRequest):
+            await bot.send_message(user.id, '[КЛАН]\n'
+                                            f'▶ Ваша заявка в клан «{clan.name}» одобрена'
+                                            f'▶ Для просмотра информации о клане введите «Клан»')
         return await callback_query.message.edit_text(f'❕ Игрок {user.link} принят', disable_web_page_preview=True)
     elif action == 'b' and callback_query.from_user.id == int(owner):
         clan.invites = list(clan.invites)
@@ -599,7 +646,7 @@ async def invate_solution(callback_query: CallbackQuery):
         else:
             return await callback_query.message.edit_text('❕ На данный момент нету заявок!')
     else:
-        await callback_query.answer("❌ Не трожь не твое!", show_alert=False)
+        await callback_query.answer("❌ Не трожь не твое!", show_alert=False, cache_time=3)
 
 
 @flags.throttling_key('default')
@@ -614,15 +661,18 @@ async def mamber_handler(callback_query: CallbackQuery):
     call = callback_query.data.split('members_')[1]
     clan = Clan(clan_id=call[0])
     user = User(id=callback_query.from_user.id)
-    user_ids = sql.execute(query=f'SELECT id FROM clan_users WHERE id_clan={clan.id}', commit=False, fetch=True)
+    user_ids = sql.execute(query=f'SELECT user_id FROM ClanUsers WHERE clan_id={clan.id}', commit=False, fetch=True)
     text = f"{user.link}, участники клана [{clan.name}]\n"
     for user in user_ids:
         user1 = User(id=user[0])
         clanuser = Clanuser(user_id=user[0])
         if clanuser.status == 0:
-            text += f'[👤]{user1.link}(<code>{user1.id}</code>)— 🏆 {clanuser.rating}\n'
+            text += f'[👤]{user1.link}(<code>{user1.id}</code>)— 🏆 {clanuser.rating}\n' \
+                    f'💪 БМ: {clanuser.power}\n'
         if clanuser.status == 1:
-            text += f'[💎]{user1.link}(<code>{user1.id}</code>)— 🏆 {clanuser.rating}\n'
+            text += f'[💎]{user1.link}(<code>{user1.id}</code>)— 🏆 {clanuser.rating}\n' \
+                    f'💪 БМ: {clanuser.power}\n'
         if clanuser.status == 2:
-            text += f'[👑]{user1.link}(<code>{user1.id}</code>)— 🏆 {clanuser.rating}\n'
+            text += f'[👑]{user1.link}(<code>{user1.id}</code>)— 🏆 {clanuser.rating}\n' \
+                    f'💪 БМ: {clanuser.power}\n'
     return await callback_query.message.reply(text=text, disable_web_page_preview=True)

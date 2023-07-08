@@ -19,6 +19,7 @@ from config import armory_img
 from utils.main.db import sql
 from utils.main.users import User
 from utils.weapons.swords import Armory, ArmoryInv
+from utils.weapons.weapon import weapons_item
 
 from . import states
 from .main import MAIN_MENU_BUTTON
@@ -26,7 +27,7 @@ from .main import MAIN_MENU_BUTTON
 
 async def product_getter(dialog_manager: DialogManager, **_kwargs):
     user = User(id=dialog_manager.event.from_user.id)
-    list = [(f"{Armory.get_json(i[3], i[2])['name']}",
+    list = [(f"{weapons_item[i[3]][i[2]]['name']}",
              f"{i[0]}:{i[2]}:{i[3]}") for i in
             sql.execute(f"SELECT * FROM armory WHERE user_id={user.id} ORDER BY weapon_id DESC", fetch=True) if
             i[5] == False]

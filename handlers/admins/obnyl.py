@@ -1,7 +1,9 @@
 from datetime import datetime
 
 from aiogram.types import Message
+from psycopg2._json import Json
 
+from utils.items.items import item_case, works_items, items
 from utils.main.db import sql
 from utils.main.users import User
 
@@ -9,11 +11,11 @@ from utils.main.users import User
 async def obnyn_handler(message: Message):
     # await message.answer_document(document=InputFile('assets/database.db'),
     #                               caption=f'База за {datetime.now()}')
-    query = f"UPDATE users SET balance = 5000, bank = 0, deposit = 0,items = '', deposit_date = NULL, " \
+    query = f"UPDATE users SET balance = 5000, bank = 0, deposit = 0,items = {Json(works_items)}, deposit_date = NULL, " \
             f"bonus ='{datetime.now().strftime('%d-%m-%Y %H:%M:%S')}', lock = FALSE, credit = 0, credit_time = NULL, energy = 10, energy_time =" \
             f"NULL, xp = 0, sell_count = 0, level = 0, job_index = 0, job_time = NULL," \
             f" work_time = NULL, prefix = NULL, last_vidacha = NULL," \
-            f" last_rob = NULL, shield_count = 0, autonalogs = FALSE, health = 100,cases = '',state_ruletka=NULL, bitcoins=0;\n"
+            f" last_rob = NULL, shield_count = 0, autonalogs = FALSE, health = 100,cases = {Json(item_case)}, state_ruletka=NULL, bitcoins=0;\n"
 
     query += 'TRUNCATE TABLE airplanes;\n' \
              'TRUNCATE TABLE bitcoin;\n' \
@@ -28,8 +30,15 @@ async def obnyn_handler(message: Message):
              'TRUNCATE TABLE vertoleti;\n' \
              'TRUNCATE TABLE city;\n' \
              'TRUNCATE TABLE yaxti;\n' \
-             'UPDATE clans SET kazna=0,power=0,rating=0,win=0,lose=0,level=1,last_attack=NULL;\n' \
-             "UPDATE clan_users SET items='' , rating=0;\n" \
+             'TRUNCATE TABLE ClanUsers CASCADE;\n' \
+             'TRUNCATE TABLE ClanWars CASCADE;\n' \
+             'TRUNCATE TABLE WarParticipants CASCADE;\n' \
+             'TRUNCATE TABLE Clans CASCADE;\n' \
+             'TRUNCATE TABLE Armory;\n' \
+             'TRUNCATE TABLE Armory_inv;\n' \
+             'TRUNCATE TABLE auction;\n' \
+             'TRUNCATE TABLE bosses;\n' \
+             'TRUNCATE TABLE user_bosses;\n' \
              "UPDATE other SET bonus=50000 , zarefa=100000,credit_limit=2,credit_percent=2,coin_kurs=100000,donatex2=1;" \
              "UPDATE chat_wdz SET awards=50000;"
 
@@ -71,11 +80,11 @@ async def obnyn_user_handler(message: Message):
                 return await message.reply('❌ Ошибка. В БД нету пользователя с таким id!')
         else:
             return await message.reply('Используйте: <code>/reset_user {ссылка\id}</code>')
-        query = f"UPDATE users SET balance = 0, bank = 0, deposit = 0,  items = '', deposit_date = NULL, " \
+        query = f"UPDATE users SET balance = 0, bank = 0, deposit = 0,  items = {Json(works_items)}, deposit_date = NULL, " \
                 f"bonus ='{datetime.now().strftime('%d-%m-%Y %H:%M:%S')}', lock = FALSE, credit = 0, credit_time = NULL, energy = 10, energy_time =" \
                 f"NULL, xp = 0, sell_count = 0, level = 0, job_index = 0, job_time = NULL," \
                 f" work_time = NULL, prefix = NULL, last_vidacha = NULL," \
-                f" last_rob = NULL, shield_count = 0, autonalogs = FALSE, health = 100,cases = '',state_ruletka=NULL, bitcoins=0 WHERE id={to_user.id};\n"
+                f" last_rob = NULL, shield_count = 0, autonalogs = FALSE, health = 100,cases = {Json(item_case)},state_ruletka=NULL, bitcoins=0 WHERE id={to_user.id};\n"
         query += f'DELETE FROM airplanes WHERE owner={to_user.id};\n' \
                  f'DELETE FROM bitcoin WHERE owner={to_user.id};\n' \
                  f'DELETE FROM businesses WHERE owner={to_user.id};\n' \

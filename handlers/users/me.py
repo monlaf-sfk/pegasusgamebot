@@ -72,7 +72,7 @@ async def balance_handler(target: Union[types.Message, types.CallbackQuery]):
 
 @flags.throttling_key('default')
 async def nickname_handler(message: Message):
-    user = User(user=message.from_user)
+    user = User(id=message.from_user.id)
     arg = ' '.join(message.text.split()[1:])
     args = re.sub('''[@"'%<>💎👨‍🔬🌟⚡👮‍♂➪👾🥲⛏😎👑💖🐟🍆😈🏿🐥👶🏿🇷🇺🇺🇦]''', '',
                   arg.replace('[', '').replace(']', ''))
@@ -146,8 +146,9 @@ async def profile_handler(target: Union[types.Message, types.CallbackQuery]):
             f'┣ 🔒 Кошелёк: {"Закрыт" if user.lock else "Открыт"}\n' \
             f'┣ ⚡ Энергия: {user.energy}{xd}\n' \
             f'┣ 💡️ XP: {user.xp}\n' \
-            f'┣ 🎫 Скидка: x{user.sell_count}\n' \
-            f'┣ ⭐ BTC: <b>{btc.balance if btc else 0.0}</b>\n'
+            f'┣ ⭐ BTC: <b>{btc.balance if btc else 0.0}</b>\n' \
+        #       f'┣ 🎫 Скидка: x{user.sell_count}\n' \
+
     try:
         text += f'┣ ⭐ Уровень: <b>{user.level_json.get("name")}</b>({user.level})\n'
     except:

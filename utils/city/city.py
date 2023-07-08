@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from psycopg2._json import Json
 
 from utils.city.buildings import water_build, house_build, energy_build
@@ -21,6 +23,7 @@ class City:
         self.energy: dict = self.source[8]
         self.road: int = self.source[9]
         self.house: dict = self.source[10]
+        self.last_online: datetime = self.source[10]
 
     def editmany(self, attr=True, **kwargs):
         items = kwargs.items()
@@ -47,7 +50,8 @@ class City:
 
     @staticmethod
     def create(user_id, name):
-        res = (user_id, name, 0, 0, 100.0, 0, 2, Json(water_build), Json(energy_build), 20, Json(house_build))
+        res = (user_id, name, 0, 0, 100.0, 0, 2, Json(water_build), Json(energy_build), 20, Json(house_build),
+               datetime.now().strftime('%d-%m-%Y %H:%M:%S'))
         sql.insert_data([res], 'city')
         return True
 

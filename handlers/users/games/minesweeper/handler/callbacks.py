@@ -12,8 +12,11 @@ from handlers.users.games.minesweeper.keyboards.kb_minefield import make_keyboar
 from handlers.users.games.minesweeper.keyboards.kb_newgame import NewGameCallbackFactory, ClickCallbackFactory, \
     make_replay_keyboard, SwitchModeCallbackFactory, SwitchFlagCallbackFactory, IgnoreCallbackFactory
 from handlers.users.games.minesweeper.states import ClickMode, CellMask
+from keyboard.generate import show_balance_kb
 from middlewares.check_active_game import CheckActiveGameMiddleware
+from utils.main.cash import to_str
 from utils.main.minesweeper import Minesweeper
+from utils.main.users import User
 
 router = Router()
 
@@ -34,6 +37,7 @@ async def callback_newgame(call: types.CallbackQuery, state: FSMContext, callbac
         text = f"💣 Сейчас вы играете в поле <b>{size}×{size}</b>, <b>{bombs}</b> бомбы"
         kb = make_keyboard_from_minefield(newgame_dict["game_data"]["cells"], game_id, ClickMode.CLICK,
                                           call.from_user.id)
+
         if callback_data.as_separate:
             await call.message.delete_reply_markup()
             await call.message.edit_text(text, reply_markup=kb)
@@ -52,7 +56,7 @@ async def callback_open_square(call: types.CallbackQuery, state: FSMContext,
     Called when player clicks a HIDDEN cell (without any flags or numbers)
     """
     try:
-
+        user = User(user=call.from_user)
         fsm_data = await state.get_data()
         game_id = fsm_data.get("game_id")
         game_data = fsm_data.get("game_data", {})
@@ -74,6 +78,7 @@ async def callback_open_square(call: types.CallbackQuery, state: FSMContext,
         if cells[x][y]["value"] == "*":
             cells[x][y]["mask"] = CellMask.BOMB
             with suppress(TelegramBadRequest):
+
                 await call.message.edit_text(
                     call.message.html_text + f"\n\n{make_text_table(cells).replace('0', '0️⃣').replace('1', '1️⃣').replace('2', '2️⃣').replace('3', '3️⃣').replace('4', '4️⃣').replace('5', '5️⃣').replace('6', '6️⃣').replace('7', '7️⃣').replace('8', '8️⃣')}"
                                              f"\n\n<b>Ты проиграл</b> 😞",
@@ -91,13 +96,21 @@ async def callback_open_square(call: types.CallbackQuery, state: FSMContext,
                 cells[x][y]["mask"] = CellMask.OPEN
 
             if all_free_cells_are_open(cells):
+
+                if 5 == field_size:
+                    prize = 50_000
+                elif 6 == field_size:
+                    prize = 100_000
+                elif 7 == field_size:
+                    prize = 250_000
                 with suppress(TelegramBadRequest):
                     await call.message.edit_text(
                         call.message.html_text + f"\n\n{make_text_table(cells).replace('0', '0️⃣').replace('1', '1️⃣').replace('2', '2️⃣').replace('3', '3️⃣').replace('4', '4️⃣').replace('5', '5️⃣').replace('6', '6️⃣').replace('7', '7️⃣').replace('8', '8️⃣')}"
-                                                 f"\n\n<b>Ты выйграл!</b> 🎉",
+                                                 f"\n\n<b>🎉 Ты выйграл! Приз: {to_str(prize)}</b> ",
                         reply_markup=make_replay_keyboard(field_size, bombs, call.from_user.id)
                     )
                 Minesweeper.create(game_id, call.from_user.id, fsm_data["game_data"]["size"], victory=True)
+                user.edit('balance', user.balance + prize)
                 await call.answer()
                 return
             # There are more flags than there should be
@@ -168,6 +181,7 @@ async def add_or_remove_flag(call: types.CallbackQuery, state: FSMContext,
     action = callback_data.action
     flag_x = callback_data.x
     flag_y = callback_data.y
+    user = User(user=call.from_user)
 
     if action == "remove":
         cells[flag_x][flag_y].update(mask=CellMask.HIDDEN)
@@ -181,12 +195,19 @@ async def add_or_remove_flag(call: types.CallbackQuery, state: FSMContext,
         # See callback_open_square() for explanation
         if untouched_cells_count(cells) == 0:
             if all_flags_match_bombs(cells):
+                if 5 == field_size:
+                    prize = 50_000
+                elif 6 == field_size:
+                    prize = 100_000
+                elif 7 == field_size:
+                    prize = 250_000
                 with suppress(TelegramBadRequest):
                     await call.message.edit_text(
                         call.message.html_text + f"\n\n{make_text_table(cells).replace('0', '0️⃣').replace('1', '1️⃣').replace('2', '2️⃣').replace('3', '3️⃣').replace('4', '4️⃣').replace('5', '5️⃣').replace('6', '6️⃣').replace('7', '7️⃣').replace('8', '8️⃣')}"
-                                                 f"\n\n<b>Ты выйграл!</b> 🎉",
+                                                 f"\n\n<b>🎉 Ты выйграл! Приз: {to_str(prize)}</b> ",
                         reply_markup=make_replay_keyboard(field_size, bombs, call.from_user.id)
                     )
+                user.edit('balance', user.balance + prize)
                 Minesweeper.create(game_id, call.from_user.id, fsm_data["game_data"]["size"], victory=True)
             else:
                 await state.update_data(game_data=game_data)

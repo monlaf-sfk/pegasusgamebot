@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from aiogram import flags
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters.callback_data import CallbackData
-from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, FSInputFile, InputMediaPhoto
+from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InputMediaPhoto
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from config import armory_img

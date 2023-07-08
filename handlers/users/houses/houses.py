@@ -47,6 +47,7 @@ async def house_handler(message: Message):
                     return await house_list_handler(message)
             except:
                 return await house_list_handler(message)
+
         if len(arg) == 0:
             return await message.reply(text=house.text, reply_markup=house_kb.as_markup())
         elif arg[0].lower() in ['список', 'лист']:

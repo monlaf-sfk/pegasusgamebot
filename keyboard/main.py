@@ -5,9 +5,10 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 from config import bot_name
 
 invite_kb = InlineKeyboardBuilder()
-invite_kb.add(InlineKeyboardButton(text='🪄 Добавить в чат', url=f'https://t.me/{bot_name}?startgroup=1'))
 invite_kb.add(InlineKeyboardButton(text='🧑‍🎄 Чат', url='https://t.me/pegasus_talk'))
-invite_kb.adjust(1)
+invite_kb.add(InlineKeyboardButton(text='📯 Канал', url='t.me/pegasusdev'))
+invite_kb.add(InlineKeyboardButton(text='🪄 Добавить в чат', url=f'https://t.me/{bot_name}?startgroup=1'))
+invite_kb.adjust(2)
 
 check_ls_kb = InlineKeyboardBuilder()
 check_ls_kb.add(InlineKeyboardButton(text='🔗 Перейти в бота', url=f'https://t.me/{bot_name}'))

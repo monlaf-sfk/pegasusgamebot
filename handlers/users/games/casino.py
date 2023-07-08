@@ -34,17 +34,18 @@ async def casino_handler(message: Message):
         rloser = random.choice(loser)
         rx = \
             np.random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 1,
-                             p=[0.1, 0.1, 0.1, 0.18, 0.1, 0.1, 0.1, 0.1, 0.1, 0.02])[0]
+                             p=[0.1, 0.18, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.02])[0]
 
         try:
             summ = ssumm = get_cash(arg[0] if arg[0].lower() not in ['всё', 'все'] else str(user.balance))
         except:
             summ = ssumm = 0
         if summ <= 0:
-            return await message.reply('❌ Ошибка. Ставка меньше или равна нулю')
+            return await message.reply(f'❌ {user.link}, Ставка меньше или равна нулю', disable_web_page_preview=True)
 
         if user.balance < summ:
-            return await message.reply('❌ Ошибка. Недостаточно денег на руках для ставки! 💸',
+            return await message.reply(f'❌ {user.link}, Недостаточно денег на руках для ставки! 💸',
+                                       disable_web_page_preview=True,
                                        reply_markup=show_balance_kb.as_markup())
 
         if int(rx) == 1:

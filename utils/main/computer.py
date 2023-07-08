@@ -55,15 +55,14 @@ class Computer:
         self.source: tuple = sql.select_data(user_id, 'owner', True, 'computers')
         if self.source is None:
             raise Exception('Not have computer')
-
-        self.index: int = self.source[0]
+        self.owner: int = self.source[0]
+        self.index: int = self.source[1]
         self.computer = computers[self.index]
-        self.name: str = self.source[1] if self.source[1] else self.computer['name']
-        self.cash: int = self.source[2]
-        self.last: int = self.source[3]
-        self.strength: int = self.source[4]
-        self.progress: int = self.source[5]
-        self.owner: int = self.source[6]
+        self.name: str = self.source[2] if self.source[2] else self.computer['name']
+        self.cash: int = self.source[3]
+        self.last: int = self.source[4]
+        self.strength: int = self.source[5]
+        self.progress: int = self.source[6]
 
     @property
     def text(self):
@@ -97,7 +96,7 @@ class Computer:
     @staticmethod
     def create(user_id, computer_index):
         global all_computers_
-        res = (computer_index, None, 0, None, 100, 0, user_id)
+        res = (user_id, computer_index, None, 0, None, 100, 0)
         sql.insert_data([res], 'computers')
         all_computers_.append(res[0])
         return True

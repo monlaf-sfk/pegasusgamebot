@@ -20,6 +20,7 @@ from aiogram_dialog.widgets.text import Const, Format
 from config import armory_img
 from utils.main.users import User
 from utils.weapons.swords import ArmoryInv, Armory
+from utils.weapons.weapon import weapons_item
 from . import states
 from .main import MAIN_MENU_BUTTON
 
@@ -29,9 +30,8 @@ async def product_getter(dialog_manager: DialogManager, **_kwargs):
     image = MediaAttachment(
         ContentType.PHOTO, file_id=MediaId(dialog_manager.dialog_data.get("photo", armory_img['armory_menu']))
     )
-    with open(file='utils/weapons/weapon.json', mode='r', encoding="utf-8") as file:
-        dicts = json.load(file)
-    list = [(f"{i}", f"{i}") for i in dicts if i != 'intermediate']
+
+    list = [(f"{i}", f"{i}") for i in weapons_item if i != 'intermediate']
     text = dialog_manager.dialog_data.get("text", None)
 
     return {
@@ -48,20 +48,19 @@ async def weapon_action(callback: CallbackQuery, button: Button,
                         dialog_manager: DialogManager, widget: Any):
     type, weapon_id, price = widget.split(":")
     armory_inv = ArmoryInv(callback.from_user.id)
-    if armory_inv.fragments > int(price):
+    if armory_inv.fragments >= int(price):
         Armory.create_armory(
             user_id=callback.from_user.id,
-            id_weapons=weapon_id,
+            id_weapons=int(weapon_id),
             type=type)
         armory_inv.edit('fragments', armory_inv.fragments - int(price))
-        weapon = Armory.get_json(type, weapon_id)
+        weapon = weapons_item[type][int(weapon_id)]
         await callback.answer(f"Вы успешно скрафтили {weapon['name']} x1", show_alert=True)
     else:
         await callback.answer(f"Не достаточно фрагментов для крафта!", show_alert=True)
-    with open(file='utils/weapons/weapon.json', mode='r', encoding="utf-8") as file:
-        dicts = json.load(file, encoding="utf-8")[type]
-    dicts = dicts
-    weapon = dicts['1']
+
+    dicts = weapons_item[type]
+    weapon = dicts[1]
     text = f'{weapon["name"]}\n' \
            f'🔰 Прочность: {weapon["durability"]}/{weapon["max_durability"]}\n\n' \
            f'🔻мин. урон: {weapon["min_attack"]} \n' \
@@ -71,11 +70,11 @@ async def weapon_action(callback: CallbackQuery, button: Button,
            f'--------------------\n'
     weapons = []
     index = 1
-    weapons.append(('', f"{type}:{index}:{dicts[f'{index}']['disassemble'] * 2}"))
-    text += f"Стоимость крафта: 💦x{dicts[f'{index}']['disassemble'] * 2} Фрагментов оружия\n\n"
+    weapons.append(('', f"{type}:{index}:{dicts[index]['disassemble'] * 2}"))
+    text += f"Стоимость крафта: 💦x{dicts[index]['disassemble'] * 2} Фрагментов оружия\n\n"
     for i in dicts:
-        text += f"⭐" * index + f'💦x{dicts[f"{index + 1}"]["disassemble"] * 2}\n'
-        weapons.append(("⭐" * index, f"{type}:{index + 1}:{dicts[f'{index + 1}']['disassemble'] * 2}"))
+        text += f"⭐" * index + f'💦x{dicts[index + 1]["disassemble"] * 2}\n'
+        weapons.append(("⭐" * index, f"{type}:{index + 1}:{dicts[index + 1]['disassemble'] * 2}"))
         index += 1
         if index == 6:
             break
@@ -87,10 +86,8 @@ async def weapon_action(callback: CallbackQuery, button: Button,
 @flags.throttling_key('games')
 async def infocraft_weapon(callback: CallbackQuery, button: Button,
                            dialog_manager: DialogManager, item: str):
-    with open(file='utils/weapons/weapon.json', mode='r', encoding="utf-8") as file:
-        dicts = json.load(file, encoding="utf-8")[item]
-    dicts = dicts
-    weapon = dicts['1']
+    dicts = weapons_item[item]
+    weapon = dicts[1]
     text = f'{weapon["name"]}\n' \
            f'🔰 Прочность: {weapon["durability"]}/{weapon["max_durability"]}\n\n' \
            f'🔻мин. урон: {weapon["min_attack"]} \n' \
@@ -100,11 +97,11 @@ async def infocraft_weapon(callback: CallbackQuery, button: Button,
            f'--------------------\n'
     weapons = []
     index = 1
-    weapons.append(('', f"{item}:{index}:{dicts[f'{index}']['disassemble'] * 2}"))
-    text += f"Стоимость крафта: 💦x{dicts[f'{index}']['disassemble'] * 2} Фрагментов оружия\n\n"
+    weapons.append(('', f"{item}:{index}:{dicts[index]['disassemble'] * 2}"))
+    text += f"Стоимость крафта: 💦x{dicts[index]['disassemble'] * 2} Фрагментов оружия\n\n"
     for i in dicts:
-        text += f"⭐" * index + f'💦x{dicts[f"{index + 1}"]["disassemble"] * 2}\n'
-        weapons.append(("⭐" * index, f"{item}:{index + 1}:{dicts[f'{index + 1}']['disassemble'] * 2}"))
+        text += f"⭐" * index + f'💦x{dicts[index + 1]["disassemble"] * 2}\n'
+        weapons.append(("⭐" * index, f"{item}:{index + 1}:{dicts[index + 1]['disassemble'] * 2}"))
         index += 1
         if index == 6:
             break

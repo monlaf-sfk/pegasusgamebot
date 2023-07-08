@@ -2,6 +2,7 @@ import json
 
 from config import armory_img
 from utils.main.db import sql
+from utils.weapons.weapon import weapons_item
 
 
 class Armory:
@@ -20,16 +21,8 @@ class Armory:
         self.type: str = self.source[3]
         self.durability: int = self.source[4]
         self.armed: bool = self.source[5]
-        self.weapon: dict = self.get_json(self.type, self.weapon_id)
+        self.weapon: dict = weapons_item[self.type][self.weapon_id]
         self.image: str = armory_img[self.type]
-
-    @staticmethod
-    def get_json(type: str, weapon_id: str):
-
-        weapon_id = str(weapon_id)
-        with open(file='utils/weapons/weapon.json', mode='r', encoding="utf-8") as file:
-            dicts = json.load(file)[type][weapon_id]
-        return dicts
 
     def edit(self, name, value, attr=True):
         if attr:
@@ -53,7 +46,7 @@ class Armory:
     def create_armory(user_id: int, id_weapons: int, type: str):
         sql.get_cursor().execute("INSERT INTO armory VALUES(DEFAULT,%s,%s,%s,%s,%s)",
                                  (
-                                     user_id, id_weapons, type, Armory.get_json(type, id_weapons)['max_durability'],
+                                     user_id, id_weapons, type, weapons_item[type][id_weapons]['max_durability'],
                                      False))
         return True
 

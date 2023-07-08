@@ -1,3 +1,4 @@
+import decimal
 from operator import itemgetter
 
 from aiogram import flags
@@ -13,7 +14,10 @@ from aiogram_dialog.widgets.kbd import (ScrollingGroup, Select, SwitchTo, Button
                                         )
 from aiogram_dialog.widgets.text import Format, Const
 
+from utils.clan.clan import Clanuser
 from utils.items.items import items
+from utils.main.cash import to_str4
+from utils.main.db import sql
 
 from utils.main.users import User
 
@@ -48,10 +52,25 @@ async def product_getter(dialog_manager: DialogManager, **_kwargs):
 async def on_click(callback: CallbackQuery, button: Button,
                    dialog_manager: DialogManager, item_id: str):
     item = items_to_sell[int(item_id)]
+    price = (item['sell_price'] * 2)
+    try:
+        clanuser = Clanuser(user_id=callback.from_user.id)
+    except:
+        return await callback.answer(f'❌ У вас нет клана :(', show_alert=True,
+                                     cache_time=3)
+    user = User(user=callback.from_user)
+    if user.balance < price:
+        return await callback.answer(f'💲 Недостаточно средств на руках, нужно: {to_str4(price)}', show_alert=True,
+                                     cache_time=3)
+    count = clanuser.items[f'{item_id}']['count'] + 1
+    sql.execute(
+        "UPDATE clan_users SET items = jsonb_set(items, "
+        f"'{{{item_id}, count}}', "
+        f"'{count}') WHERE id={user.id}", commit=True)
+    user.edit('balance', user.balance - decimal.Decimal(price))
 
-    text = f"{item['descriptoin']}\n\n"
-    dialog_manager.dialog_data["text"] = text
-    await dialog_manager.next()
+    await callback.answer(f'💲 Вы купили {item["name"]} (x1) за {to_str4(price)}', show_alert=True, cache_time=3)
+    await dialog_manager.show()
 
 
 shop_dialog = Dialog(

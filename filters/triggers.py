@@ -4,26 +4,26 @@ import time
 
 from aiogram.filters import BaseFilter
 from aiogram.types import Message
+from cachetools import TTLCache
 
 from config import bot_name, owner_id
 from loader import bot
 from utils.main.db import sql
 
-last_use3 = {}
+work_tehnical = {
+    "work_tehnical": TTLCache(maxsize=10_000, ttl=1000),
+}
 
 
 async def all_handler(message: Message):
-    try:
-        if last_use3.get(message.from_user.id):
-            if time.time() - last_use3[message.from_user.id] < 10000:
-                return
-        last_use3[message.from_user.id] = time.time()
-        if sql.execute("SELECT work FROM other", commit=False, fetch=True)[0][0] != 1:
-            return
+    if sql.execute("SELECT work FROM other", commit=False, fetch=True)[0][0] != 1:
+        return
+    if message.chat.id in work_tehnical['work_tehnical']:
+        return
+    else:
+        work_tehnical['work_tehnical'][message.chat.id] = True
         return await bot.send_message(message.chat.id, "⛔ Технические Работы !\n"
                                                        "Бот вернеться в скором времени.")
-    except Exception as e:
-        print(e)
 
 
 class Trigger(BaseFilter):
