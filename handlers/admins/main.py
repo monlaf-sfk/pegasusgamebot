@@ -303,7 +303,7 @@ async def givebalance_admin_handler(message: Message):
         summ2 = to_user.balance + summ
 
         sql.executescript(f'UPDATE users SET balance = balance + {summ} WHERE id = {to_user.id};\n'
-                          f"UPDATE users SET limitvidach =limitvidach - {summ},last_vidacha='{datetime.now().strftime('%d-%m-%Y %H:%M:%S')}' WHERE id = {user.id}",
+                          f"UPDATE users SET limitvidach = limitvidach - {summ},last_vidacha='{datetime.now().strftime('%d-%m-%Y %H:%M:%S')}' WHERE id = {user.id}",
                           True, False)
         return await message.reply(f'Вы успешно выдали пользователю {to_user.link} {to_str(summ)} и его теку'
                                    f'щий баланс: {to_str(summ2)}',

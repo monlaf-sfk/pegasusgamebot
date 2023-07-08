@@ -36,8 +36,6 @@ router.message.middleware(CheckActiveGameBlackMiddleware())
 router.callback_query.middleware(CheckActiveGameBlackMiddleware())
 
 
-@router.message((F.text.lower() == "блэкджек помощь") | (F.text.lower() == "блэкджэк помощь ") | (
-        F.text.lower() == "блекджек помощь") | (F.text.lower() == "блекджэк помощь") | (F.text.lower() == "бд помощь"))
 async def help_blackjack(message: Message):
     if message.from_user.id == message.chat.id:
         await message.answer("""

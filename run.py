@@ -69,6 +69,7 @@ from handlers.users.funny import globus_handler, chance_handler, choice_handler
 from handlers.users.games import tictactoe
 from handlers.users.games.basketball import basketball_handler
 from handlers.users.games.blackjack import blackjack, blackjack_ls
+from handlers.users.games.blackjack.blackjack import help_blackjack
 from handlers.users.games.bowling import bowling_handler
 from handlers.users.games.cases import cases_handler
 from handlers.users.games.casino import casino_handler
@@ -258,6 +259,8 @@ async def main():
         auction_help_handler, Trigger(['помощь аукцион'])
     )
     dp.message.register(Mine_help_handler1, Trigger(["помощь сапёр", "помощь сапер", "помощь саппёр", "помощь саппер"]))
+    dp.message.register(help_blackjack, Trigger(
+        ["помощь блэкджек", "помощь блекджек", "помощь блэкджэк", "помощь блекджэк", "помощь бд"]))
     dp.message.register(help_handler, Trigger(["помощь", "команды", "help"]))
     dp.callback_query.register(
         help_call_handler, F.data.startswith("help_")
