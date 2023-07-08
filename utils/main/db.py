@@ -215,9 +215,19 @@ class Lsql:
         self.conn.commit()
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS other(
                     donatex2 integer,coin_kurs numeric,bonus numeric,
-                    zarefa numeric,credit_limit numeric,credit_percent numeric,work integer,
-                    type_gift integer,summa numeric,count numeric,switch text )""")
-
+                    zarefa numeric,credit_limit numeric,credit_percent numeric,work integer)""")
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS contest(
+                    channel_id NUMERIC PRIMARY KEY,
+                    participants_count numeric,status BOOL,
+                    count_reward numeric,
+                    type_reward varchar(30),
+                    winners integer, text_buttton varchar(40))""")
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS participants(
+                    user_id NUMERIC PRIMARY KEY,
+                    channel_id NUMERIC)""")
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS other(
+                    donatex2 integer,coin_kurs numeric,bonus numeric,
+                    zarefa numeric,credit_limit numeric,credit_percent numeric,work integer)""")
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS auction(
                             seller NUMERIC,uuid4 varchar(50),item_name text,count NUMERIC,price NUMERIC,costumers NUMERIC,time NUMERIC, message_id NUMERIC)""")
 

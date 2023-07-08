@@ -22,9 +22,9 @@ def marry_kb(user1, _):
     return kb.as_markup()
 
 
-def uchas(count):
+def uchas(count, button_name):
     kb = InlineKeyboardBuilder()
-    kb.add(InlineKeyboardButton(text=f'({count})✅Участвовать', callback_data='raz'))
+    kb.add(InlineKeyboardButton(text=f'({count}){button_name}', callback_data='raz'))
     return kb
 
 

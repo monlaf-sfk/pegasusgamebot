@@ -8,10 +8,10 @@ from aiogram import flags
 from aiogram.exceptions import TelegramBadRequest
 
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, InlineKeyboardButton, CallbackQuery
+from aiogram.types import Message, InlineKeyboardButton, CallbackQuery, BufferedInputFile
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from config import donates, bot_name, owner_id
+from config import donates, bot_name, owner_id, bot_version
 
 from keyboard.main import admin_kb, cancel, remove
 from loader import bot
@@ -26,7 +26,6 @@ from utils.main.houses import all_houses
 from utils.main.moto import all_moto
 from utils.main.users import all_users, all_users_ban
 from utils.main.cash import get_cash
-import os
 import psutil
 from threading import Lock
 from utils.main.airplanes import Airplane
@@ -287,7 +286,7 @@ async def givebalance_admin_handler(message: Message):
         return await message.reply('Используйте: <code>Выдать {кол-во} *{ссылка}</code>')
     now = datetime.now()
     user = User(user=message.from_user)
-    if user.limitvidach <= 0:
+    if user.last_vidacha and user.limitvidach <= 0:
         x = (now - user.last_vidacha).total_seconds()
         return await message.reply(f'💓 Лимит выдачи, сброс через: {timetostr(3600 * 24 - x)}')
     try:
@@ -304,7 +303,7 @@ async def givebalance_admin_handler(message: Message):
         summ2 = to_user.balance + summ
 
         sql.executescript(f'UPDATE users SET balance = balance + {summ} WHERE id = {to_user.id};\n'
-                          f'UPDATE users SET limitvidach =limitvidach - {summ}  WHERE id = {user.id}',
+                          f"UPDATE users SET limitvidach =limitvidach - {summ},last_vidacha='{datetime.now().strftime('%d-%m-%Y %H:%M:%S')}' WHERE id = {user.id}",
                           True, False)
         return await message.reply(f'Вы успешно выдали пользователю {to_user.link} {to_str(summ)} и его теку'
                                    f'щий баланс: {to_str(summ2)}',
@@ -390,20 +389,25 @@ async def privilegia_handler_admin(message: Message):
         return await message.reply('❌ Такой привилегии не существует!')
     time = None
     try:
-        if len(arg) > 3:
-            if arg[2] == '-':
-                time = get_restriction_time(arg[3])
-            user = User(username=arg[1].replace('@', ''))
-        elif message.reply_to_message:
+        if message.reply_to_message:
             if arg[1] == "-":
                 time = get_restriction_time(arg[2])
             user = User(user=message.reply_to_message.from_user)
+        elif len(arg) > 2 and arg[1].isdigit():
+            if arg[2] == '-' and len(arg) > 3:
+                time = get_restriction_time(arg[3])
+            user = User(id=arg[1])
+        elif len(arg) > 2:
+            if arg[2] == '-' and len(arg) > 3:
+                time = get_restriction_time(arg[3])
+            user = User(username=arg[1].replace('@', ''))
+
         else:
-            return await message.reply('❌ ФОрмат : [прива] [-\+] *time!')
-    except IndexError:
-        return await message.reply('❌ ФОрмат : [прива] [-\+] *time!')
+            return await message.reply('❌ ФОрмат : [прива] [user] [-\+] *time!')
+    except:
+        return await message.reply('❌ ФОрмат : [прива] [user] [-\+] *time!')
     limitvidach: int = 0
-    last_vidacha = None
+
     if priva is not None:
         item = donates[priva]
         if time:
@@ -415,14 +419,12 @@ async def privilegia_handler_admin(message: Message):
             x = f'{priva},{datetime.now().strftime("%d-%m-%Y %H:%M")},True,None'
         if priva == 4:
             limitvidach = 10_000_000
-            last_vidacha = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
         if priva == 5:
             limitvidach = 30_000_000
-            last_vidacha = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
     else:
         item = {'name': 'Игрок', 'price': 0}
         x = None
-    user.editmany(donate_source=x, limitvidach=limitvidach, last_vidacha=last_vidacha)
+    user.editmany(donate_source=x, limitvidach=limitvidach, last_vidacha=None)
 
     return await message.reply(f'✅ Вы успешно выдали привилегию <b>{item["name"]}</b> за {item["price"]}🪙 '
                                f'пользователю {user.link}',
@@ -603,8 +605,7 @@ async def stats_handler(message: Message):
            f'🚫 Забаненых пользователей: {len(all_users_ban())}\n' \
            f'👨‍👩‍👦 Семьи: {len(all_marries())}\n' \
            f'📃 Имущество: <b>{lent}</b>\n➖➖➖➖➖➖\n' \
-           f'<b>Версия бота:</b> V1.4.7\n'
-
+           f'<b>Версия бота:</b> V{bot_version}\n'
     if message.from_user.id == owner_id:
         text += '➖➖➖➖➖➖\n' \
                 f'⚙️ CPU usage: {cpu_usage}\n' \
@@ -656,9 +657,12 @@ async def get_chat_list(call):
     chats = [Chat(source=i) for i in sql.get_all_data('chats')]
     text = f'📃 Список чатов:\n\n'
     for index, chat in enumerate(chats, start=1):
-        link = f'@{chat.username}' if chat.username else f'<a href="{chat.invite_link}">Invite*</a>'
-        text += f'''{index}. <b>{chat.title}</b> - {link}\n'''
-    return await call.message.answer(text)
+        link = f'@{chat.username}' if chat.username else f"{chat.invite_link}"
+        text += f'''{index}. {chat.title} - {link}\n'''
+    text_file = BufferedInputFile(bytes(text, 'utf-8'), filename="chatslist.txt")
+    with suppress(TelegramBadRequest):
+        await call.message.reply_document(document=text_file,
+                                          caption=f"Список чатов.")
 
 
 async def plan_bd(call, state):

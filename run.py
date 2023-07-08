@@ -17,7 +17,7 @@ from aiogram import Dispatcher, F, Router
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from handlers.admins.gifts import gift_get_handler, gift_handler, gift_step1_handler, gift_step2_handler, \
-    gift_finish_handler, gift_participate_handler, Gift
+    gift_finish_handler, gift_participate_handler, Gift, gift_step3_handler, gift_step4_handler
 from handlers.admins.main import profile_handler_admin, givebalance_handler, takebalance_handler, multibalance_handler, \
     devidebalance_handler, givebalance_admin_handler, stats_handler, stats_dop_call, wdzy_info, get_chat_list, plan_bd, \
     plan_bd_step1, plan_bd_step2, plan_bd_finish, givedonate_handler, privilegia_handler_admin, other_handler, \
@@ -202,7 +202,7 @@ async def main():
     dp.message.register(chat_add_handler, Trigger(["вдзу"]), IsOwner())
 
     dp.message.register(
-        stats_handler, Trigger(["стата", "статистика", "stat", "stats"])
+        stats_handler, Trigger(["стата бота", "статистика бота", "stat bot", "stats bot"])
     )
 
     dp.callback_query.register(
@@ -226,8 +226,10 @@ async def main():
     dp.message.register(gift_get_handler, IsOwner(), Command("раздать"))
     dp.message.register(gift_handler, IsOwner(), Command("gift"))
     dp.message.register(gift_step1_handler, IsOwner(), Gift.text)
-    dp.message.register(gift_step2_handler, IsOwner(), Gift.summ)
-    dp.message.register(gift_finish_handler, IsOwner(), Gift.type)
+    dp.message.register(gift_step2_handler, IsOwner(), Gift.winners)
+    dp.message.register(gift_step3_handler, IsOwner(), Gift.type_reward)
+    dp.message.register(gift_step4_handler, IsOwner(), Gift.count_reward)
+    dp.message.register(gift_finish_handler, IsOwner(), Gift.text_button)
     dp.callback_query.register(gift_participate_handler, F.data == "raz")
 
     dp.callback_query.register(plan_bd, IsOwner(), F.data == "plan", )

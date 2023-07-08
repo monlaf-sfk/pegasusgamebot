@@ -2,7 +2,6 @@ venv/
 .idea/
 
 # Каталог сборки
-assets/logs
-
+assets/
 # .env-файлы
 config.py

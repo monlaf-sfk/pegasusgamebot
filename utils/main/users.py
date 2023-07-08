@@ -49,7 +49,7 @@ class User:
                datetime_bonus, ref_id, 0, False, 0, None, 10, None,
                0, 0, 0, 0, None, None, 0, 0, None, None, None, 0.0, 0, False, None, 100, Json(item_case), None, False,
                False, 0, 0,
-               0, False, True)
+               0, False, False)
         sql.insert_data([res])
         all_users_.append(res[0])
         return res
@@ -86,7 +86,7 @@ class User:
 
             self.source: tuple = sql.select_data(name=x[1], title=x[0],
                                                  row_factor=True)
-        if self.source is None and (uid is None or 'check_ref' in kwargs):
+        if self.source is None and (uid is None and 'check_ref' in kwargs):
             raise Exception('UserNotFound')
         elif self.source is None and (kwargs['user'].is_bot if 'user' in kwargs else True) != True:
             self.source = User.create(uid, first_name, username)
@@ -193,6 +193,8 @@ class User:
             return res
         elif res and (res.to_date - datetime.now()) > timedelta(seconds=1):
             return res
+        elif res and (res.to_date - datetime.now()) < timedelta(seconds=1):
+            self.edit('ban_source', None)
         return None
 
     @property
@@ -202,6 +204,8 @@ class User:
             return res
         elif res and (res.to_date - datetime.now()) > timedelta(seconds=1):
             return res
+        elif res and (res.to_date - datetime.now()) < timedelta(seconds=1):
+            self.edit('donate_source', None)
         return None
 
     def get_bonus(self, first_name=None):
