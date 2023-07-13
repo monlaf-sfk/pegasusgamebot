@@ -3,7 +3,7 @@ from datetime import datetime
 from aiogram.types import Message
 from psycopg2._json import Json
 
-from utils.items.items import item_case, works_items, items
+from utils.items.items import item_case, works_items
 from utils.main.db import sql
 from utils.main.users import User
 

@@ -24,11 +24,12 @@ class ThrottlingMiddleware(BaseMiddleware):
             data: Dict[str, Any],
     ) -> Any:
         throttling_key = get_flag(data, "throttling_key")
+
         if throttling_key in self.caches:
             if event.from_user.id in self.caches[throttling_key]:
                 return
             else:
-                self.caches[throttling_key][event.chat.id] = None
+                self.caches[throttling_key][event.from_user.id] = None
         return await handler(event, data)
 
 
@@ -36,7 +37,7 @@ class ThrottlingCallMiddleware(BaseMiddleware):
     caches = {
         "games": TTLCache(maxsize=10_000, ttl=THROTTLE_TIME_GAME),
         "default": TTLCache(maxsize=10_000, ttl=THROTTLE_TIME_OTHER),
-        None: TTLCache(maxsize=10_000, ttl=THROTTLE_TIME_OTHER)
+        None: TTLCache(maxsize=10_000, ttl=THROTTLE_TIME_OTHER2)
     }
 
     async def __call__(
@@ -46,6 +47,7 @@ class ThrottlingCallMiddleware(BaseMiddleware):
             data: Dict[str, Any],
     ) -> Any:
         throttling_key = get_flag(data, "throttling_key")
+
         if throttling_key in self.caches:
             if event.from_user.id in self.caches[throttling_key]:
                 return

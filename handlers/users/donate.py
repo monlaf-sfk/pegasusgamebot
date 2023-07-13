@@ -48,13 +48,16 @@ async def donate_help_handler(message: Message):
         elif donate and donate.id >= arg:
             return await message.reply('➖ У вас и так такая привилегия или выше!')
         limitvidach: int = 0
+        last_vidacha = None
         if arg == 4:
             limitvidach = 10_000_000
+            last_vidacha = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
         if arg == 5:
             limitvidach = 30_000_000
+            last_vidacha = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
         user.editmany(donate_source=f'{arg},{datetime.now().strftime("%d-%m-%Y %H:%M")},True,None',
-                      coins=user.coins - item['price'], limitvidach=limitvidach, last_vidacha=None)
+                      coins=user.coins - item['price'], limitvidach=limitvidach, last_vidacha=last_vidacha)
 
         return await message.reply(f'✅ Вы успешно приобрели привилегию <b>{item["name"]}</b> за {item["price"]}🪙')
     elif arg == 6:

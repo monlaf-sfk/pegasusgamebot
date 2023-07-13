@@ -286,7 +286,7 @@ async def givebalance_admin_handler(message: Message):
         return await message.reply('Используйте: <code>Выдать {кол-во} *{ссылка}</code>')
     now = datetime.now()
     user = User(user=message.from_user)
-    if user.last_vidacha and user.limitvidach <= 0:
+    if user.limitvidach <= 0 and user.last_vidacha:
         x = (now - user.last_vidacha).total_seconds()
         return await message.reply(f'💓 Лимит выдачи, сброс через: {timetostr(3600 * 24 - x)}')
     try:
@@ -303,7 +303,7 @@ async def givebalance_admin_handler(message: Message):
         summ2 = to_user.balance + summ
 
         sql.executescript(f'UPDATE users SET balance = balance + {summ} WHERE id = {to_user.id};\n'
-                          f"UPDATE users SET limitvidach = limitvidach - {summ},last_vidacha='{datetime.now().strftime('%d-%m-%Y %H:%M:%S')}' WHERE id = {user.id}",
+                          f'UPDATE users SET limitvidach =limitvidach - {summ}  WHERE id = {user.id}',
                           True, False)
         return await message.reply(f'Вы успешно выдали пользователю {to_user.link} {to_str(summ)} и его теку'
                                    f'щий баланс: {to_str(summ2)}',
@@ -406,8 +406,9 @@ async def privilegia_handler_admin(message: Message):
             return await message.reply('❌ ФОрмат : [прива] [user] [-\+] *time!')
     except:
         return await message.reply('❌ ФОрмат : [прива] [user] [-\+] *time!')
-    limitvidach: int = 0
 
+    limitvidach: int = 0
+    last_vidacha = None
     if priva is not None:
         item = donates[priva]
         if time:
@@ -419,12 +420,14 @@ async def privilegia_handler_admin(message: Message):
             x = f'{priva},{datetime.now().strftime("%d-%m-%Y %H:%M")},True,None'
         if priva == 4:
             limitvidach = 10_000_000
+            last_vidacha = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
         if priva == 5:
             limitvidach = 30_000_000
+            last_vidacha = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
     else:
         item = {'name': 'Игрок', 'price': 0}
         x = None
-    user.editmany(donate_source=x, limitvidach=limitvidach, last_vidacha=None)
+    user.editmany(donate_source=x, limitvidach=limitvidach, last_vidacha=last_vidacha)
 
     return await message.reply(f'✅ Вы успешно выдали привилегию <b>{item["name"]}</b> за {item["price"]}🪙 '
                                f'пользователю {user.link}',

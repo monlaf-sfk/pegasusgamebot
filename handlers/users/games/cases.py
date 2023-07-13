@@ -7,7 +7,7 @@ from config import bot_name, donates
 from keyboard.games import open_case_kb, buy_case_kb
 from keyboard.generate import show_balance_kb, show_inv_kb
 
-from utils.items.items import item_case, items, works_items
+from utils.items.items import item_case
 
 from utils.main.cash import to_str, to_str4
 from utils.main.db import sql

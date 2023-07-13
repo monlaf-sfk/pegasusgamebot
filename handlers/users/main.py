@@ -1,15 +1,6 @@
-import secrets
-import string
-import random
-from contextlib import suppress
-
 from aiogram import flags
-from aiogram.exceptions import TelegramBadRequest
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import StatesGroup, State
-from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, FSInputFile
-from aiogram.utils.keyboard import InlineKeyboardBuilder
-from captcha.image import ImageCaptcha
+
+from aiogram.types import Message, CallbackQuery
 
 from config import bot_name
 from keyboard.help import help_keyboard, back_help_keyboard
@@ -20,20 +11,110 @@ from utils.main.chats import Chat
 from utils.main.db import sql
 from utils.main.users import User
 
+import asyncio
+import random
 
-class solve():
-    nameCaptcha = ''
+from collections import namedtuple
+from contextlib import suppress
+from typing import Tuple
+
+from aiogram.exceptions import TelegramBadRequest
+from aiogram import types
+from aiogram.filters.callback_data import CallbackData
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import StatesGroup, State
+from aiogram.fsm.storage.base import StorageKey, BaseStorage
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.utils.markdown import hbold, link, hide_link, hlink
+
+Emoji = namedtuple('Emoji', ['unicode', 'subject', 'name'])
+
+emojies = (
+    Emoji(unicode=u'\U0001F48D', subject='ring', name='кольцо'),
+    Emoji(unicode=u'\U0001F460', subject='shoe', name='туфлю'),
+    Emoji(unicode=u'\U0001F451', subject='crown', name='корону'),
+    Emoji(unicode=u'\U00002702', subject='scissors', name='ножницы'),
+    Emoji(unicode=u'\U0001F941', subject='drum', name='барабан'),
+
+    Emoji(unicode=u'\U0001F48A', subject='pill', name='пилюлю'),
+    Emoji(unicode=u'\U0001F338', subject='blossom', name='цветок'),
+    Emoji(unicode=u'\U0001F9C0', subject='cheese', name='сыр'),
+    Emoji(unicode=u'\U0001F3A7', subject='headphone', name='наушники'),
+    Emoji(unicode=u'\U000023F0', subject='clock', name='будильник'),
+
+    Emoji(unicode=u'\U0001F951', subject='avocado', name='авокадо'),
+    Emoji(unicode=u'\U0001F334', subject='palm', name='пальму'),
+    Emoji(unicode=u'\U0001F45C', subject='handbag', name='сумку'),
+    Emoji(unicode=u'\U0001F9E6', subject='socks', name='носки'),
+    Emoji(unicode=u'\U0001FA93', subject='axe', name='топор'),
+
+    Emoji(unicode=u'\U0001F308', subject='rainbow', name='радугу'),
+    Emoji(unicode=u'\U0001F4A7', subject='droplet', name='каплю'),
+    Emoji(unicode=u'\U0001F525', subject='fire', name='огонь'),
+    Emoji(unicode=u'\U000026C4', subject='snowman', name='снеговика'),
+    Emoji(unicode=u'\U0001F9F2', subject='magnet', name='магнит'),
+
+    Emoji(unicode=u'\U0001F389', subject='popper', name='хлопушку'),
+    Emoji(unicode=u'\U0001F339', subject='rose', name='розу'),
+    Emoji(unicode=u'\U0000270E', subject='pencil', name='карандаш'),
+    Emoji(unicode=u'\U00002709', subject='envelope', name='конверт'),
+    Emoji(unicode=u'\U0001F680', subject='rocket', name='ракету'),
+)
+NUM_BUTTONS = 7
+ENTRY_TIME = 150
+BAN_TIME = 30
+users_entrance = (
+    'Даже не верится, что это ты, {mention}. Мне сказали не пускать ботов, поэтому нажми на {subject}',
+    '{mention}, это правда ты? Мы тебя ждали. Или не ты? Настоящий {mention} сможет нажать на. Докажи, что ты не бот! Для этого нажми на {subject}',
+    'О, {mention}, мы тебя ждали. Докажи что ты не бот и проходи. Для этого нажми на {subject}',
+
+)
 
 
-class dialog(StatesGroup):
-    captcha = State()
+class confirming_callback(CallbackData, prefix='new_chat'):
+    subject: str
+    necessary_subject: str
+    user_id: int
+    ref_id: int
+
+
+class ConfirmUserState(StatesGroup):
+    IncomerUser = State()
+
+
+def users_entrance_generator(mention: str, subject: str) -> str:
+    return random.choice(users_entrance).format(mention=mention,
+                                                subject=hlink(subject.upper(),
+                                                              url=f"https://t.me/{bot_name}?startgroup=1"))
+
+
+def generate_confirm_markup(user_id: int, ref_id: int) -> Tuple[InlineKeyboardMarkup, str]:
+    """
+    Функция, создающая клавиатуру для подтверждения, что пользователь не является ботом
+    """
+    # создаём инлайн клавиатуру
+    confirm_user_markup = InlineKeyboardBuilder()
+    # генерируем список объектов по которым будем итерироваться
+    subjects = random.sample(emojies, NUM_BUTTONS)
+    # из них выбираем один рандомный объект, на который должен нажать пользователь
+    necessary_subject = random.choice(subjects)
+    for emoji in subjects:
+        button = InlineKeyboardButton(
+            text=emoji.unicode,
+            callback_data=confirming_callback(subject=emoji.subject, necessary_subject=necessary_subject.subject,
+                                              user_id=user_id, ref_id=ref_id).pack()
+        )
+        confirm_user_markup.add(button)
+
+    # отдаём клавиатуру после создания
+    return confirm_user_markup.adjust(3).as_markup(), necessary_subject.name
 
 
 @flags.throttling_key('default')
-async def start_handler(message: Message, state: FSMContext):
+async def start_handler(message: Message, fsm_storage: BaseStorage):
     if message.chat.id != message.from_user.id:
         Chat(chat=message.chat)
-
         await message.reply(text=
                             f'👋 Привет! Я — игровой бот Pegasus!\n'
                             '🎲 Начинай играть прямо сейчас! \n'
@@ -49,6 +130,7 @@ async def start_handler(message: Message, state: FSMContext):
 
     else:
         if message.chat.id == message.from_user.id and str(message.text[7:]).isdigit():
+
             if int(message.text[7:]) == message.from_user.id:
                 await bot.send_message(chat_id=message.from_user.id,
                                        text=f'❌ Вы не можете переходите по свой ссылке!\n'
@@ -59,29 +141,42 @@ async def start_handler(message: Message, state: FSMContext):
                 user = User(user=message.from_user, check_ref=True)
             except:
                 user = None
+
             if user is None or user.ref is None:
 
                 try:
                     ref_id = int(message.text[7:])
-                    ref = User(id=ref_id)
+                    User(id=ref_id)
                 except:
-                    return
+                    return await message.reply('❌ Рефер с таким ID не найден')
 
-                await state.set_state(dialog.captcha)
-                alphabet = string.digits
-                image = ImageCaptcha()
-                data = ''.join(secrets.choice(alphabet) for _ in range(random.randint(3, 4)))
-                image.write(data, 'assets/out.png')
-                solve.nameCaptcha = data
-                await message.answer('👋🏻 Добро пожаловать, пройди капчу для получения награды!')
-                kb = InlineKeyboardBuilder()
-                for z in range(5):
-                    name = ''.join(secrets.choice(alphabet) for i in range(random.randint(5, 6)))
-                    name = str(name)
-                    kb.add(InlineKeyboardButton(text=name, callback_data=f'check:{name}:{ref.id}'))
-                kb.add(InlineKeyboardButton(text=data, callback_data=f'check:{data}:{ref.id}'))
-                photo = FSInputFile("assets/out.png")
-                return await message.answer_photo(photo=photo, reply_markup=kb.adjust(2).as_markup())
+                generated_tuple = generate_confirm_markup(message.from_user.id, ref_id)
+                markup = generated_tuple[0]
+                subject = generated_tuple[1]
+                first_name = ''.join(filter(str.isalnum, message.from_user.full_name))
+                mention = "<a href=\"" + message.from_user.url + f"\">{first_name}</a>"
+                answer = users_entrance_generator(mention=mention, subject=subject)
+                await message.reply(
+                    text=answer,
+                    reply_markup=markup
+                )
+
+                await fsm_storage.set_state(bot=bot, state=ConfirmUserState.IncomerUser, key=StorageKey(
+                    user_id=message.from_user.id,
+                    chat_id=message.from_user.id,
+                    bot_id=bot.id))
+
+                data = {"user_id": message.from_user.id}
+                await fsm_storage.update_data(bot=bot, data=data, key=StorageKey(
+                    user_id=message.from_user.id,
+                    chat_id=message.from_user.id,
+                    bot_id=bot.id))
+
+                await asyncio.sleep(ENTRY_TIME)
+                try:
+                    await message.delete()
+                except TelegramBadRequest:
+                    pass
             else:
                 return await message.reply('❗ У вас уже есть рефер!')
         user = User(user=message.from_user)
@@ -101,57 +196,71 @@ async def start_handler(message: Message, state: FSMContext):
                             reply_markup=invite_kb.as_markup(), disable_web_page_preview=True)
 
 
-async def ref_call_handler(call: CallbackQuery, state: FSMContext):
-    check, data, ref_id = call.data.split(':')
-    if data == solve.nameCaptcha.lower():
+async def ref_call_handler(call: types.CallbackQuery, callback_data: confirming_callback, state: FSMContext):
+    """
+    Хэндлер обрабатывающий нажатие на кнопку
+    """
+    # сразу получаем все необходимые нам переменные, а именно
+    # предмет, на который нажал пользователь
+    subject = callback_data.subject
+    # предмет на который пользователь должен был нажать
+    necessary_subject = callback_data.necessary_subject
+    # айди пользователя (приходит строкой, поэтому используем int)
+
+    # и айди чата, для последнующей выдачи прав
+
+    # не забываем выдать юзеру необходимые права если он нажал на правильную кнопку
+    if subject == necessary_subject:
         try:
             user = User(user=call.from_user, check_ref=True)
         except:
             user = None
-        if user is None:
-            user = User(user=call.from_user)
-        try:
-            ref = User(id=ref_id)
-        except:
-            return
-        zarefa = sql.execute("SELECT zarefa FROM other", commit=False, fetch=True)[0][0]
-        ref.edit('balance', ref.balance + zarefa)
-        ref.edit('refs', ref.refs + 1)
-        user.edit('ref', ref.id)
-        user.edit('balance', user.balance + zarefa)
-        with suppress(TelegramBadRequest):
-            await bot.send_message(chat_id=ref.id,
-                                   text=f'🙂 Дорогой пользователь!\n'
-                                        f'Спасибо за приглашение пользователя {user.link}\n'
-                                        f'Вам было выдано +{to_str(zarefa)}\n'
-                                   ,
-                                   disable_web_page_preview=True)
-        with suppress(TelegramBadRequest):
-            await bot.send_message(chat_id=user.id, text=
-            f'👋 Привет! Я — игровой бот Pegasus!\n'
-            '🎲 Начинай играть прямо сейчас! \n'
-            '🎰 Зарабатывай деньги в симуляторе казино, покупай бизнесы, становись самым богатым!\n'
-            '🛡 Создавай клан и грабь магазины/банки/музеи, либо начинай войну с другими кланами ⚔️!\n'
-            '🎁 Открывай кейсы, выходи в топ лучших 🏆!\n'
-            'Все это и многое другое ждёт тебя 😊\n\n'
-            '📌 Пишите боту «Команды» для получения помощи!\n'
-            '💎 В нашей группе Вы увидите частые раздачи и промокоды, не забудь подписться!\n\n'
-            '<i> Мы рекомендуем ознакомиться с <a href="https://teletype.in/@corching/Termsofuse">пользовательским соглашением</a>, прежде чем продолжить использование данного бота.</i> \n',
-                                   parse_mode='html', reply_markup=invite_kb.as_markup(),
-                                   disable_web_page_preview=True)
-        with suppress(TelegramBadRequest):
-            await bot.send_message(chat_id=user.id,
-                                   text=f'🙂 Дорогой пользователь!\n'
-                                        f'Вы перешли по реферальной ссылки пользователя {ref.link}\n'
-                                        f'Вам было выдано +{to_str(zarefa)}\n'
-                                   ,
-                                   disable_web_page_preview=True)
+        if user is None or user.ref is None:
 
-        await state.clear()
+            try:
+                ref = User(id=callback_data.ref_id)
+            except:
+                return
+            zarefa = sql.execute("SELECT zarefa FROM other", commit=False, fetch=True)[0][0]
+            ref.edit('balance', ref.balance + zarefa)
+            ref.edit('refs', ref.refs + 1)
+            user.edit('ref', ref.id)
+            user.edit('balance', user.balance + zarefa)
+            with suppress(TelegramBadRequest):
+                await bot.send_message(chat_id=ref.id,
+                                       text=f'🙂 Дорогой пользователь!\n'
+                                            f'Спасибо за приглашение пользователя {user.link}\n'
+                                            f'Вам было выдано +{to_str(zarefa)}\n'
+                                       ,
+                                       disable_web_page_preview=True)
+            with suppress(TelegramBadRequest):
+                await bot.send_message(chat_id=user.id, text=
+                f'👋 Привет! Я — игровой бот Pegasus!\n'
+                '🎲 Начинай играть прямо сейчас! \n'
+                '🎰 Зарабатывай деньги в симуляторе казино, покупай бизнесы, становись самым богатым!\n'
+                '🛡 Создавай клан и грабь магазины/банки/музеи, либо начинай войну с другими кланами ⚔️!\n'
+                '🎁 Открывай кейсы, выходи в топ лучших 🏆!\n'
+                'Все это и многое другое ждёт тебя 😊\n\n'
+                '📌 Пишите боту «Команды» для получения помощи!\n'
+                '💎 В нашей группе Вы увидите частые раздачи и промокоды, не забудь подписться!\n\n'
+                '<i> Мы рекомендуем ознакомиться с <a href="https://teletype.in/@corching/Termsofuse">пользовательским соглашением</a>, прежде чем продолжить использование данного бота.</i> \n',
+                                       parse_mode='html', reply_markup=invite_kb.as_markup(),
+                                       disable_web_page_preview=True)
+            with suppress(TelegramBadRequest):
+                await bot.send_message(chat_id=user.id,
+                                       text=f'🙂 Дорогой пользователь!\n'
+                                            f'Вы перешли по реферальной ссылки пользователя {ref.link}\n'
+                                            f'Вам было выдано +{to_str(zarefa)}\n'
+                                       ,
+                                       disable_web_page_preview=True)
+        else:
+            await call.message.reply('❗ У вас уже есть рефер!')
     else:
-        await state.clear()
-        await call.answer('❌ Неверный ответ на капчу!'
-                          'Для повторного решения заново перейдите по ссылки!', show_alert=True)
+        await call.message.answer('❌ Не правильно решена капча!')
+
+    await state.clear()
+    with suppress(TelegramBadRequest):
+        await call.message.delete()
 
 
 @flags.throttling_key('default')

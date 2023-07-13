@@ -10,7 +10,8 @@ from aiogram.types import Message, CallbackQuery
 from config import bot_name
 from filters.triggers import Trigger
 from keyboard.clans import war_clan, war_clan_info, war_clan_member
-from utils.clan.clan import Clanuser, Clan, ClanWar, ClanWarFind, ClanWarMember
+from utils.clan.clan import Clanuser, Clan
+from utils.clan.clanwar import ClanWar, ClanWarFind, ClanWarMember
 from utils.main.donates import to_str as unix_date
 from utils.main.db import sql, timetostr
 from utils.main.users import User

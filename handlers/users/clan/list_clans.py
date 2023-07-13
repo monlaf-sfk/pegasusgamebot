@@ -1,7 +1,7 @@
 from datetime import datetime
 from operator import itemgetter
 
-from aiogram import flags
+from aiogram import flags, F
 from aiogram.fsm.state import State, StatesGroup
 
 from aiogram.types import Message, CallbackQuery
@@ -10,7 +10,7 @@ from aiogram_dialog import (
     Dialog, DialogManager,
     StartMode, Window,
 )
-from aiogram_dialog.widgets.kbd import (ScrollingGroup, Select, SwitchTo, Button
+from aiogram_dialog.widgets.kbd import (ScrollingGroup, Select, SwitchTo, Button, Row, CurrentPage, PrevPage, NextPage
                                         )
 from aiogram_dialog.widgets.text import Format, Const
 
@@ -80,7 +80,19 @@ clan_dialog = Dialog(
             ),
             width=1,
             height=5,
+            hide_pager=True,
             id="scroll_with_pager",
+        ),
+        Row(
+            CurrentPage(scroll="scroll_with_pager", text=Format("{current_page1}/{pages}")),
+            PrevPage(
+                scroll='scroll_with_pager', text=Format("◀️"),
+                when=F["current_page1"] != 1
+            ),
+            NextPage(
+                scroll='scroll_with_pager', text=Format("▶️"),
+                when=F["pages"] != F["current_page1"]
+            )
         ),
         getter=product_getter,
         state=DialogSG.DEFAULT_PAGER,

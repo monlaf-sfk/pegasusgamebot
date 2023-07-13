@@ -141,20 +141,20 @@ async def gift_finish_handler(message: Message, state: FSMContext):
     data = await state.get_data()
     await state.clear()
     try:
-        Contest(channel_id=config.channel_test)
+        Contest(channel_id=config.channel_offical)
     except:
-        Contest.create(config.channel_test, 0, True, data["count_reward"], data['type_reward'], data['winners'],
+        Contest.create(config.channel_offical, 0, True, data["count_reward"], data['type_reward'], data['winners'],
                        message.text)
         kb = InlineKeyboardBuilder()
         kb.add(InlineKeyboardButton(text=f'(0){message.text}', callback_data='raz'))
-        await bot.send_message(chat_id=config.channel_test, text=data['text'], reply_markup=kb.as_markup())
+        await bot.send_message(chat_id=config.channel_offical, text=data['text'], reply_markup=kb.as_markup())
         return await message.reply('✅ Розыграш начат!')
     return await message.answer("⁉ Уже идет конкурс ", reply_markup=ReplyKeyboardRemove())
 
 
 async def gift_participate_handler(callback_query: CallbackQuery):
     try:
-        contest = Contest(channel_id=config.channel_test)
+        contest = Contest(channel_id=config.channel_offical)
     except:
         contest = None
     if contest.status:
@@ -167,7 +167,7 @@ async def gift_participate_handler(callback_query: CallbackQuery):
                                                             user_id=callback_query.from_user.id)
             if user_channel_status.status == 'left':
                 return await callback_query.answer(show_alert=True, text='⁉️ Для начала подпишись на канал !')
-            user_chat_status = await bot.get_chat_member(chat_id=config.chat_test,
+            user_chat_status = await bot.get_chat_member(chat_id=config.chat_offical,
                                                          user_id=callback_query.from_user.id)
             if user_chat_status.status == 'left':
                 return await callback_query.answer(text='⁉️ Для начала вступи в чат !\n'
@@ -182,7 +182,7 @@ async def gift_participate_handler(callback_query: CallbackQuery):
                                                         '⚠ Перейдите в лс боту и нажмите старт\n'
                                                         'https://t.me/pegasusgame_bot', show_alert=True)
             Participants.add_participants(callback_query.from_user.id,
-                                          config.channel_test)
+                                          config.channel_offical)
             count = contest.edit('participants_count', contest.participants_count + 1)
             await bot.edit_message_reply_markup(chat_id=callback_query.message.chat.id,
                                                 message_id=callback_query.message.message_id,
@@ -199,7 +199,7 @@ async def gift_get_handler(message: Message):
     if message.from_user.id != owner_id:
         return
     try:
-        contest = Contest(channel_id=config.channel_test)
+        contest = Contest(channel_id=config.channel_offical)
     except:
         return await message.reply("❌ Нету запущенных конкурсов")
     if contest.winners == 0:
@@ -222,8 +222,8 @@ async def gift_get_handler(message: Message):
         error: int = 0
         all: int = 0
         for user_id in users:
-            user_channel_status = await bot.get_chat_member(chat_id=config.channel_test, user_id=user_id)
-            user_chat_status = await bot.get_chat_member(chat_id=config.chat_test,
+            user_channel_status = await bot.get_chat_member(chat_id=config.channel_offical, user_id=user_id)
+            user_chat_status = await bot.get_chat_member(chat_id=config.chat_offical,
                                                          user_id=user_id)
             blocked = sql.execute(f"SELECT blocked FROM users WHERE id={user_id}", fetchone=True)[0]
             if user_channel_status.status == 'left' or user_chat_status.status == 'left' or blocked:

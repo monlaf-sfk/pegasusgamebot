@@ -3,7 +3,6 @@ from aiogram.types import Message
 from filters.users import flood_handler
 from config import bot_name
 
-from utils.items.items import items
 from utils.logs import writelog
 from utils.main.cash import to_str, get_cash
 from utils.main.users import User
@@ -62,16 +61,8 @@ async def activatepromo_handler(message: Message):
             return await message.reply('❌ Промокод был отключен!')
 
         promo.add_user(message.from_user.id)
-        item = items.get(promo.summ)
+
         user = User(user=message.from_user)
-        if item is not None:
-            user.items = list(user.items)
-            user.set_item(item_id=promo.summ, x=promo.xd)
-            await message.reply(f'✅ Вы активировали промокод и получили:\n<b>{item["name"]} {item["emoji"]}</b> (x'
-                                f'{promo.xd}) - '
-                                f'{to_str(item["sell_price"])}')
-            await writelog(message.from_user.id, f'Активация промокода {promo}')
-            return
 
         user.edit('balance', user.balance + promo.summ)
         await message.reply(f'✅ Вы активировали промокод и получили +{to_str(promo.summ)}')

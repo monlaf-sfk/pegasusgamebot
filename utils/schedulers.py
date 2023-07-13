@@ -5,15 +5,14 @@ from datetime import datetime, timedelta
 
 import asyncio
 
-import numpy as np
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from psycopg2 import Error, OperationalError
-from psycopg2.extras import execute_values
 
 import config
 from config import donates, set_bitcoin_price, bitcoin_price, uah_price, set_uah_price, set_euro_price, euro_price
+from handlers.users.clan.clan_rob import name_robs
 
 from loader import bot
 from utils.bosses import bosses
@@ -645,21 +644,71 @@ async def clanwars_check():
                     commit=True)
 
 
+async def clanrobprepare_check():
+    with lock:
+        sql.execute(
+            f"UPDATE ClanRob SET prepare=False,time_rob=NULL WHERE time_rob IS NOT NULL AND time_rob - current_timestamp <= interval '1 second'",
+            commit=True)
+
+
+async def clanrobing_check():
+    with lock:
+        sql.execute(
+            f"UPDATE ClanRob SET balance = CASE "
+            f'WHEN index_rob=1 THEN balance + {round((name_robs[1]["income"] / 60))} * (SELECT COUNT(*) AS count FROM ClanUsers WHERE rob_involved = True AND clan_id = ClanRob.clan_id ) '
+            f'WHEN index_rob=2 THEN balance +{round(name_robs[2]["income"] / 60)}  * (SELECT COUNT(*) AS count FROM ClanUsers WHERE rob_involved = True AND clan_id = ClanRob.clan_id )  '
+            f'WHEN index_rob=3 THEN balance + {round(name_robs[3]["income"] / 60)}  * (SELECT COUNT(*) AS count FROM ClanUsers WHERE rob_involved = True AND clan_id = ClanRob.clan_id )  '
+            f'WHEN index_rob=4 THEN balance + {round(name_robs[4]["income"] / 60)}  * (SELECT COUNT(*) AS count FROM ClanUsers WHERE rob_involved = True AND clan_id = ClanRob.clan_id )  '
+            f"END WHERE time_rob IS NOT NULL AND prepare=FALSE",
+            commit=True)
+
+
+async def clanrob_check():
+    with lock:
+        clanrob_sql = sql.execute(
+            f"SELECT rob_id,clan_id ,index_rob,balance   FROM ClanRob WHERE time_rob IS NOT NULL AND time_rob - current_timestamp <= interval '1 hour'"
+            f"AND prepare = False ",
+            fetch=True)
+    if not clanrob_sql:
+        return
+    for clan in clanrob_sql:
+        query = ''
+        rob_id, clan_id, index_rob, balance = clan
+        user_ids = sql.execute(query=f'SELECT user_id FROM ClanUsers WHERE clan_id={clan_id} and rob_involved=True',
+                               commit=False,
+                               fetch=True)
+        count = sql.execute(f"SELECT COUNT(*) AS count FROM ClanUsers WHERE rob_involved=True AND clan_id={clan_id}",
+                            fetchone=True)[0]
+        for user in user_ids:
+            query += \
+                f"UPDATE users SET bank = bank + {round(balance / count)} WHERE id={user['user_id']};" \
+                f"UPDATE user_items_rob SET count=0 WHERE user_id={user['user_id']} and count>0;"
+            with suppress(TelegramBadRequest, TelegramForbiddenError):
+                await bot.send_message(user['user_id'], text='[КЛАНОВОЕ ОГРАБЛЕНИЕ]\n'
+                                                             '💰 Ограбление «Магазин» завершено!\n'
+                                                             f'💸 Вы заработали {to_str(round(balance / count))}')
+            await asyncio.sleep(0.5)
+        query += f"UPDATE ClanUsers SET rob_involved=False WHERE clan_id={clan_id};" \
+                 f"DELETE FROM ClanRob WHERE rob_id = {rob_id} and clan_id={clan_id};"
+    sql.execute(query=query, commit=True)
+
+
 job_defaults = {
     'coalesce': False,
     'max_instances': 3
 }
 shedualer = AsyncIOScheduler(job_defaults=job_defaults)
 
+shedualer.add_job(clanrobprepare_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(clanrob_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(clanrobing_check, 'cron', minute='*', misfire_grace_time=1000)
+
 shedualer.add_job(boss_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(boss_spavn, 'interval', hours=3, misfire_grace_time=3600)
 
 shedualer.add_job(clanwars_check, 'cron', minute='*', misfire_grace_time=1000)
-
 shedualer.add_job(clanwarfind_check, 'cron', minute='*', misfire_grace_time=1000)
-
 shedualer.add_job(clanwarprepare_check, 'cron', minute='*', misfire_grace_time=1000)
-
-shedualer.add_job(boss_spavn, 'interval', hours=3, misfire_grace_time=3600)
 
 shedualer.add_job(auction_handler, 'cron', minute='*', misfire_grace_time=1000)
 

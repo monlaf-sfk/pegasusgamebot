@@ -17,7 +17,7 @@ async def link_user(username, name, first_name, notifies, clan_teg, id):
     if clan_teg:
         try:
             clanuser = Clanuser(user_id=id)
-            clan = Clan(clan_id=clanuser.id_clan)
+            clan = Clan(clan_id=clanuser.clan_id)
         except:
             if notifies:
                 return f'<a href="{url}">{name if name else first_name}</a>'
@@ -95,7 +95,7 @@ async def top_handler(message: Message):
             text += 'Вы не состоите в клане!'
         if clan_user:
             for index, clan in enumerate(top_clan, start=1):
-                if clan[0] == clan_user.id_clan:
+                if clan[0] == clan_user.clan_id:
                     id, name, win, prefix = clan
                     emoji = ''.join(numbers_emoji[int(i)] for i in str(index))
                     text += f'{emoji}. {name + "~[" + prefix + "]" if prefix and name else name} 🆔 <code>{id}</code> — ' \
@@ -120,20 +120,18 @@ async def top_handler(message: Message):
     index = 0
     for user in top_users:
         user_id, first_name, name, username, balance, prefix, donate_source, notifies, clan_teg = user
-
         try:
             donate_source = int(donate_source.split(',')[0])
         except AttributeError:
             donate_source = None
-        if donate_source == None or donate_source != 5 and donate_source != 6:
+        if donate_source == None or donate_source != 6:
             if index == 10:
                 break
-
             index += 1
             emoji = ''.join(numbers_emoji[int(i)] for i in str(index))
             link = await link_user(username, name, first_name, notifies, clan_teg,
                                    user_id) if notifies else f'<a href="https://t.me/{bot_name}">{name if name else first_name}</a>'
-            text += f'{emoji}. {prefix + " " if prefix and name else ""}{link} - (<code>{user_id}</code>) - ' \
+            text += f'{emoji}. {link} - (<code>{user_id}</code>) - ' \
                     f'{to_str2(transform(balance)) if not (True in [i in arg.lower() for i in ["уровень", "реф", "лвл"]]) else balance}\n'
 
     text += '➖➖➖➖➖➖➖➖➖➖➖➖\n'
@@ -144,7 +142,7 @@ async def top_handler(message: Message):
             user_id, first_name, name, username, balance, prefix, donate_source, notifies, clan_teg = user_s
             link = await link_user(username, name, first_name, notifies, clan_teg,
                                    user_id) if notifies else f'<a href="https://t.me/{bot_name}">{name if name else first_name}</a>'
-            text += f'{emoji}. {prefix + " " if prefix and name else ""}{link} - (<code>{user_id}</code>) - ' \
+            text += f'{emoji}. {link} - (<code>{user_id}</code>) - ' \
                     f'{to_str2(transform(balance)) if not (True in [i in arg.lower() for i in ["уровень", "реф", "лвл"]]) else balance}\n'
             break
         if index == 200:
@@ -221,7 +219,7 @@ async def top_handler_call(callback: CallbackQuery):
             text += 'Вы не состоите в клане!'
         if clan_user:
             for index, clan in enumerate(top_clan, start=1):
-                if clan[0] == clan_user.id_clan:
+                if clan[0] == clan_user.clan_id:
                     id, name, win, prefix = clan
                     emoji = ''.join(numbers_emoji[int(i)] for i in str(index))
                     text += f'{emoji}. {name + "~[" + prefix + "]" if prefix and name else name} 🆔 <code>{id}</code> — ' \
@@ -252,7 +250,7 @@ async def top_handler_call(callback: CallbackQuery):
             donate_source = int(donate_source.split(',')[0])
         except AttributeError:
             donate_source = None
-        if donate_source == None or donate_source != 5 and donate_source != 6:
+        if donate_source == None or donate_source != 6:
             if index == 10:
                 break
             index += 1
@@ -260,7 +258,7 @@ async def top_handler_call(callback: CallbackQuery):
 
             link = await link_user(username, name, first_name, notifies, clan_teg,
                                    user_id) if notifies else f'<a href="https://t.me/{bot_name}">{name if name else first_name}</a>'
-            text += f'{emoji}. {prefix + " " if prefix and name else ""}{link} - (<code>{user_id}</code>) - ' \
+            text += f'{emoji}. {link} - (<code>{user_id}</code>) - ' \
                     f'{to_str2(transform(balance)) if not (True in [i in arg.lower() for i in ["уровень", "реф", "лвл"]]) else balance}\n'
     text += '➖➖➖➖➖➖➖➖➖➖➖➖\n'
     for index, user_s in enumerate(top_users, start=1):
@@ -271,7 +269,7 @@ async def top_handler_call(callback: CallbackQuery):
             link = await link_user(username, name, first_name, notifies, clan_teg,
                                    user_id) if notifies else f'<a href="https://t.me/{bot_name}">{name if name else first_name}</a>'
 
-            text += f'{emoji}. {prefix + " " if prefix and name else ""}{link} - (<code>{user_id}</code>) - ' \
+            text += f'{emoji}. {link} - (<code>{user_id}</code>) - ' \
                     f'{to_str2(transform(balance)) if not (True in [i in arg.lower() for i in ["уровень", "реф", "лвл"]]) else balance}\n'
             break
         if index == 200:
@@ -306,14 +304,14 @@ async def topback_handler_call(callback: CallbackQuery):
             donate_source = int(donate_source.split(',')[0])
         except AttributeError:
             donate_source = None
-        if donate_source == None or donate_source != 5 and donate_source != 6:
+        if donate_source == None or donate_source != 6:
             if index == 10:
                 break
             index += 1
             emoji = ''.join(numbers_emoji[int(i)] for i in str(index))
             link = await link_user(username, name, first_name, notifies, clan_teg,
                                    user_id) if notifies else f'<a href="https://t.me/{bot_name}">{name if name else first_name}</a>'
-            text += f'{emoji}. {prefix + " " if prefix and name else ""}{link} - (<code>{user_id}</code>) - ' \
+            text += f'{emoji}. {link} - (<code>{user_id}</code>) - ' \
                     f'{to_str2(transform(balance))}\n'
     text += '➖➖➖➖➖➖➖➖➖➖➖➖\n'
     for index, user_s in enumerate(top_users, start=1):
@@ -324,7 +322,7 @@ async def topback_handler_call(callback: CallbackQuery):
             link = await link_user(username, name, first_name, notifies, clan_teg,
                                    user_id) if notifies else f'<a href="https://t.me/{bot_name}">{name if name else first_name}</a>'
 
-            text += f'{emoji}. {prefix + " " if prefix and name else ""}{link} - (<code>{user_id}</code>) - ' \
+            text += f'{emoji}. {link} - (<code>{user_id}</code>) - ' \
                     f'{to_str2(transform(balance))}\n'
             break
         if index == 200:

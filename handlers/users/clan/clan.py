@@ -16,7 +16,8 @@ from aiogram.types import Message, InlineKeyboardButton, CallbackQuery
 from keyboard.clans import member_kb, info_clan
 
 from config import bot_name
-from utils.clan.clan import Clanuser, Clan, status_clan, level_clan, ClanWarFind, ClanWar
+from utils.clan.clan import Clanuser, Clan, status_clan, level_clan
+from utils.clan.clanwar import ClanWar, ClanWarFind
 from utils.logs import writelog
 from utils.main.cash import get_cash, to_str
 from utils.main.db import sql
@@ -65,6 +66,37 @@ async def clan_handler(message: Message):
             await message.reply(f'✅ {user.link}, Вы успешно создали клан {name}', disable_web_page_preview=True)
 
             return
+        elif len(arg) != 0 and arg[0].lower() in ['вступить']:
+            try:
+                clan = Clan(clan_id=arg[1])
+            except:
+                return await message.reply(f'❌ {user.link}, Не найден клан с таким айди!',
+                                           disable_web_page_preview=True)
+            if level_clan[clan.level]["members"] < clan.members + 1:
+                return await message.reply(f'❌ {user.link}, Клан  переполнен!',
+                                           disable_web_page_preview=True)
+            if clan.owner == None and clan.members == 0:
+                Clanuser.create(message.from_user.id, clan.id, 2)
+                clan.edit('members', clan.members + 1)
+                clan.edit('owner', message.from_user.id)
+                return await message.reply(f'✅ {user.link}, Вы вступили в клан {clan.name}\n'
+                                           f'Прошлый владелц струсил и убежал и теперь ты стал главой клана!',
+                                           disable_web_page_preview=True)
+            if clan.type == 0:
+                Clanuser.create(message.from_user.id, clan.id, 0)
+                clan.edit('members', clan.members + 1)
+                return await message.reply(f'✅ {user.link}, Вы вступили в клан {clan.name}',
+                                           disable_web_page_preview=True)
+            if clan.type == 1:
+                return await message.reply(f'❌ {user.link}, Клан {clan.name} закрыт!', disable_web_page_preview=True)
+            if clan.type == 2:
+                clan.add_invites(message.from_user.id)
+                await message.reply(f'Заявка в клан отправлена!!')
+                try:
+                    await bot.send_message(clan.owner, f'Вам поступила заявка в клан!')
+                except:
+                    pass
+                return
         if clanuser is None:
             return await message.reply(f'❌ {user.link}, У вас нет клана :(', disable_web_page_preview=True)
         if len(arg) == 0 or arg[0].lower() in ['мой', 'моя', 'моё']:
@@ -135,8 +167,8 @@ async def clan_handler(message: Message):
                     user_ids = sql.execute(query=f'SELECT user_id FROM ClanUsers WHERE clan_id={clan.id}', commit=False,
                                            fetch=True)
                     list_user = []
-                    for user in user_ids:
-                        list_user.append(f"{user[0]}")
+                    for user_id in user_ids:
+                        list_user.append(f"{user_id[0]}")
 
                     random_index = random.randrange(len(list_user))
                     new_id = int(list_user[random_index])
@@ -244,37 +276,7 @@ async def clan_handler(message: Message):
             if arg[0].lower() in ['пригл']:
                 clan.edit('type', 2)
                 return await message.reply(f'✅ {user.link}, Вступление по приглашению', disable_web_page_preview=True)
-        elif arg[0].lower() in ['вступить']:
-            try:
-                clan = Clan(clan_id=arg[1])
-            except:
-                return await message.reply(f'❌ {user.link}, Не найден клан с таким айди!',
-                                           disable_web_page_preview=True)
-            if level_clan[clan.level]["members"] < clan.members + 1:
-                return await message.reply(f'❌ {user.link}, Клан  переполнен!',
-                                           disable_web_page_preview=True)
-            if clan.owner == None and clan.members == 0:
-                Clanuser.create(message.from_user.id, clan.id, 2)
-                clan.edit('members', clan.members + 1)
-                clan.edit('owner', message.from_user.id)
-                return await message.reply(f'✅ {user.link}, Вы вступили в клан {clan.name}\n'
-                                           f'Прошлый владелц струсил и убежал и теперь ты стал главой клана!',
-                                           disable_web_page_preview=True)
-            if clan.type == 0:
-                Clanuser.create(message.from_user.id, clan.id, 0)
-                clan.edit('members', clan.members + 1)
-                return await message.reply(f'✅ {user.link}, Вы вступили в клан {clan.name}',
-                                           disable_web_page_preview=True)
-            if clan.type == 1:
-                return await message.reply(f'❌ {user.link}, Клан {clan.name} закрыт!', disable_web_page_preview=True)
-            if clan.type == 2:
-                clan.add_invites(message.from_user.id)
-                await message.reply(f'Заявка в клан отправлена!!')
-                try:
-                    await bot.send_message(clan.owner, f'Вам поступила заявка в клан!')
-                except:
-                    pass
-                return
+
         elif arg[0].lower() in ['заявки']:
             clan = Clan(clan_id=clanuser.clan_id)
             if clanuser.status <= 0:

@@ -5,8 +5,8 @@ from aiogram import Router
 
 from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError, TelegramRetryAfter, TelegramAPIError
 from aiogram.types.error_event import ErrorEvent
-
-from aiogram_dialog.api.exceptions import UnknownIntent, UnknownState
+from aiogram_dialog import DialogManager
+from aiogram_dialog.api.exceptions import UnknownState, UnknownIntent, OutdatedIntent
 
 from utils.main.db import write_admins_log
 
@@ -32,16 +32,27 @@ async def error(event: ErrorEvent):
     if isinstance(event.exception, UnknownState):
         try:
             await event.update.callback_query.answer(
-                "Это сообщение недоступно!", show_alert=True
+                "Это устаревшее сообщение!", show_alert=True)
+            await event.update.callback_query.message.delete_reply_markup(
             )
         except:
-
             return True
         return True
     if isinstance(event.exception, UnknownIntent):
         try:
             await event.update.callback_query.answer(
-                "Это сообщение недоступно!", show_alert=True
+                "Это устаревшее сообщение!", show_alert=True)
+            await event.update.callback_query.message.delete_reply_markup(
+            )
+        except:
+
+            return True
+        return True
+    if isinstance(event.exception, OutdatedIntent):
+        try:
+            await event.update.callback_query.answer(
+                "Произошла ошибка перезапустите диалог!", show_alert=True)
+            await event.update.callback_query.message.delete_reply_markup(
             )
         except:
 

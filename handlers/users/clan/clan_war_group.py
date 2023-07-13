@@ -8,7 +8,8 @@ from aiogram.types import Message
 from config import bot_name
 from filters.triggers import Trigger
 
-from utils.clan.clan import Clanuser, Clan, ClanWar, ClanWarFind
+from utils.clan.clan import Clanuser, Clan
+from utils.clan.clanwar import ClanWar, ClanWarFind
 from utils.main.donates import to_str as unix_date
 from utils.main.db import sql, timetostr
 from utils.main.users import User

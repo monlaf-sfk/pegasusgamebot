@@ -1,10 +1,10 @@
 import asyncio
 import logging
-import subprocess
-import sys
-from aiogram.filters import Command
+
+from aiogram.filters import Command, ExceptionTypeFilter
 from aiogram.fsm.strategy import FSMStrategy
 from aiogram_dialog import setup_dialogs
+from aiogram_dialog.api.exceptions import UnknownIntent, UnknownState, OutdatedIntent
 
 import app
 import config
@@ -56,7 +56,7 @@ from handlers.users.cash.pay import pay_handler
 from handlers.users.cash.rob import rob_handler, shield_handler
 from handlers.users.cash.uah import uah_handler
 from handlers.users.city.main import city_handler, city_info_handler
-from handlers.users.clan import clan_war, clan_war_group
+from handlers.users.clan import clan_war, clan_war_group, clan_rob
 from handlers.users.clan.clan import clan_handler, info_callback_invate, invate_solution, mamber_handler, \
     info_callback_user
 from handlers.users.clan.list_clans import clan_list_handler, clan_dialog
@@ -89,7 +89,8 @@ from handlers.users.games.tictactoe import join_game, process_callback_game
 from handlers.users.houses.houses import house_handler
 from handlers.users.items import item_handler
 from handlers.users.jobs.jobs import jobs_handler
-from handlers.users.main import start_handler, ref_call_handler, dialog, help_handler, help_call_handler
+from handlers.users.main import start_handler, ref_call_handler, help_handler, help_call_handler, \
+    confirming_callback
 from handlers.users.marries import marry_handler, marry_call_handler
 from handlers.users.me import balance_handler, profile_handler, nickname_handler, notifies_handler, imush_user_handler, \
     status_handler
@@ -153,6 +154,7 @@ async def main():
     dp = Dispatcher(bot=bot, storage=MemoryStorage(), fsm_strategy=FSMStrategy.GLOBAL_USER)
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
+
     dp.include_routers(my_chat_member.router)
     dp.message.register(app.forward_from, F.forward_from)
     dp.message.register(app.sql_handler, Command("sql"), IsOwner())
@@ -170,6 +172,7 @@ async def main():
     dp.include_router(blackjack.router)
     dp.include_router(clan_war.router)
     dp.include_router(clan_war_group.router)
+    dp.include_router(clan_rob.router)
     dp.callback_query.register(show_newgame_cb, F.data == "choose_newgame")
     dp.message.register(stats_minesweeper, Trigger(
         ["стат сапер", "стат сапёр", 'статистика сапер', 'статистика сапёр', "стат саппер", "стат саппёр",
@@ -252,7 +255,7 @@ async def main():
         start_handler, Command("start")
     )
     dp.callback_query.register(
-        ref_call_handler, F.data.startswith("check"), dialog.captcha
+        ref_call_handler, confirming_callback.filter()
     )
     # help
     dp.message.register(
@@ -525,7 +528,7 @@ async def main():
     # Rob
     dp.message.register(
         rob_handler,
-        Trigger(["rob", "огра", "ограбление", "украсть", "ограбить", "ограба"]),
+        Trigger(["украсть", "ограбить"]),
     )
     dp.message.register(shield_handler, Trigger(["щит", "щиты", "shield"]))
 

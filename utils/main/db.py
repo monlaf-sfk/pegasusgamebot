@@ -1,11 +1,12 @@
 import logging
+import re
 import time
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import psycopg2
 from psycopg2 import Error, OperationalError
-from psycopg2.extras import RealDictCursor, DictCursor
+from psycopg2.extras import DictCursor
 
 import config
 from config import log
@@ -57,6 +58,20 @@ def write_admins_log(action: str, text: str):
 
 
 lock = Lock()
+
+
+def timedelta_parse(value):
+    """
+    convert input string to timedelta
+    """
+    value = re.sub(r"[^0-9:.]", "", value)
+    if not value:
+        return
+
+    return timedelta(**{key: float(val)
+                        for val, key in zip(value.split(":")[::-1],
+                                            ("seconds", "minutes", "hours", "days"))
+                        })
 
 
 def timetomin(result: int):
@@ -146,7 +161,10 @@ class Lsql:
         self.conn.commit()
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS Clans(
             id BIGSERIAL PRIMARY KEY,
-            name text ,owner NUMERIC ,rating NUMERIC ,kazna NUMERIC ,win NUMERIC ,lose NUMERIC ,members NUMERIC ,type INT ,description text,prefix text,level INT,invites text,reg_date text,last_attack NUMERIC)
+            name text ,owner NUMERIC ,rating NUMERIC ,kazna NUMERIC ,win NUMERIC ,lose NUMERIC ,
+            members NUMERIC ,type INT ,description text,prefix text,level INT,invites text,reg_date text,
+            last_attack NUMERIC,
+            count_robs INTEGER)
         """)
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS ClanWars(
                     war_id SERIAL PRIMARY KEY,
@@ -180,10 +198,33 @@ class Lsql:
                                 )""")
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS ClanUsers(
             user_id NUMERIC PRIMARY KEY,
-            clan_id BIGINT,rating NUMERIC ,status INT,items jsonb,reg_date text,
+            clan_id BIGINT,rating NUMERIC ,status INT,reg_date text,
+            rob_involved BOOL,
             FOREIGN KEY (clan_id) REFERENCES Clans (id))
         """)
-
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS items_rob (
+                id NUMERIC PRIMARY KEY,
+                name VARCHAR(255),
+                emoji VARCHAR(10),
+                sell_price NUMERIC
+            );""")
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS user_items_rob (
+                id BIGSERIAL PRIMARY KEY,
+                user_id NUMERIC REFERENCES users(id),
+                item_id NUMERIC REFERENCES items_rob(id),
+                count INTEGER,
+                UNIQUE (user_id, item_id)
+            )""")
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS ClanRob(
+                                            rob_id SERIAL PRIMARY KEY,
+                                            clan_id BIGINT NOT NULL,
+                                            index_rob BIGINT,
+                                            plan_rob BIGINT,
+                                            prepare BOOL,
+                                            balance NUMERIC,
+                                            time_rob TIMESTAMP,
+                                            FOREIGN KEY (clan_id) REFERENCES Clans (id)
+                                        )""")
         self.conn.commit()
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS uah(
             owner NUMERIC PRIMARY KEY,balance NUMERIC ,level NUMERIC )
@@ -270,11 +311,12 @@ class Lsql:
     def insert_data(self, data_mass, table="users"):
         try:
             len_title = "%s," * (len(list(data_mass[0])) - 1) + "%s"
+
             with lock:
 
                 self.cursor.executemany(f"INSERT INTO {table} VALUES ({len_title})", data_mass)
-                self.conn.commit()
-                # write_admins_log('INSERT', f'SQL:INSERT INTO {table} VALUES ({data_mass})')
+            self.conn.commit()
+            # write_admins_log('INSERT', f'SQL:INSERT INTO {table} VALUES ({data_mass})')
         except (Exception, Error, OperationalError) as error:
             write_admins_log(f'ERROR', f'{error}\nSQL:INSERT INTO {table} VALUES ({data_mass})')
             sql.get_rollback()
