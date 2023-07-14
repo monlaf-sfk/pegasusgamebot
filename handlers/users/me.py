@@ -10,6 +10,8 @@ from typing import Union
 import config
 from config import bot_name
 from keyboard.main import status_kb_func, status_back_kb_func, imush_back_func, imush_kb_func
+from utils.city.city import City
+from utils.clan.clan import Clanuser, Clan
 
 from utils.main.airplanes import Airplane
 from utils.main.bitcoin import Bitcoin
@@ -17,6 +19,7 @@ from utils.main.businesses import Business
 from utils.main.cars import Car
 from utils.main.cash import to_str
 from utils.main.chats import Chat
+from utils.main.computer import Computer
 from utils.main.db import timetomin
 from utils.main.houses import House
 from utils.main.moto import Moto
@@ -74,7 +77,7 @@ async def balance_handler(target: Union[types.Message, types.CallbackQuery]):
 async def nickname_handler(message: Message):
     user = User(id=message.from_user.id)
     arg = ' '.join(message.text.split()[1:])
-    args = re.sub('''[@"'%<>💎👨‍🔬🌟⚡👮‍♂➪👾🥲⛏😎👑💖🐟🍆😈🏿🐥👶🏿🇷🇺🇺🇦]''', '',
+    args = re.sub('''[@"'%<>💎👨‍🔬🌟⚡👮‍♂👾]''', '',
                   arg.replace('[', '').replace(']', ''))
     if user.nickban:
         return await message.reply('❌ На ваш аккаунт наложено ограничение к смене ника!')
@@ -83,10 +86,9 @@ async def nickname_handler(message: Message):
     else:
         if len(args) > 16 or len(args) < 4:
             return await message.reply('❌ Ошибка! Максимальная длина ника: 16, Минимальная: 6\n')
-        donate = user.donate
-        args = args if not donate else donate.prefix + ' ' + args
+
         user.edit('name', args)
-        await message.reply(f'✅ Ваш никнейм успешно изменён на: <code>{user.name}</code>')
+        await message.reply(f'✅ Ваш никнейм успешно изменён на: <code>{user.link}</code>')
 
 
 @flags.throttling_key('default')
@@ -98,18 +100,20 @@ async def status_handler(callbaack: CallbackQuery):
     text = f'👤 Cтатус пользователя: {user.link}\n' \
            f'➖➖➖➖➖➖➖➖➖➖➖➖\n'
     donate = to_str(5_000_000)
-    priva = "⛹ Игрок"
+    priva_name = "Игрок"
+    priva_emoji = "⛹"
     description = ''
     limitvidach = 0
     if user.donate:
         item = config.donates[user.donate.id]
         donate = to_str(item['limit_dep'])
-        priva = item['name']
+        priva_name = item['name']
+        priva_emoji = item['emoji']
         description = item['description']
         if user.donate.id > 3:
             donate = '♾'
             limitvidach = item['limitvidach']
-    text += f'🏵 Статус: {priva}\n' \
+    text += f'{priva_emoji} Статус: {priva_name}\n\n' \
             f'{description}\n\n' \
             f' 💲 Возможность выдать: {to_str(user.limitvidach)}/{to_str(limitvidach)}\n' \
             f' 〽 Депозит: {to_str(user.deposit)}\{donate}\n'
@@ -131,6 +135,7 @@ async def profile_handler(target: Union[types.Message, types.CallbackQuery]):
         btc = None
     user = User(id=target.from_user.id)
     text = f'👤 Профиль пользователя: {user.link}\n' \
+           f'┣ {user.donate.prefix} Статус: {user.donate.name}\n' \
            f'┣ 💸 Баланс: {to_str(user.balance)}\n' \
            f'┣ 🏦 В банке: {to_str(user.bank)}\n' \
            f'┣ 💳 Кредит: {to_str(user.credit)}\n' \
@@ -216,7 +221,22 @@ async def imush_user_handler(callbaack: CallbackQuery):
         btc = Bitcoin(owner=callbaack.from_user.id)
     except:
         btc = None
+    try:
+        computer = Computer(user_id=callbaack.from_user.id)
+    except:
+        computer = None
+    try:
+        city = City(user_id=callbaack.from_user.id)
+    except:
+        city = None
+    try:
+        clanuser = Clanuser(user_id=callbaack.from_user.id)
+        clan = Clan(clan_id=clanuser.clan_id)
+    except:
+        clanuser = None
     text = f'➖ Имущество пользователя: {user.link}\n' \
+           f'┣ 🏙 Город: <b>{city.name if city else "Нет ❌"}</b>\n' \
+           f'┣ ⚔ Клан: <b>{clan.name if clanuser and clan else "Нет ❌"}</b>\n' \
            f'┣ 💍 Семья: <b>{marry.name if marry and marry.name else "Есть ✅" if marry else "Нет ❌"}</b>\n' \
            f'┣ 👨‍💼 Бизнес: <b>{business.name if business else "Нет ❌"}</b>\n' \
            f'┣ 🏠 Дом: <b>{house.name if house else "Нет ❌"}</b>\n' \
@@ -224,6 +244,7 @@ async def imush_user_handler(callbaack: CallbackQuery):
            f'┣ 🛳️ Яхта: <b>{yaxta.name if yaxta else "Нет ❌"}</b>\n' \
            f'┣ 🚁 Вертолёт: <b>{vertolet.name if vertolet else "Нет ❌"}</b>\n' \
            f'┣ ✈️ Самолёт: <b>{airplane.name if airplane else "Нет ❌"}</b>\n' \
+           f'┣ 💻 Компьютер: <b>{computer.name if computer else "Нет ❌"}</b>\n' \
            f'┣ 🏍️ Мото: <b>{moto.name if moto else "Нет ❌"}</b>\n' \
            f'┡ 🎡 Ферма: <b>{btc.bitcoin.name if btc else "Нет ❌"}</b>\n│\n'
     xd = [business, house, car, yaxta,

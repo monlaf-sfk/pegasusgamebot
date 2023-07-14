@@ -151,11 +151,11 @@ class User:
             if first_name:
                 first_name = d.prefix + ' ' + first_name
             if self.name and d.prefix not in self.name:
-                self.name = d.prefix + ' ' + re.sub('''[@"'%<>💎👨‍🔬🌟⚡👮‍♂➪👾🥲⛏😎👑💖🐟🍆😈🏿🐥👶🏿🇷🇺🇺🇦]''', '',
+                self.name = d.prefix + ' ' + re.sub('''[@"'%<>💎👨‍🔬🌟⚡👮‍♂👾]''', '',
                                                     self.name)
         elif self.prefix:
             if self.name and self.prefix not in self.name:
-                self.name = self.prefix + ' ' + re.sub('''[@"'%<>💎👨‍🔬🌟⚡👮‍♂➪👾🥲⛏😎👑💖🐟🍆😈🏿🐥👶🏿🇷🇺🇺🇦]''',
+                self.name = self.prefix + ' ' + re.sub('''[@"'%<>💎👨‍🔬🌟⚡👮‍♂👾]''',
                                                        '', self.name)
             elif first_name and self.prefix not in first_name:
                 first_name = self.prefix + ' ' + first_name
@@ -243,14 +243,14 @@ class User:
         if self.clan_teg:
             try:
                 clanuser = Clanuser(user_id=self.id)
-                clan = Clan(clan_id=clanuser.id_clan)
+                clan = Clan(clan_id=clanuser.clan_id)
             except:
                 if self.notifies:
                     return f'<a href="{url}">{self.name if self.name else self.first_name}</a>'
                 return f'{self.name if self.name else self.first_name}'
             if self.notifies:
-                return f'[{clan.prefix}] <a href="{url}">{self.name if self.name else self.first_name}</a>'
-            return f'[{clan.prefix}] {self.name if self.name else self.first_name}'
+                return f'{clan.prefix} <a href="{url}">{self.name if self.name else self.first_name}</a>'
+            return f'{clan.prefix} {self.name if self.name else self.first_name}'
 
         else:
             if self.notifies:
@@ -284,8 +284,3 @@ class User:
             query += ', ' if index < items_len - 1 else ' '
         query += 'WHERE id = {}'.format(self.id)
         sql.execute(query=query, commit=True)
-
-    def set_prefix(self, prefix: dict):
-        self.editmany(balance=self.balance - prefix['price'],
-                      prefix=prefix['emoji'])
-        return True

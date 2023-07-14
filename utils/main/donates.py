@@ -36,7 +36,7 @@ class Donate:
 
         self.name: str = xd['name']
         self.price: int = xd["price"]
-        self.prefix: str = xd["prefix"]
+        self.prefix: str = xd["emoji"]
         self.cash: int = xd['cash']
         self.percent: int = xd['percent']
 

@@ -96,7 +96,6 @@ from handlers.users.me import balance_handler, profile_handler, nickname_handler
     status_handler
 from handlers.users.nalogs import nalogs_handler, autonalog_handler
 
-from handlers.users.prefixes import prefix_handler
 from handlers.users.promo import activatepromo_handler
 from handlers.users.ref import refferal_handler
 from handlers.users.rp import rp_commands_handler, emojis
@@ -494,23 +493,6 @@ async def main():
 
     # dp.callback_query.register(unban_handler,IsOwner(), text_startswith='unban', state='*', chat_type=['group', 'supergroup'])
     # dp.callback_query.register(unmute_handler, IsOwner(),text_startswith='unmute', state='*', chat_type=['group','supergroup'])
-
-    # Prefixes
-    dp.message.register(
-        prefix_handler,
-        Trigger(
-            [
-                "преф",
-                "префы",
-                "префиксы",
-                "префикс",
-                "pref",
-                "prefs",
-                "prefix",
-                "prefixes",
-            ]
-        ),
-    )
 
     # Bitcoin
     dp.message.register(

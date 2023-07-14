@@ -66,7 +66,7 @@ async def clan_handler(message: Message):
             await message.reply(f'✅ {user.link}, Вы успешно создали клан {name}', disable_web_page_preview=True)
 
             return
-        elif len(arg) != 0 and arg[0].lower() in ['вступить']:
+        elif len(arg) != 0 and arg[0].lower() in ['вступить', 'войти']:
             try:
                 clan = Clan(clan_id=arg[1])
             except:
@@ -469,12 +469,12 @@ async def clan_handler(message: Message):
                                            disable_web_page_preview=True)
             prefixes = sql.execute("SELECT prefix FROM Clans", fetch=True)
 
-            if name.upper() in str(prefixes):
+            if f"[{name.upper()}]" in str(prefixes):
                 return await message.reply(
                     f'''❌ {user.link}, Данный префикс уже занят''', disable_web_page_preview=True)
-            clan.edit('prefix', name.upper())
+            clan.edit('prefix', f"[{name.upper()}]")
             return await message.reply(
-                f'❕ {user.link}, Успешно сменили префикс на: [{name.upper()}]', disable_web_page_preview=True)
+                f'❕ {user.link}, Успешно сменили префикс на: {name.upper()}', disable_web_page_preview=True)
         elif arg[0].lower() in ['описание']:
             clan = Clan(clan_id=clanuser.clan_id)
             if clanuser.status <= 0:
@@ -495,6 +495,10 @@ async def clan_handler(message: Message):
             return await message.reply(
                 f'❕ {user.link}, Успешно сменили описание клана', disable_web_page_preview=True)
         elif arg[0].lower() in ['тег']:
+
+            if len(arg) <= 1:
+                return await message.reply(f'❌ {user.link},  Используйте Клан тег [вкл\выкл]!',
+                                           disable_web_page_preview=True)
             if arg[1].lower() == 'выкл':
                 user.edit('clan_teg', False)
                 text = f'{user.link}, отображение клана в нике отключено! 👍'

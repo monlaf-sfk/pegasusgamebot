@@ -22,8 +22,6 @@ from utils.items.items import item_case
 from utils.main.cash import to_str
 from utils.main.db import sql
 
-from threading import Lock
-
 from utils.main.users import User
 from utils.promo.promo import Promocode, all_promo
 
@@ -32,12 +30,12 @@ import string
 
 from utils.weapons.swords import ArmoryInv
 
-lock = Lock()
+lock = asyncio.Lock()
 
 
 async def limit_check():
     try:
-        with lock:
+        async with lock:
             cursor = sql.conn.cursor()
             query = ''
             data = sql.execute('SELECT id, donate_source FROM users WHERE last_vidacha'
@@ -50,7 +48,7 @@ async def limit_check():
                     item = donates[int(x[0])]
                     query += f"UPDATE users SET limitvidach={item['limitvidach']},last_vidacha='{datetime.now().strftime('%d-%m-%Y %H:%M:%S')}' WHERE id = {i[0]};\n"
             if query != '':
-                with lock:
+                async with lock:
                     sql.executescript(cursor=cursor,
                                       commit=True,
                                       query=query)
@@ -59,8 +57,9 @@ async def limit_check():
 
 
 async def deposit_check():
+    a = time.time()
     try:
-        with lock:
+        async with lock:
             cursor = sql.conn.cursor()
 
             query = ''
@@ -77,7 +76,7 @@ async def deposit_check():
                          f'(deposit * (percent + {item["percent"]})/100) as integer),' \
                          f' deposit_date = {time.time()} WHERE id = {i[0]};\n'
         if query != '':
-            with lock:
+            async with lock:
                 sql.executescript(cursor=cursor,
                                   commit=True,
                                   query=query)
@@ -88,7 +87,7 @@ async def deposit_check():
                 f'NULL AND ' \
                 f'({time.time()} - deposit_date) >= 43200 ;\n'
 
-        with lock:
+        async with lock:
             sql.executescript(cursor=cursor,
                               commit=True,
                               query=query)
@@ -103,8 +102,9 @@ async def deposit_check():
                  f' WHERE energy < 20 AND energy_time IS NOT NULL AND (' \
                  f'{time.time()} - energy_time) >= 600;'
 
-        with lock:
+        async with lock:
             sql.executescript(query, commit=True, cursor=cursor)
+            print(time.time() - a)
         return True
     except Exception as ex:
         print('deposit_check:', ex)
@@ -112,7 +112,7 @@ async def deposit_check():
 
 async def check_jobs():
     try:
-        with lock:
+        async with lock:
             cursor = sql.conn.cursor()
         query = f'UPDATE users SET job_time = {time.time()}, level = level + 1 WHERE ({time.time()} - job_time) >= ' \
                 f'43200;\n'
@@ -132,7 +132,7 @@ async def check_jobs():
                  f'WHERE  work_time' \
                  f' IS NOT NULL AND job_index > 0 AND ({time.time()} - ' \
                  f'work_time) >= 3600'
-        with lock:
+        async with lock:
             sql.executescript(cursor=cursor,
                               query=query,
                               commit=True,
@@ -144,7 +144,7 @@ async def check_jobs():
 async def cars_check():
     try:
         cursor = sql.conn.cursor()
-        with lock:
+        async with lock:
             query3 = f'UPDATE cars SET nalog = nalog + stock_nalog, ' \
                      f'last = {time.time()}, energy = energy + 1 WHERE  last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*11 >= nalog AND energy < 10'
 
@@ -156,7 +156,7 @@ async def cars_check():
 async def houses_check():
     try:
         cursor = sql.conn.cursor()
-        with lock:
+        async with lock:
             query3 = f'UPDATE houses SET nalog = nalog + stock_nalog, ' \
                      f'last = {time.time()}, cash = ROUND(cash + stock_doxod) WHERE arenda IS TRUE AND last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*11 >= nalog'
             sql.executescript(query3, True, False, cursor=cursor)
@@ -167,7 +167,7 @@ async def houses_check():
 async def businesses_check():
     try:
         cursor = sql.conn.cursor()
-        with lock:
+        async with lock:
             query3 = f'UPDATE businesses SET nalog = nalog + stock_nalog, ' \
                      f'last = {time.time()}, cash = ROUND(cash + stock_doxod) WHERE last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*11 >= nalog'
             sql.executescript(query3, True, False, cursor=cursor)
@@ -178,7 +178,7 @@ async def businesses_check():
 async def yaxti_check():
     try:
         cursor = sql.conn.cursor()
-        with lock:
+        async with lock:
             query3 = f'UPDATE yaxti SET nalog = nalog + stock_nalog, ' \
                      f'last = {time.time()}, energy = energy + 1 WHERE last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*11 >= nalog AND energy < 10'
 
@@ -190,7 +190,7 @@ async def yaxti_check():
 async def vertoleti_check():
     try:
         cursor = sql.conn.cursor()
-        with lock:
+        async with lock:
             query3 = f'UPDATE vertoleti SET nalog = nalog + stock_nalog, ' \
                      f'last = {time.time()}, energy = energy + 1 WHERE last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*11 >= nalog AND energy < 10'
 
@@ -203,7 +203,7 @@ async def airplanes_check():
     try:
 
         cursor = sql.conn.cursor()
-        with lock:
+        async with lock:
             query3 = f'UPDATE airplanes SET nalog = nalog + stock_nalog, ' \
                      f'last = {time.time()}, energy = energy + 1 WHERE last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*11 >= nalog AND energy < 10'
 
@@ -215,7 +215,7 @@ async def airplanes_check():
 async def moto_check():
     try:
         cursor = sql.conn.cursor()
-        with lock:
+        async with lock:
             query3 = f'UPDATE moto SET nalog = nalog + stock_nalog, ' \
                      f'last = {time.time()}, energy = energy + 1 WHERE  last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*11 >= nalog AND energy < 10'
 
@@ -227,7 +227,7 @@ async def moto_check():
 async def btc_check():
     try:
         cursor = sql.conn.cursor()
-        with lock:
+        async with lock:
             query3 = f'UPDATE bitcoin SET nalog = nalog + stock_nalog, ' \
                      f'last = {time.time()}, balance = ROUND(balance + stock_doxod * videocards) WHERE last is NOT NULL AND ({time.time()} - last) >= 3600 AND stock_nalog*11 >= nalog'
             sql.executescript(query3, True, False, cursor=cursor)
@@ -264,7 +264,7 @@ async def city_check():
                      "  + (CAST(energy #>> '{1,work_place}' AS INTEGER) * CAST(energy #>> '{1,count_build}' AS INTEGER))" \
                      f" WHERE happynes > 20 AND current_timestamp - last_online < interval '1 day';"
             query3 += f"UPDATE city SET kazna=ROUND(kazna+(CAST(taxes AS DECIMAL) / 100 * workers)) WHERE happynes > 20  AND current_timestamp - last_online < interval '1 day';"
-            with lock:
+            async with lock:
                 sql.executescript(query3, True, False, cursor=cursor)
         except Exception as ex:
             print('city_check (kazna,workers):', ex)
@@ -273,14 +273,14 @@ async def city_check():
             query5 = f"UPDATE city SET citizens = CAST (house->'2'->>'capacity' AS INTEGER)* CAST (house->'2'->>'count_build' AS INTEGER) " \
                      f"+ CAST (house->'1'->>'capacity' AS INTEGER) * CAST (house->'1'->>'count_build' AS INTEGER)" \
                      f"WHERE happynes > 20 AND current_timestamp - last_online < interval '1 day';"
-            with lock:
+            async with lock:
                 sql.executescript(query5, True, False, cursor=cursor)
         except Exception as ex:
             print('city_check capacity:', ex)
         ##############################################################################################
 
         query7 = f" UPDATE city SET happynes = 101-taxes-{random.uniform(0.01, 0.99)} WHERE  current_timestamp - last_online < interval '1 day';"
-        with lock:
+        async with lock:
             sql.executescript(query7, True, False, cursor=cursor)
     except (Exception, Error) as error:
         print('city_check:', error)
@@ -291,7 +291,7 @@ name_by_index = ['cars', 'airplanes', 'houses', 'businesses',
 
 
 async def autonalog_check():
-    with lock:
+    async with lock:
         query = 'SELECT id, bank FROM users WHERE autonalogs IS TRUE AND bank > 1000'
         data = sql.execute(query, False, True)
 
@@ -355,7 +355,7 @@ async def auction_handler():
         query2 = f'SELECT seller, uuid4, count, price, costumers, message_id FROM auction WHERE time is NOT NULL AND ' \
                  f'({int(time.time())} - time) >= ' \
                  f'900'
-        with lock:
+        async with lock:
             result = sql.execute(query2, False, True, cursor=cursor)
 
         query3 = ''
@@ -404,14 +404,14 @@ async def auction_handler():
                         chat_id=config.channel_auction, message_id=message_id, disable_web_page_preview=True)
 
         if query3 != '':
-            with lock:
+            async with lock:
                 sql.executescript(query3, True, False, cursor=cursor)
     except Exception as e:
         print('auction_s:', e)
 
 
 async def boss_spavn():
-    with lock:
+    async with lock:
         bosse = sql.execute("SELECT * FROM bosses", fetch=True)
     ids_bosse = [1, 2, 3, 4, 5, 6]
     for boss in bosse:
@@ -424,7 +424,7 @@ async def boss_spavn():
 
 
 async def boss_check():
-    with lock:
+    async with lock:
         bosses_sql = sql.execute("SELECT * FROM bosses", fetch=True)
 
     if not bosses_sql:
@@ -475,14 +475,14 @@ async def boss_check():
 
 
 async def clanwarprepare_check():
-    with lock:
+    async with lock:
         sql.execute(
             f"UPDATE ClanWars SET prepare=False WHERE time_war IS NOT NULL AND time_war - current_timestamp <= interval '3 hours'",
             commit=True)
 
 
 async def clanwarfind_check():
-    with lock:
+    async with lock:
         clans = sql.execute(f"SELECT * FROM ClanWarFind WHERE status='FINDING'",
                             fetch=True)
 
@@ -523,7 +523,7 @@ async def clanwarfind_check():
 
 
 async def clanwars_check():
-    with lock:
+    async with lock:
         clan_sql = sql.execute(
             f"SELECT id_first, id_second, name_first, name_second,rating_first,rating_second FROM ClanWars WHERE time_war IS NOT NULL "
             f"AND prepare = False "
@@ -645,14 +645,14 @@ async def clanwars_check():
 
 
 async def clanrobprepare_check():
-    with lock:
+    async with lock:
         sql.execute(
             f"UPDATE ClanRob SET prepare=False,time_rob=NULL WHERE time_rob IS NOT NULL AND time_rob - current_timestamp <= interval '1 second'",
             commit=True)
 
 
 async def clanrobing_check():
-    with lock:
+    async with lock:
         sql.execute(
             f"UPDATE ClanRob SET balance = CASE "
             f'WHEN index_rob=1 THEN balance + {round((name_robs[1]["income"] / 60))} * (SELECT COUNT(*) AS count FROM ClanUsers WHERE rob_involved = True AND clan_id = ClanRob.clan_id ) '
@@ -664,9 +664,9 @@ async def clanrobing_check():
 
 
 async def clanrob_check():
-    with lock:
+    async with lock:
         clanrob_sql = sql.execute(
-            f"SELECT rob_id,clan_id ,index_rob,balance   FROM ClanRob WHERE time_rob IS NOT NULL AND time_rob - current_timestamp <= interval '1 hour'"
+            f"SELECT rob_id,clan_id ,index_rob,balance   FROM ClanRob WHERE time_rob IS NOT NULL AND time_rob - current_timestamp <= interval '1 second'"
             f"AND prepare = False ",
             fetch=True)
     if not clanrob_sql:
@@ -699,47 +699,47 @@ job_defaults = {
 }
 shedualer = AsyncIOScheduler(job_defaults=job_defaults)
 
-shedualer.add_job(clanrobprepare_check, 'cron', minute='*', misfire_grace_time=1000)
-shedualer.add_job(clanrob_check, 'cron', minute='*', misfire_grace_time=1000)
-shedualer.add_job(clanrobing_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(clanrobprepare_check, 'cron', minute='*')
+shedualer.add_job(clanrob_check, 'cron', minute='*')
+shedualer.add_job(clanrobing_check, 'cron', minute='*')
 
-shedualer.add_job(boss_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(boss_check, 'cron', minute='*')
 shedualer.add_job(boss_spavn, 'interval', hours=3, misfire_grace_time=3600)
 
-shedualer.add_job(clanwars_check, 'cron', minute='*', misfire_grace_time=1000)
-shedualer.add_job(clanwarfind_check, 'cron', minute='*', misfire_grace_time=1000)
-shedualer.add_job(clanwarprepare_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(clanwars_check, 'cron', minute='*')
+shedualer.add_job(clanwarfind_check, 'cron', minute='*')
+shedualer.add_job(clanwarprepare_check, 'cron', minute='*')
 
-shedualer.add_job(auction_handler, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(auction_handler, 'cron', minute='*')
 
 shedualer.add_job(autopromo_handler, 'interval', hours=24, misfire_grace_time=86400)
 
-shedualer.add_job(city_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(city_check, 'cron', minute='*')
 
-shedualer.add_job(limit_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(limit_check, 'cron', minute='*')
 
-shedualer.add_job(deposit_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(deposit_check, 'cron', minute='*')
 
-shedualer.add_job(autonalog_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(autonalog_check, 'cron', minute='*')
 
-shedualer.add_job(houses_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(houses_check, 'cron', minute='*')
 
-shedualer.add_job(businesses_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(businesses_check, 'cron', minute='*')
 
-shedualer.add_job(cars_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(cars_check, 'cron', minute='*')
 
-shedualer.add_job(yaxti_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(yaxti_check, 'cron', minute='*')
 
-shedualer.add_job(vertoleti_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(vertoleti_check, 'cron', minute='*')
 
-shedualer.add_job(airplanes_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(airplanes_check, 'cron', minute='*')
 
-shedualer.add_job(moto_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(moto_check, 'cron', minute='*')
 
-shedualer.add_job(btc_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(btc_check, 'cron', minute='*')
 
-shedualer.add_job(check_jobs, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(check_jobs, 'cron', minute='*')
 
-shedualer.add_job(btc_change, 'cron', hour='*', misfire_grace_time=1000)
+shedualer.add_job(btc_change, 'cron', hour='*')
 
 shedualer.start()

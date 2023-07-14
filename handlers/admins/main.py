@@ -16,11 +16,14 @@ from config import donates, bot_name, owner_id, bot_version
 from keyboard.main import admin_kb, cancel, remove
 from loader import bot
 from states.admins import ABD
+from utils.city.city import City
+from utils.clan.clan import Clanuser, Clan
 from utils.main.airplanes import all_airplanes
 from utils.main.businesses import all_businesses
 from utils.main.cars import all_cars
 from utils.main.chat_wdz import Chat_wdz
 from utils.main.chats import all_chats
+from utils.main.computer import Computer
 from utils.main.db import sql, timetostr
 from utils.main.houses import all_houses
 from utils.main.moto import all_moto
@@ -101,9 +104,22 @@ async def profile_handler_admin(message: Message):
         btc = Bitcoin(owner=user.id)
     except:
         btc = None
-
+    try:
+        computer = Computer(user_id=user.id)
+    except:
+        computer = None
+    try:
+        city = City(user_id=user.id)
+    except:
+        city = None
+    try:
+        clanuser = Clanuser(user_id=user.id)
+        clan = Clan(clan_id=clanuser.clan_id)
+    except:
+        clanuser = None
     text = f'👤 Профиль пользователя: {user.link}\n\n' \
            f'➖➖➖➖➖➖➖➖➖➖➖➖\n' \
+           f'• {user.donate.prefix} Статус: {user.donate.name}\n' \
            f'• 💸 Баланс: {to_str(user.balance)}\n' \
            f'• 🏦 В банке: {to_str(user.bank)}\n' \
            f'• 💳 Кредит: {to_str(user.credit)}\n' \
@@ -132,6 +148,8 @@ async def profile_handler_admin(message: Message):
         pass
 
     text += f'➖➖➖➖➖➖➖➖➖➖➖➖\n' \
+            f'🏙 Город: <b>{city.name if city else "Нет ❌"}</b>\n' \
+            f'⚔ Клан: <b>{clan.name if clanuser and clan else "Нет ❌"}</b>\n' \
             f'💍 Семья: <b>{marry.name if marry and marry.name else "Есть ✅" if marry else "Нет ❌"}</b>\n' \
             f'👨‍💼 Бизнес: <b>{business.name if business else "Нет ❌"}</b>\n' \
             f'🏠 Дом: <b>{house.name if house else "Нет ❌"}</b>\n' \
@@ -139,6 +157,7 @@ async def profile_handler_admin(message: Message):
             f'🛳️ Яхта: <b>{yaxta.name if yaxta else "Нет ❌"}</b>\n' \
             f'🚁 Вертолёт: <b>{vertolet.name if vertolet else "Нет ❌"}</b>\n' \
             f'✈️ Самолёт: <b>{airplane.name if airplane else "Нет ❌"}</b>\n' \
+            f'💻 Компьютер: <b>{computer.name if computer else "Нет ❌"}</b>\n' \
             f'🏍️ Мото: <b>{moto.name if moto else "Нет ❌"}</b>\n' \
             f'🎡 Ферма: <b>{btc.bitcoin.name if btc else "Нет ❌"}</b>\n'
     xd = [business, house, car, yaxta,
