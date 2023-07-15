@@ -57,7 +57,6 @@ async def limit_check():
 
 
 async def deposit_check():
-    a = time.time()
     try:
         async with lock:
             cursor = sql.conn.cursor()
@@ -101,11 +100,8 @@ async def deposit_check():
         query += f'UPDATE users SET energy = energy + 1, energy_time = {time.time()}' \
                  f' WHERE energy < 20 AND energy_time IS NOT NULL AND (' \
                  f'{time.time()} - energy_time) >= 600;'
-
         async with lock:
             sql.executescript(query, commit=True, cursor=cursor)
-            print(time.time() - a)
-        return True
     except Exception as ex:
         print('deposit_check:', ex)
 
@@ -114,8 +110,8 @@ async def check_jobs():
     try:
         async with lock:
             cursor = sql.conn.cursor()
-        query = f'UPDATE users SET job_time = {time.time()}, level = level + 1 WHERE ({time.time()} - job_time) >= ' \
-                f'43200;\n'
+        query = f'UPDATE users SET level = level + 1, job_time=NULL WHERE job_time IS NOT NULL AND ({time.time()} - job_time) >= ' \
+                f'1;\n'
 
         query += f'UPDATE users SET work_time = {time.time()}, ' \
                  f'bank =  ' \
@@ -357,7 +353,8 @@ async def auction_handler():
                  f'900'
         async with lock:
             result = sql.execute(query2, False, True, cursor=cursor)
-
+        if not result:
+            return
         query3 = ''
 
         for lot_s in result:
@@ -699,47 +696,47 @@ job_defaults = {
 }
 shedualer = AsyncIOScheduler(job_defaults=job_defaults)
 
-shedualer.add_job(clanrobprepare_check, 'cron', minute='*')
-shedualer.add_job(clanrob_check, 'cron', minute='*')
-shedualer.add_job(clanrobing_check, 'cron', minute='*')
+shedualer.add_job(clanrobprepare_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(clanrob_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(clanrobing_check, 'cron', minute='*', misfire_grace_time=1000)
 
-shedualer.add_job(boss_check, 'cron', minute='*')
+shedualer.add_job(boss_check, 'cron', minute='*', misfire_grace_time=1000)
 shedualer.add_job(boss_spavn, 'interval', hours=3, misfire_grace_time=3600)
 
-shedualer.add_job(clanwars_check, 'cron', minute='*')
-shedualer.add_job(clanwarfind_check, 'cron', minute='*')
-shedualer.add_job(clanwarprepare_check, 'cron', minute='*')
+shedualer.add_job(clanwars_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(clanwarfind_check, 'cron', minute='*', misfire_grace_time=1000)
+shedualer.add_job(clanwarprepare_check, 'cron', minute='*', misfire_grace_time=1000)
 
-shedualer.add_job(auction_handler, 'cron', minute='*')
+shedualer.add_job(auction_handler, 'cron', minute='*', misfire_grace_time=1000)
 
-shedualer.add_job(autopromo_handler, 'interval', hours=24, misfire_grace_time=86400)
+# shedualer.add_job(autopromo_handler, 'interval', hours=24, misfire_grace_time=86400)
 
-shedualer.add_job(city_check, 'cron', minute='*')
+shedualer.add_job(city_check, 'cron', minute='*', misfire_grace_time=1000)
 
-shedualer.add_job(limit_check, 'cron', minute='*')
+shedualer.add_job(limit_check, 'cron', minute='*', misfire_grace_time=1000)
 
-shedualer.add_job(deposit_check, 'cron', minute='*')
+shedualer.add_job(deposit_check, 'cron', minute='*', misfire_grace_time=1000)
 
-shedualer.add_job(autonalog_check, 'cron', minute='*')
+shedualer.add_job(autonalog_check, 'cron', minute='*', misfire_grace_time=1000)
 
-shedualer.add_job(houses_check, 'cron', minute='*')
+shedualer.add_job(houses_check, 'cron', minute='*', misfire_grace_time=1000)
 
-shedualer.add_job(businesses_check, 'cron', minute='*')
+shedualer.add_job(businesses_check, 'cron', minute='*', misfire_grace_time=1000)
 
-shedualer.add_job(cars_check, 'cron', minute='*')
+shedualer.add_job(cars_check, 'cron', minute='*', misfire_grace_time=1000)
 
-shedualer.add_job(yaxti_check, 'cron', minute='*')
+shedualer.add_job(yaxti_check, 'cron', minute='*', misfire_grace_time=1000)
 
-shedualer.add_job(vertoleti_check, 'cron', minute='*')
+shedualer.add_job(vertoleti_check, 'cron', minute='*', misfire_grace_time=1000)
 
-shedualer.add_job(airplanes_check, 'cron', minute='*')
+shedualer.add_job(airplanes_check, 'cron', minute='*', misfire_grace_time=1000)
 
-shedualer.add_job(moto_check, 'cron', minute='*')
+shedualer.add_job(moto_check, 'cron', minute='*', misfire_grace_time=1000)
 
-shedualer.add_job(btc_check, 'cron', minute='*')
+shedualer.add_job(btc_check, 'cron', minute='*', misfire_grace_time=1000)
 
-shedualer.add_job(check_jobs, 'cron', minute='*')
+shedualer.add_job(check_jobs, 'cron', minute='*', misfire_grace_time=1000)
 
-shedualer.add_job(btc_change, 'cron', hour='*')
+shedualer.add_job(btc_change, 'cron', hour='*', misfire_grace_time=1000)
 
 shedualer.start()

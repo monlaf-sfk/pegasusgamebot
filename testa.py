@@ -35,14 +35,14 @@ def main():
         first_name = ''.join(
             random.choice(string.ascii_letters + '0123456789_') for _ in range(random.randint(6, 10))).lower()
         id = i + random.randint(1000000, 99999999999999)
-
+        x = f'{4},{datetime.now().strftime("%d-%m-%Y %H:%M")},False,{now_date.strftime("%d-%m-%Y %H:%M")}'
         res = (id, None, username, first_name, reg_date, False, 5000, 0, 0, Json(works_items), None,
                datetime_bonus, None, 0, False, 0, None, 10, None,
-               0, 0, 0, 0, None, None, 0, 0, None, None, None, 0.0, 0, False, None, 100, Json(item_case), None, False,
+               0, 0, 0, 0, None, None, 0, 0, x, None, None, 0.0, 0, False, None, 100, Json(item_case), None, False,
                False, 0, 0,
                0, False, True)
         len_title = "%s," * (len(list(res)) - 1) + "%s"
-
+    
         with lock:
             res2 = (id, 1, 0, time.time(), 0, 0, 1000, 17_500, 0.5)
             len_title2 = "%s," * (len(list(res2)) - 1) + "%s"
