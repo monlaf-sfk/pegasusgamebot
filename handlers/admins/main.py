@@ -117,9 +117,12 @@ async def profile_handler_admin(message: Message):
         clan = Clan(clan_id=clanuser.clan_id)
     except:
         clanuser = None
+    donate = ""
+    if user.donate:
+        donate = f'• {user.donate.prefix} Статус: {user.donate.name}\n'
+
     text = f'👤 Профиль пользователя: {user.link}\n\n' \
-           f'➖➖➖➖➖➖➖➖➖➖➖➖\n' \
-           f'• {user.donate.prefix} Статус: {user.donate.name}\n' \
+           f'➖➖➖➖➖➖➖➖➖➖➖➖\n{donate}' \
            f'• 💸 Баланс: {to_str(user.balance)}\n' \
            f'• 🏦 В банке: {to_str(user.bank)}\n' \
            f'• 💳 Кредит: {to_str(user.credit)}\n' \

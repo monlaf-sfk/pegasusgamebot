@@ -25,17 +25,20 @@ async def dice_handler(message: Message):
                                        '💡 Сумму ставки можно указывать с помощью сокращений (например «1к» - ставка на 1000), либо словами «все» (ставка на весь баланс)'
                                        , disable_web_page_preview=True,
                                        reply_markup=play_dice_kb.as_markup())
-        elif not arg[0].isdigit() or not arg[1].isdigit() or int(arg[0]) <= 0:
+
+        user = User(user=message.from_user)
+
+        try:
+            summ = get_cash(arg[0] if arg[0].lower() not in ['всё', 'все'] else str(user.balance))
+        except:
+            summ = 0
+        try:
+            index = int(arg[1])
+        except ValueError:
             return await message.reply(f'{user.link}, для игры в Кубик введите «Кубик [ставка] [1-6]» 👍🏼 \n'
                                        '💡 Сумму ставки можно указывать с помощью сокращений (например «1к» - ставка на 1000), либо словами «все» (ставка на весь баланс)'
                                        , disable_web_page_preview=True,
                                        reply_markup=play_dice_kb.as_markup())
-
-        user = User(user=message.from_user)
-
-        summ = get_cash(arg[0] if arg[0].lower() not in ['всё', 'все'] else str(user.balance))
-        index = int(arg[1])
-
         if summ <= 0:
             return await message.reply(f'❌ {user.link}, Ставка меньше или равна нулю', disable_web_page_preview=True)
 

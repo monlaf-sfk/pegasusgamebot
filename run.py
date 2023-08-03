@@ -12,7 +12,7 @@ from filters.admin import IsOwner
 from filters.triggers import Trigger
 from filters.users import IsAdmin, IsElite, IsBan
 from handlers import my_chat_member
-from handlers.admins import ban, rass, wdz
+from handlers.admins import ban, rass, wdz, run_schedule
 from aiogram import Dispatcher, F, Router
 from aiogram.fsm.storage.memory import MemoryStorage
 
@@ -170,6 +170,8 @@ async def main():
     dp.include_router(blackjack_ls.router)
     dp.include_router(blackjack.router)
     dp.include_router(clan_war.router)
+    dp.include_router(run_schedule.router)
+
     dp.include_router(clan_war_group.router)
     dp.include_router(clan_rob.router)
     dp.callback_query.register(show_newgame_cb, F.data == "choose_newgame")
@@ -575,6 +577,7 @@ if __name__ == "__main__":
     logging.getLogger('apscheduler.scheduler').propagate = False
     logging.getLogger('aiogram.event').propagate = False
     logging.getLogger('pyrogram').propagate = False
+    logging.getLogger('pymorphy2').propagate = False
     logging.basicConfig(level=logging.INFO)
     try:
         asyncio.get_event_loop().run_until_complete(main())

@@ -628,6 +628,14 @@ async def invate_solution(callback_query: CallbackQuery, bot: Bot):
         if level_clan[clan.level]["members"] < clan.members + 1:
             return await callback_query.message.edit_text(f'❌  Клан  переполнен!',
                                                           disable_web_page_preview=True)
+        try:
+            clan_user = Clanuser(user_id=user1)
+
+        except:
+            clan_user = None
+        if clan_user:
+            return await callback_query.message.edit_text(
+                text=f'❕ Он уже состоит в клане!', disable_web_page_preview=True)
         clan.dell_invites(user1)
         Clanuser.create(user1, clan.id, 0)
         clan.edit('members', clan.members + 1)

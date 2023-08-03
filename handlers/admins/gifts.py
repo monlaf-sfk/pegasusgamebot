@@ -157,7 +157,7 @@ async def gift_participate_handler(callback_query: CallbackQuery):
         contest = Contest(channel_id=config.channel_offical)
     except:
         contest = None
-    if contest.status:
+    if contest and contest.status:
         try:
             participants = Participants(user_id=callback_query.from_user.id)
         except:

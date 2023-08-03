@@ -134,8 +134,11 @@ async def profile_handler(target: Union[types.Message, types.CallbackQuery]):
     except:
         btc = None
     user = User(id=target.from_user.id)
-    text = f'👤 Профиль пользователя: {user.link}\n' \
-           f'┣ {user.donate.prefix} Статус: {user.donate.name}\n' \
+    donate = ""
+    if user.donate:
+        donate = f'┣ {user.donate.prefix} Статус: {user.donate.name}\n'
+    text = f'👤 Профиль пользователя: {user.link}\n\n' \
+           f'➖➖➖➖➖➖➖➖➖➖➖➖\n{donate}' \
            f'┣ 💸 Баланс: {to_str(user.balance)}\n' \
            f'┣ 🏦 В банке: {to_str(user.bank)}\n' \
            f'┣ 💳 Кредит: {to_str(user.credit)}\n' \

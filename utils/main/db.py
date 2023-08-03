@@ -403,7 +403,7 @@ class Lsql:
                     self.conn.commit()
             with lock:
 
-                # write_admins_log(f'EXECUTE', f'{query}')
+                write_admins_log(f'EXECUTE', f'{query}')
                 return cursor.fetchall() if fetch else cursor.fetchone() if fetchone else None
         except (Exception, Error, OperationalError) as error:
             write_admins_log(f'ERROR', f'{error}\nSQL:{query}')

@@ -15,3 +15,4 @@ texttable
 pyrogram
 tgcrypto
 aiopayok
+pymorphy2
