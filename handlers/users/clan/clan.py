@@ -21,7 +21,7 @@ from utils.clan.clanwar import ClanWar, ClanWarFind
 from utils.logs import writelog
 from utils.main.cash import get_cash, to_str
 from utils.main.db import sql
-from utils.main.users import User
+from utils.main.users import User, Settings
 from utils.weapons.swords import ArmoryInv
 
 
@@ -102,12 +102,12 @@ async def clan_handler(message: Message):
         if len(arg) == 0 or arg[0].lower() in ['мой', 'моя', 'моё']:
             clan = Clan(clan_id=clanuser.clan_id)
             text_clanwar = ''
+            games = 0
             try:
                 clanwar = ClanWar(clan_id=clan.id)
                 members_mine = sql.select_data(table='WarParticipants', title='clan_id', name=clan.id)
                 members_enemy = sql.select_data(table='WarParticipants', title='clan_id', name=
                 clanwar.id_first if clanwar.id_first != clan.id else clanwar.id_second)
-                games = 0
                 if members_mine:
                     for member in members_mine:
                         games += member[4]
@@ -499,12 +499,13 @@ async def clan_handler(message: Message):
             if len(arg) <= 1:
                 return await message.reply(f'❌ {user.link},  Используйте Клан тег [вкл\выкл]!',
                                            disable_web_page_preview=True)
+            settings = Settings(user.id)
             if arg[1].lower() == 'выкл':
-                user.edit('clan_teg', False)
+                settings.edit('nick_clanteg', True)
                 text = f'{user.link}, отображение клана в нике отключено! 👍'
                 await message.reply(text=text, disable_web_page_preview=True)
             if arg[1].lower() == 'вкл':
-                user.edit('clan_teg', True)
+                settings.edit('nick_clanteg', True)
                 text = f'{user.link}, теперь Ваш клан отображается в нике!'
                 await message.reply(text=text, disable_web_page_preview=True)
         else:
@@ -615,9 +616,11 @@ async def invate_solution(callback_query: CallbackQuery, bot: Bot):
             return await callback_query.message.edit_text('❕ На данный момент нету заявок!',
                                                           disable_web_page_preview=True)
         clan.dell_invites(user1)
-        with suppress(TelegramBadRequest):
-            await bot.send_message(user.id, '[КЛАН]\n'
-                                            f'▶ Ваша заявка в клан «{clan.name}» отклонена')
+        settings = Settings(user.id)
+        if settings.clan_notifies:
+            with suppress(TelegramBadRequest):
+                await bot.send_message(user.id, '[КЛАН]\n'
+                                                f'▶ Ваша заявка в клан «{clan.name}» отклонена')
         return await callback_query.message.edit_text(f'Игрок {user.link} отказ', disable_web_page_preview=True)
     elif action == 'a' and callback_query.from_user.id == int(owner):
 
@@ -639,10 +642,12 @@ async def invate_solution(callback_query: CallbackQuery, bot: Bot):
         clan.dell_invites(user1)
         Clanuser.create(user1, clan.id, 0)
         clan.edit('members', clan.members + 1)
-        with suppress(TelegramBadRequest):
-            await bot.send_message(user.id, '[КЛАН]\n'
-                                            f'▶ Ваша заявка в клан «{clan.name}» одобрена'
-                                            f'▶ Для просмотра информации о клане введите «Клан»')
+        settings = Settings(user.id)
+        if settings.clan_notifies:
+            with suppress(TelegramBadRequest):
+                await bot.send_message(user.id, '[КЛАН]\n'
+                                                f'▶ Ваша заявка в клан «{clan.name}» одобрена'
+                                                f'▶ Для просмотра информации о клане введите «Клан»')
         return await callback_query.message.edit_text(f'❕ Игрок {user.link} принят', disable_web_page_preview=True)
     elif action == 'b' and callback_query.from_user.id == int(owner):
         clan.invites = list(clan.invites)

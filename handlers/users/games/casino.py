@@ -32,9 +32,26 @@ async def casino_handler(message: Message):
         rsmile = random.choice(smile)
         rwin = random.choice(win)
         rloser = random.choice(loser)
-        rx = \
-            np.random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 1,
-                             p=[0.1, 0.18, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.02])[0]
+
+        balance_factor = min(float(user.balance + user.bank + user.deposit) / float(1_000_000_000),
+                             1.0)  # Capped at 1.0
+
+        # Calculate adjusted probabilities based on the balance factor
+        base_probabilities = [0.1, 0.16, 0.2, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.02]
+
+        # Reverse the balance factor to make losses more likely for players with higher balances
+        loss_factor = 1.0 - balance_factor
+
+        # Adjust the probabilities based on the loss_factor while maintaining some randomness
+        adjusted_probabilities = [
+            (1 - loss_factor) * p + loss_factor * random.uniform(0.9, 1.1) / len(base_probabilities)
+            for p in base_probabilities
+        ]
+
+        # Normalize the adjusted probabilities
+        adjusted_probabilities = [p / sum(adjusted_probabilities) for p in adjusted_probabilities]
+        # Generate the random outcome
+        rx = np.random.choice(range(1, 11), 1, p=adjusted_probabilities)[0]
 
         try:
             summ = ssumm = get_cash(arg[0] if arg[0].lower() not in ['всё', 'все'] else str(user.balance))

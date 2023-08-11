@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 import time
@@ -109,16 +110,16 @@ class Lsql:
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS users(
             id NUMERIC PRIMARY KEY,
             name text ,username text ,first_name text ,reg_date text ,
-            notifies BOOLEAN ,balance NUMERIC ,bank INT,deposit NUMERIC ,
-            items jsonb ,deposit_date NUMERIC ,bonus text ,ref NUMERIC,refs NUMERIC ,
+            balance NUMERIC ,bank INT,deposit NUMERIC ,
+            deposit_date NUMERIC ,bonus text ,ref NUMERIC,refs NUMERIC ,
             lock BOOLEAN ,credit NUMERIC ,credit_time NUMERIC ,energy INT ,energy_time NUMERIC,
             xp NUMERIC ,sell_count INT,level NUMERIC ,job_index NUMERIC ,job_time NUMERIC , 
             work_time NUMERIC ,percent INT ,coins NUMERIC,donate_source text ,prefix text ,
             last_vidacha timestamp without time zone ,last_rob NUMERIC ,shield_count NUMERIC ,
-            autonalogs BOOLEAN,ban_source TEXT ,health NUMERIC  ,cases jsonb,
+            autonalogs BOOLEAN,ban_source TEXT ,
             state_ruletka text,nickban boolean,payban boolean,donate_videocards numeric,
             bitcoins numeric,
-            limitvidach NUMERIC, clan_teg boolean,blocked boolean)
+            limitvidach NUMERIC, blocked boolean)
         """)
         self.conn.commit()
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS computers(
@@ -308,6 +309,58 @@ class Lsql:
                             """)
         self.conn.commit()
 
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS quests(
+                            user_id BIGINT PRIMARY KEY,
+                            date_refresh timestamp without time zone ,
+                            today_ids_quests INT[],
+                             FOREIGN KEY (user_id) REFERENCES users (id)
+                        )
+                                    """)
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS quests_commit(
+            uniq_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, 
+            quest_id BIGINT ,
+            under_quest_id BIGINT ,
+            user_id BIGINT ,
+            completed BOOL ,
+            progress NUMERIC ,
+            last_value TEXT ,
+            date_completed timestamp without time zone ,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+                         
+        )
+                                            """)
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS user_cases (
+                user_id BIGINT REFERENCES users(id),
+                case_id INT,
+                count NUMERIC
+                )
+            """)
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS user_work_items (
+                        user_id BIGINT REFERENCES users(id),
+                        works_item_id INT,
+                        count NUMERIC
+                        )
+                    """)
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS settings (
+                                user_id BIGINT PRIMARY KEY,
+                                pay_notifies BOOL,
+                                city_notifies BOOL,
+                                marry_notifies BOOL,
+                                clan_notifies BOOL,
+                                nick_hyperlink BOOL,
+                                nick_clanteg BOOL,
+                                FOREIGN KEY (user_id) REFERENCES users (id)
+                                )
+                            """)
+        self.conn.commit()
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS users_offer (
+                        to_whom BIGINT REFERENCES users (id),
+                        from_whom BIGINT REFERENCES users (id),
+                        PRIMARY KEY (to_whom, from_whom)
+                    )
+                                    """)
+        self.conn.commit()
+
     def insert_data(self, data_mass, table="users"):
         try:
             len_title = "%s," * (len(list(data_mass[0])) - 1) + "%s"
@@ -332,6 +385,37 @@ class Lsql:
         except (Exception, Error, OperationalError) as error:
             write_admins_log(f'ERROR',
                              f'{error}\nSQL:UPDATE {table} SET {title_new} ={new} WHERE {title_last} = {last}')
+            sql.get_rollback()
+
+    def edit_data_json(self, title_last, last, jsonb_column, key_to_update, new_value, table="users"):
+        try:
+            with lock:
+                # Load the existing JSON data from the database
+                self.cursor.execute(f"SELECT {jsonb_column} FROM {table} WHERE {title_last} = %s", [(last)])
+                row = self.cursor.fetchone()
+                if not row:
+                    return None  # Return None if the record doesn't exist
+
+                existing_jsonb_data = row[0]
+
+                # Convert the JSONB data to a Python dictionary
+                data_dict = json.loads(existing_jsonb_data) if existing_jsonb_data else {}
+
+                # Update the specific key with the new value
+                data_dict[key_to_update] = new_value
+
+                # Convert the updated dictionary back to JSONB format
+                updated_jsonb_data = json.dumps(data_dict)
+
+                # Update the JSONB column with the new value
+                self.cursor.execute(f"UPDATE {table} SET {jsonb_column} = %s WHERE {title_last} = %s",
+                                    [(updated_jsonb_data), (last)])
+                self.conn.commit()
+                # write_admins_log("UPDATE", f'SQL:UPDATE {table} SET {jsonb_column} = {updated_jsonb_data} WHERE {title_last} = {last}')
+
+        except (Exception, Error, OperationalError) as error:
+            write_admins_log(f'ERROR',
+                             f'{error}\nSQL:UPDATE {table} SET {jsonb_column} = {updated_jsonb_data} WHERE {title_last} = {last}')
             sql.get_rollback()
 
     def delete_data(self, name, title_name, table="users"):
@@ -403,7 +487,7 @@ class Lsql:
                     self.conn.commit()
             with lock:
 
-                write_admins_log(f'EXECUTE', f'{query}')
+                # write_admins_log(f'EXECUTE', f'{query}')
                 return cursor.fetchall() if fetch else cursor.fetchone() if fetchone else None
         except (Exception, Error, OperationalError) as error:
             write_admins_log(f'ERROR', f'{error}\nSQL:{query}')

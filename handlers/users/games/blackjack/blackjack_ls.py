@@ -8,6 +8,7 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey, BaseStorage
 from aiogram.types import Message, CallbackQuery
+from cachetools import TTLCache
 
 from config import bot_name
 from filters.triggers import Trigger
@@ -19,6 +20,7 @@ from keyboard.generate import show_balance_kb
 
 from utils.main.cash import to_str, get_cash
 from utils.main.users import User
+from utils.quests.main import QuestUser
 
 router = Router()
 router.message.filter(F.chat.type.in_({"group", "supergroup"}))
@@ -435,6 +437,9 @@ async def action_blackjack_ls(message: Message, state: FSMContext,
 
                                         disable_web_page_preview=True)
                     user.edit('balance', user.balance - summ5)
+                    result = QuestUser(user_id=user.id).update_progres(quest_ids=3, add_to_progresses=1)
+                    if result != '':
+                        await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
                     await state.clear()
                 return
             else:
@@ -501,11 +506,14 @@ async def action_blackjack_ls(message: Message, state: FSMContext,
             while dealer_hand_value < 17:
                 dealer_hand.append(deck.pop())
                 dealer_hand_value = get_hand_value(dealer_hand)
-            result = await check_win(player_hand, dealer_hand, user.id, summ5)
+            result, quest_result = await check_win(player_hand, dealer_hand, user.id, summ5)
             with suppress(TelegramBadRequest):
                 await message.reply(result,
 
                                     disable_web_page_preview=True)
+
+                if quest_result:
+                    await message.answer(quest_result, disable_web_page_preview=True)
 
             return await state.clear()
         if action == 'удвоить':
@@ -540,10 +548,12 @@ async def action_blackjack_ls(message: Message, state: FSMContext,
                 dealer_hand.append(deck.pop())
                 dealer_hand_value = get_hand_value(dealer_hand)
             with suppress(TelegramBadRequest):
-                result = await check_win(player_hand, dealer_hand, user.id, summ5 * 2)
+                result, quest_result = await check_win(player_hand, dealer_hand, user.id, summ5 * 2)
                 await message.reply(result,
 
                                     disable_web_page_preview=True)
+                if quest_result:
+                    await message.answer(quest_result, disable_web_page_preview=True)
 
             return await state.clear()
 
@@ -686,11 +696,13 @@ async def action2_blackjack_ls(message: Message, state: FSMContext,
                 while dealer_hand_value < 17:
                     dealer_hand.append(deck.pop())
                     dealer_hand_value = get_hand_value(dealer_hand)
-                result = await check_result(player_hand, player_hand2, dealer_hand, user.id, summ5)
+                result, quest_result = await check_result(player_hand, player_hand2, dealer_hand, user.id, summ5)
                 with suppress(TelegramBadRequest):
                     await message.reply(result,
 
                                         disable_web_page_preview=True)
+                    if quest_result:
+                        await message.answer(quest_result, disable_web_page_preview=True)
 
                     await state.clear()
                 return
@@ -723,11 +735,13 @@ async def action2_blackjack_ls(message: Message, state: FSMContext,
             while dealer_hand_value < 17:
                 dealer_hand.append(deck.pop())
                 dealer_hand_value = get_hand_value(dealer_hand)
-            result = await check_result(player_hand, player_hand2, dealer_hand, user.id, summ5)
+            result, quest_result = await check_result(player_hand, player_hand2, dealer_hand, user.id, summ5)
             with suppress(TelegramBadRequest):
                 await message.reply(result,
 
                                     disable_web_page_preview=True)
+                if quest_result:
+                    await message.answer(quest_result, disable_web_page_preview=True)
                 await state.clear()
             return
 
@@ -775,6 +789,9 @@ async def action3_blackjack(message: Message, state: FSMContext,
 
                                         disable_web_page_preview=True)
                     user.edit('balance', user.balance - summ5 + insurance)
+                    result = QuestUser(user_id=user.id).update_progres(quest_ids=3, add_to_progresses=1)
+                    if result != '':
+                        await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
                     await state.clear()
                 return
             else:
@@ -802,11 +819,13 @@ async def action3_blackjack(message: Message, state: FSMContext,
             while dealer_hand_value < 17:
                 dealer_hand.append(deck.pop())
                 dealer_hand_value = get_hand_value(dealer_hand)
-            result = await check_win(player_hand, dealer_hand, user.id, summ5, insurance)
+            result, quest_result = await check_win(player_hand, dealer_hand, user.id, summ5, insurance)
             with suppress(TelegramBadRequest):
                 await message.reply(result,
 
                                     disable_web_page_preview=True)
+                if quest_result:
+                    await message.answer(quest_result, disable_web_page_preview=True)
                 await state.clear()
             return
         if action == 'удвоить':
@@ -831,24 +850,28 @@ async def action3_blackjack(message: Message, state: FSMContext,
                 dealer_hand.append(deck.pop())
                 dealer_hand_value = get_hand_value(dealer_hand)
             with suppress(TelegramBadRequest):
-                result = await check_win(player_hand, dealer_hand, user.id, summ5 * 2, insurance)
+                result, quest_result = await check_win(player_hand, dealer_hand, user.id, summ5 * 2, insurance)
                 await message.reply(result,
                                     disable_web_page_preview=True)
+                if quest_result:
+                    await message.answer(quest_result, disable_web_page_preview=True)
 
             return await state.clear()
 
 
-last_use_bj = {}
+last_use_bj = {
+    "last": TTLCache(maxsize=10_000, ttl=1),
+}
 
 
 async def flood_handler_bj(message: Message):
     if message.from_user.is_bot == True:
         return
-    if last_use_bj.get(message.from_user.id):
-        if time.time() - last_use_bj[message.from_user.id] < 1:
-            return False
-    last_use_bj[message.from_user.id] = time.time()
-    return True
+    if message.from_user.id in last_use_bj['last']:
+        return False
+    else:
+        last_use_bj['last'][message.from_user.id] = True
+        return True
 
 
 @router.message(Trigger(["блэкджек", "бд"]))
@@ -912,6 +935,9 @@ async def start_blackjack(message: Message, state: FSMContext, bot: Bot, fsm_sto
                                     f"получили +{to_str(summ - ssumm)} на баланс!",
                                     disable_web_page_preview=True)
                 user.edit('balance', user.balance + summ - ssumm)
+                result = QuestUser(user_id=user.id).update_progres(quest_ids=3, add_to_progresses=1)
+                if result != '':
+                    await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
                 return await state.clear()
 
         else:

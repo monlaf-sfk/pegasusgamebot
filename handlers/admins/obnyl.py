@@ -3,7 +3,6 @@ from datetime import datetime
 from aiogram.types import Message
 from psycopg2._json import Json
 
-from utils.items.items import item_case, works_items
 from utils.main.db import sql
 from utils.main.users import User
 
@@ -11,11 +10,11 @@ from utils.main.users import User
 async def obnyn_handler(message: Message):
     # await message.answer_document(document=InputFile('assets/database.db'),
     #                               caption=f'База за {datetime.now()}')
-    query = f"UPDATE users SET balance = 5000, bank = 0, deposit = 0,items = {Json(works_items)}, deposit_date = NULL, " \
+    query = f"UPDATE users SET balance = 5000, bank = 0, deposit = 0, deposit_date = NULL, " \
             f"bonus ='{datetime.now().strftime('%d-%m-%Y %H:%M:%S')}', lock = FALSE, credit = 0, credit_time = NULL, energy = 10, energy_time =" \
             f"NULL, xp = 0, sell_count = 0, level = 0, job_index = 0, job_time = NULL," \
             f" work_time = NULL, prefix = NULL, last_vidacha = NULL," \
-            f" last_rob = NULL, shield_count = 0, autonalogs = FALSE, health = 100,cases = {Json(item_case)}, state_ruletka=NULL, bitcoins=0;\n"
+            f" last_rob = NULL, shield_count = 0, autonalogs = FALSE, health = 100, state_ruletka=NULL, bitcoins=0;\n"
 
     query += 'TRUNCATE TABLE airplanes;\n' \
              'TRUNCATE TABLE bitcoin;\n' \
@@ -39,6 +38,10 @@ async def obnyn_handler(message: Message):
              'TRUNCATE TABLE auction;\n' \
              'TRUNCATE TABLE bosses;\n' \
              'TRUNCATE TABLE user_bosses;\n' \
+             'TRUNCATE TABLE user_work_items;\n' \
+             'TRUNCATE TABLE quests_commit;\n' \
+             'TRUNCATE TABLE user_cases;\n' \
+             'TRUNCATE TABLE quests;\n' \
              "UPDATE other SET bonus=50000 , zarefa=100000,credit_limit=2,credit_percent=2,coin_kurs=100000,donatex2=1;" \
              "UPDATE chat_wdz SET awards=50000;"
 
@@ -80,11 +83,11 @@ async def obnyn_user_handler(message: Message):
                 return await message.reply('❌ Ошибка. В БД нету пользователя с таким id!')
         else:
             return await message.reply('Используйте: <code>/reset_user {ссылка\id}</code>')
-        query = f"UPDATE users SET balance = 0, bank = 0, deposit = 0,  items = {Json(works_items)}, deposit_date = NULL, " \
+        query = f"UPDATE users SET balance = 5000, bank = 0, deposit = 0, deposit_date = NULL, " \
                 f"bonus ='{datetime.now().strftime('%d-%m-%Y %H:%M:%S')}', lock = FALSE, credit = 0, credit_time = NULL, energy = 10, energy_time =" \
                 f"NULL, xp = 0, sell_count = 0, level = 0, job_index = 0, job_time = NULL," \
                 f" work_time = NULL, prefix = NULL, last_vidacha = NULL," \
-                f" last_rob = NULL, shield_count = 0, autonalogs = FALSE, health = 100,cases = {Json(item_case)},state_ruletka=NULL, bitcoins=0 WHERE id={to_user.id};\n"
+                f" last_rob = NULL, shield_count = 0, autonalogs = FALSE, health = 100,state_ruletka=NULL, bitcoins=0 WHERE id={to_user.id};\n"
         query += f'DELETE FROM airplanes WHERE owner={to_user.id};\n' \
                  f'DELETE FROM bitcoin WHERE owner={to_user.id};\n' \
                  f'DELETE FROM businesses WHERE owner={to_user.id};\n' \
@@ -96,7 +99,13 @@ async def obnyn_user_handler(message: Message):
                  f'DELETE FROM uah WHERE owner={to_user.id};\n' \
                  f'DELETE FROM vertoleti WHERE owner={to_user.id};\n' \
                  f'DELETE FROM city WHERE owner={to_user.id};\n' \
-                 f'DELETE FROM yaxti WHERE owner={to_user.id};'
+                 f'DELETE FROM yaxti WHERE owner={to_user.id};' \
+                 f'DELETE FROM armory WHERE user_id={to_user.id};\n' \
+                 f'DELETE FROM armory_inv WHERE user_id={to_user.id};\n' \
+                 f'DELETE FROM quests WHERE user_id={to_user.id};\n' \
+                 f'DELETE FROM quests_commit WHERE user_id={to_user.id};\n' \
+                 f'DELETE FROM user_cases WHERE user_id={to_user.id};' \
+                 f'DELETE FROM user_work_items WHERE user_id={to_user.id};'
         sql.executescript(query, True, False)
         return await message.reply(f'Игрок {to_user.link}! Был обнулен', disable_web_page_preview=True)
     except Exception as e:

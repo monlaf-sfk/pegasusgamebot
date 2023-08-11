@@ -6,6 +6,7 @@ from aiogram.types import Message
 from config import bot_name
 from keyboard.generate import buy_airplane_kb, show_balance_kb, show_inv_kb, show_airplane_kb, airplane_kb, \
     ride_airplane_kb
+from utils.items.work_items import set_workitems_count, get_workitems_count
 
 from utils.main.airplanes import airplanes, Airplane
 from utils.main.cash import to_str, get_cash
@@ -75,7 +76,7 @@ async def airplanes_handler(message: Message):
                 return await message.reply(
                     f'💲 На руках недостаточно денег для покупки, нужно: {to_str(price)}')
             Airplane.create(user_id=message.from_user.id, airplane_index=int(arg[1]))
-            sql.execute(f'UPDATE users SET balance = balance - {price}, WHERE id ='
+            sql.execute(f'UPDATE users SET balance = balance - {price} WHERE id ='
                         f' {message.from_user.id}', True)
             await message.reply(f'✅ Вы успешно приобрели самолёт <b>{i["name"]}</b> за'
                                 f' {to_str(price)}', reply_markup=show_airplane_kb.as_markup())
@@ -123,18 +124,17 @@ async def airplanes_handler(message: Message):
             return
 
         elif arg[0].lower() in ['починить', 'чинить', 'починка']:
-            items = sql.execute(f'SELECT items FROM users WHERE id = {message.from_user.id}', False, True)[0][0]
+            count_user = get_workitems_count(8, message.from_user.id)
 
-            if items['8']['count'] < 10:
+            if not count_user or count_user < 10:
+                count_user = 0 if not count_user else count_user
                 return await message.reply(
-                    f"❌ Не хватает {10 - items['8']['count']} <b>Болтиков 🔩</b> для починки!'",
+                    f"❌ Не хватает {10 - count_user} <b>Болтиков 🔩</b> для починки!'",
                     reply_markup=show_inv_kb.as_markup())
 
-            count_items = items['8']['count'] - 10
-            sql.executescript(f"UPDATE users SET items = jsonb_set(items, "
-                              "'{8, count}', "
-                              f"'{count_items}') WHERE id={message.from_user.id};\n"
-                              f'UPDATE airplanes SET fuel = fuel + 1 WHERE owner = {message.from_user.id};')
+            set_workitems_count(8, message.from_user.id, count_user - 10)
+
+            sql.executescript(f'UPDATE airplanes SET fuel = fuel + 1 WHERE owner = {message.from_user.id};')
             await message.reply('✅ Самолёт восстановлен на +1%')
 
             return

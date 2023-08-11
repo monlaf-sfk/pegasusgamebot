@@ -12,22 +12,23 @@ from utils.main.users import all_users
 numbers_emoji = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣']
 
 
-async def link_user(username, name, first_name, notifies, clan_teg, id):
+async def link_user(username, name, first_name, nick_hyperlink, nick_clanteg, id):
     url = f'https://t.me/{username}' if username else f'tg://user?id={id}'
-    if clan_teg:
+
+    if nick_clanteg:
         try:
             clanuser = Clanuser(user_id=id)
             clan = Clan(clan_id=clanuser.clan_id)
         except:
-            if notifies:
+            if nick_hyperlink:
                 return f'<a href="{url}">{name if name else first_name}</a>'
             return f'{name if name else first_name}'
-        if notifies:
-            return f'[{clan.prefix}] <a href="{url}">{name if name else first_name}</a>'
-        return f'[{clan.prefix}] {name if name else first_name}'
+        if nick_hyperlink:
+            return f'{clan.prefix} <a href="{url}">{name if name else first_name}</a>'
+        return f'{clan.prefix} {name if name else first_name}'
 
     else:
-        if notifies:
+        if nick_hyperlink:
             return f'<a href="{url}">{name if name else first_name}</a>'
         return f'{name if name else first_name}'
 
@@ -39,24 +40,26 @@ async def top_handler(message: Message):
         0].lower() else message.text.split()[2:]
     arg_lower = arg.lower()
     top_query = """
-        SELECT id, first_name, name, username, deposit+bank+balance, donate_source, notifies, clan_teg
+        SELECT  users.id,  users.first_name,  users.name,  users.username,  
+        users.deposit+ users.bank+ users.balance,  users.donate_source, settings.nick_hyperlink, settings.nick_clanteg
         FROM users
-        ORDER BY {} DESC
-        LIMIT 200;
+        INNER JOIN settings ON users.id = settings.user_id
+ORDER BY {} DESC
+LIMIT 200;
     """
 
     if len(arg) == 0 or any(keyword in arg_lower for keyword in ['общ', 'все', 'всё']):
-        order_by = 'deposit+bank+balance'
+        order_by = 'users.deposit+users.bank+users.balance'
     elif 'банк' in arg_lower:
-        order_by = 'bank'
+        order_by = 'users.bank'
     elif 'депозит' in arg_lower:
-        order_by = 'deposit'
+        order_by = 'users.deposit'
     elif 'уровень' in arg_lower:
-        order_by = 'level'
+        order_by = 'users.level'
     elif 'реф' in arg_lower:
-        order_by = 'refs'
+        order_by = 'users.refs'
     elif 'баланс' in arg_lower or 'б' in arg_lower:
-        order_by = 'balance'
+        order_by = 'users.balance'
     elif 'клан' in arg_lower:
         top_clan_query = """
             SELECT id, name, win, prefix
@@ -120,7 +123,7 @@ async def top_handler(message: Message):
 
     index = 0
     for user in top_users:
-        user_id, first_name, name, username, balance, donate_source, notifies, clan_teg = user
+        user_id, first_name, name, username, balance, donate_source, nick_hyperlink, nick_clanteg = user
         try:
             donate_source = int(donate_source.split(',')[0])
         except AttributeError:
@@ -130,8 +133,8 @@ async def top_handler(message: Message):
                 break
             index += 1
             emoji = ''.join(numbers_emoji[int(i)] for i in str(index))
-            link = await link_user(username, name, first_name, notifies, clan_teg,
-                                   user_id) if notifies else f'<a href="https://t.me/{bot_name}">{name if name else first_name}</a>'
+            link = await link_user(username, name, first_name, nick_hyperlink, nick_clanteg,
+                                   user_id) if nick_hyperlink else f'<a href="https://t.me/{bot_name}">{name if name else first_name}</a>'
             text += f'{emoji}. {link} - (<code>{user_id}</code>) - ' \
                     f'{to_str2(transform(balance)) if not (True in [i in arg_lower for i in ["уровень", "реф", "лвл"]]) else balance}\n'
 
@@ -139,9 +142,9 @@ async def top_handler(message: Message):
     for index, user_s in enumerate(top_users, start=1):
         if user_s['id'] == message.from_user.id:
             emoji = ''.join(numbers_emoji[int(i)] for i in str(index))
-            user_id, first_name, name, username, balance, donate_source, notifies, clan_teg = user_s
-            link = await link_user(username, name, first_name, notifies, clan_teg,
-                                   user_id) if notifies else f'<a href="https://t.me/{bot_name}">{name if name else first_name}</a>'
+            user_id, first_name, name, username, balance, donate_source, nick_hyperlink, nick_clanteg = user_s
+            link = await link_user(username, name, first_name, nick_hyperlink, nick_clanteg,
+                                   user_id) if nick_hyperlink else f'<a href="https://t.me/{bot_name}">{name if name else first_name}</a>'
             text += f'{emoji}. {link} - (<code>{user_id}</code>) - ' \
                     f'{to_str2(transform(balance)) if not (True in [i in arg_lower for i in ["уровень", "реф", "лвл"]]) else balance}\n'
             break
@@ -166,24 +169,27 @@ async def top_handler_call(callback: CallbackQuery):
 
     arg_lower = arg.lower()
     top_query = """
-        SELECT id, first_name, name, username, {}, donate_source, notifies, clan_teg
+            SELECT  users.id,  users.first_name,  users.name,  users.username,  
+        {},  users.donate_source, settings.nick_hyperlink, settings.nick_clanteg
         FROM users
-        ORDER BY {} DESC
-        LIMIT 200;
+        INNER JOIN settings ON users.id = settings.user_id
+ORDER BY {} DESC
+LIMIT 200;
+
     """
 
     if arg_lower == 'общ':
-        order_by = 'deposit+bank+balance'
+        order_by = 'users.deposit+users.bank+users.balance'
     elif arg_lower == 'банк':
-        order_by = 'bank'
+        order_by = 'users.bank'
     elif arg_lower == 'депозит':
-        order_by = 'deposit'
+        order_by = 'users.deposit'
     elif arg_lower == 'лвл':
-        order_by = 'level'
+        order_by = 'users.level'
     elif arg_lower == 'реф':
-        order_by = 'refs'
+        order_by = 'users.refs'
     elif arg_lower == 'балансу':
-        order_by = 'balance'
+        order_by = 'users.balance'
     elif 'клан' in arg_lower:
         top_clan_query = """
             SELECT id, name, win, prefix
@@ -246,7 +252,7 @@ async def top_handler_call(callback: CallbackQuery):
 
     index = 0
     for user in top_users:
-        user_id, first_name, name, username, balance, donate_source, notifies, clan_teg = user
+        user_id, first_name, name, username, balance, donate_source, nick_hyperlink, clan_teg = user
 
         try:
             donate_source = int(donate_source.split(',')[0])
@@ -258,17 +264,17 @@ async def top_handler_call(callback: CallbackQuery):
             index += 1
             emoji = ''.join(numbers_emoji[int(i)] for i in str(index))
 
-            link = await link_user(username, name, first_name, notifies, clan_teg,
-                                   user_id) if notifies else f'<a href="https://t.me/{bot_name}">{name if name else first_name}</a>'
+            link = await link_user(username, name, first_name, nick_hyperlink, clan_teg,
+                                   user_id) if nick_hyperlink else f'<a href="https://t.me/{bot_name}">{name if name else first_name}</a>'
             text += f'{emoji}. {link} - (<code>{user_id}</code>) - ' \
                     f'{to_str2(transform(balance)) if not (True in [i in arg_lower for i in ["уровень", "реф", "лвл"]]) else balance}\n'
     text += '➖➖➖➖➖➖➖➖➖➖➖➖\n'
     for index, user_s in enumerate(top_users, start=1):
         if user_s['id'] == callback.from_user.id:
             emoji = ''.join(numbers_emoji[int(i)] for i in str(index))
-            user_id, first_name, name, username, balance, donate_source, notifies, clan_teg = user_s
-            link = await link_user(username, name, first_name, notifies, clan_teg,
-                                   user_id) if notifies else f'<a href="https://t.me/{bot_name}">{name if name else first_name}</a>'
+            user_id, first_name, name, username, balance, donate_source, nick_hyperlink, clan_teg = user_s
+            link = await link_user(username, name, first_name, nick_hyperlink, clan_teg,
+                                   user_id) if nick_hyperlink else f'<a href="https://t.me/{bot_name}">{name if name else first_name}</a>'
 
             text += f'{emoji}. {link} - (<code>{user_id}</code>) - ' \
                     f'{to_str2(transform(balance)) if not (True in [i in arg_lower for i in ["уровень", "реф", "лвл"]]) else balance}\n'
@@ -295,17 +301,19 @@ async def topback_handler_call(callback: CallbackQuery):
     text = '🔝 10 Пользователей по ({}):\n<i>📢 Всего пользователей: {}</i>\n\n'
 
     top_users_query = """
-        SELECT id, first_name, name, username, deposit+bank+balance, donate_source, notifies, clan_teg
-        FROM users
-        ORDER BY deposit+bank+balance DESC
-        LIMIT 200;
-    """
+            SELECT  users.id,  users.first_name,  users.name,  users.username,  
+            users.deposit+ users.bank+ users.balance,  users.donate_source, settings.nick_hyperlink, settings.nick_clanteg
+            FROM users
+            INNER JOIN settings ON users.id = settings.user_id
+    ORDER BY deposit+bank+balance DESC
+    LIMIT 200;
+        """
     top_users = sql.execute(top_users_query, False, True)
 
     text = text.format('общий', len(all_users()))
     index = 0
     for user in top_users:
-        user_id, first_name, name, username, balance, donate_source, notifies, clan_teg = user
+        user_id, first_name, name, username, balance, donate_source, nick_hyperlink, clan_teg = user
 
         try:
             donate_source = int(donate_source.split(',')[0])
@@ -316,17 +324,17 @@ async def topback_handler_call(callback: CallbackQuery):
                 break
             index += 1
             emoji = ''.join(numbers_emoji[int(i)] for i in str(index))
-            link = await link_user(username, name, first_name, notifies, clan_teg,
-                                   user_id) if notifies else f'<a href="https://t.me/{bot_name}">{name if name else first_name}</a>'
+            link = await link_user(username, name, first_name, nick_hyperlink, clan_teg,
+                                   user_id) if nick_hyperlink else f'<a href="https://t.me/{bot_name}">{name if name else first_name}</a>'
             text += f'{emoji}. {link} - (<code>{user_id}</code>) - {to_str2(transform(balance))}\n'
 
     text += '➖➖➖➖➖➖➖➖➖➖➖➖\n'
     for index, user_s in enumerate(top_users, start=1):
         if user_s['id'] == callback.from_user.id:
             emoji = ''.join(numbers_emoji[int(i)] for i in str(index))
-            user_id, first_name, name, username, balance, donate_source, notifies, clan_teg = user_s
-            link = await link_user(username, name, first_name, notifies, clan_teg,
-                                   user_id) if notifies else f'<a href="https://t.me/{bot_name}">{name if name else first_name}</a>'
+            user_id, first_name, name, username, balance, donate_source, nick_hyperlink, clan_teg = user_s
+            link = await link_user(username, name, first_name, nick_hyperlink, clan_teg,
+                                   user_id) if nick_hyperlink else f'<a href="https://t.me/{bot_name}">{name if name else first_name}</a>'
             text += f'{emoji}. {link} - (<code>{user_id}</code>) - {to_str2(transform(balance))}\n'
             break
         if index == 200:

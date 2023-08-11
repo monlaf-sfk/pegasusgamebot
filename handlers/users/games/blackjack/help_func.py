@@ -2,6 +2,7 @@ import random
 
 from utils.main.cash import to_str
 from utils.main.users import User
+from utils.quests.main import QuestUser
 
 card_values = ["Туз", "2", "3", "4", "5", "6", "7", "8", "9", "10", "Валет", "Дама", "Кароль"]
 card_suits = ["♥", "♦", "♣", "♠"]
@@ -47,6 +48,11 @@ async def check_win(player_hand: list, dealer_hand: list, user_id: int, summ: in
     smile = ['♠', '🃏', '♣', '♥', '♦', '🎴']
     rsmile = random.choice(smile)
     text = ''
+    result = QuestUser(user_id=user.id).update_progres(quest_ids=3, add_to_progresses=1)
+    if result != '':
+        result = result.format(user=user.link)
+    else:
+        result = False
     if insurance:
         if dealer_hand_value == 21:
             text_player = f'➖ 1-я рука - Страховка спасла [♥]: \n{await  get_numerate_cards(player_hand)}'
@@ -56,7 +62,7 @@ async def check_win(player_hand: list, dealer_hand: list, user_id: int, summ: in
                    f"{text_player}" \
                    f"\n🎟 Рука дилера: {dealer_hand_value}" \
                    f"\n{text_dil}"
-            return text
+            return text, result
         user.edit('balance', user.balance - insurance)
         text += "💔 Ваша страховка сгорела\n"
     if player_hand_value > 21:
@@ -69,7 +75,7 @@ async def check_win(player_hand: list, dealer_hand: list, user_id: int, summ: in
                 f"\n🎟 Рука дилера: {dealer_hand_value}" \
                 f"\n{text_dil}" \
                 f"\n\nВы проиграли 🙁 ({to_str(summ)})"
-        return text
+        return text, result
     elif dealer_hand_value > 21:
         text_player = f'➖ 1-я рука - Победа [✔]: \n{await get_numerate_cards(player_hand)}'
         text_dil = f'{await get_numerate_cards(dealer_hand)}'
@@ -80,7 +86,7 @@ async def check_win(player_hand: list, dealer_hand: list, user_id: int, summ: in
                 f"\n🎟 Рука дилера: {dealer_hand_value}" \
                 f"\n{text_dil}" \
                 f"\n\nПобеда! Ваш приз: {to_str(summ * 2)} [x2]"
-        return text
+        return text, result
     elif player_hand_value > dealer_hand_value:
         text_player = f'➖ 1-я рука - Победа [✔]: \n{await get_numerate_cards(player_hand)}'
         text_dil = f'{await  get_numerate_cards(dealer_hand)}'
@@ -91,7 +97,7 @@ async def check_win(player_hand: list, dealer_hand: list, user_id: int, summ: in
                 f"\n🎟 Рука дилера: {dealer_hand_value}" \
                 f"\n{text_dil}" \
                 f"\n\nПобеда! Ваш приз: {to_str(summ * 2)} [x2]"
-        return text
+        return text, result
     elif dealer_hand_value > player_hand_value:
         text_player = f'➖ 1-я рука - Поражение [❌]: \n{await  get_numerate_cards(player_hand)}'
         text_dil = f'{await  get_numerate_cards(dealer_hand)}'
@@ -102,7 +108,7 @@ async def check_win(player_hand: list, dealer_hand: list, user_id: int, summ: in
                 f"\n🎟 Рука дилера: {dealer_hand_value}" \
                 f"\n{text_dil}" \
                 f"\n\nВы проиграли 🙁 ({to_str(summ)})"
-        return text
+        return text, result
     else:
         text_player = f'➖ 1-я рука - Ничья [🟰]: \n{await  get_numerate_cards(player_hand)}'
         text_dil = f'{await  get_numerate_cards(dealer_hand)}'
@@ -111,7 +117,7 @@ async def check_win(player_hand: list, dealer_hand: list, user_id: int, summ: in
                 f"{text_player}" \
                 f"\n🎟 Рука дилера: {dealer_hand_value}" \
                 f"\n{text_dil}"
-        return text
+        return text, result
 
 
 async def check_result(player_hand, player_hand2, dealer_hand, user_id, summ):
@@ -161,7 +167,10 @@ async def check_result(player_hand, player_hand2, dealer_hand, user_id, summ):
            f"{text_player2}" \
            f"\n🎟 Рука дилера: {dealer_hand_value}" \
            f"\n{text_dil}"
-    return text
+    result = QuestUser(user_id=user.id).update_progres(quest_ids=3, add_to_progresses=1)
+    if result != '':
+        return text, result.format(user=user.link)
+    return text, False
 
 
 def create_deck():

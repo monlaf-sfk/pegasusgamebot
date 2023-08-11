@@ -6,21 +6,86 @@ from contextlib import suppress
 from datetime import datetime
 
 from aiogram import flags
-from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
+from aiogram.exceptions import TelegramBadRequest
+from aiogram.filters.callback_data import CallbackData
+
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from filters.users import flood_handler
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineKeyboardButton
 
 from loader import bot
 
 from config import bot_name
-from keyboard.main import marry_kb, check_ls_kb
+from keyboard.main import check_ls_kb, settings_notifies_kb, marry_divorce_kb
 from keyboard.marries import marrye_kb
-from utils.logs import writelog
+
 from utils.main.cash import get_cash, to_str
 from utils.main.db import sql
-from utils.main.users import User
+from utils.main.users import User, Settings
 from utils.marries import Marry
+
+
+class MarryRequest(CallbackData, prefix="marry"):
+    user_id: int
+    from_whom: int
+
+
+@flags.throttling_key('default')
+async def marries_request_handler(message: Message):
+    user = User(id=message.from_user.id)
+    try:
+        marry = Marry(user_id=message.from_user.id)
+    except:
+        marry = None
+    if marry:
+        return await marry_handler(message)
+    result = sql.execute(f"SELECT * FROM users_offer WHERE to_whom={message.from_user.id}",
+                         fetch=True)
+    arg = message.text.split()[1:] if not bot_name.lower() in message.text.split()[
+        0].lower() else message.text.split()[2:]
+    if len(arg) > 0 and arg[0].isdigit() and int(arg[0]) <= len(result):
+        arg = int(arg[0]) - 1
+        try:
+            Marry(user_id=result[arg][1])
+            return await message.reply(f'❌ Ошибка. У него\ее уже есть семья!', disable_web_page_preview=True)
+        except:
+            Marry.create(user1=result[arg][0], user2=result[arg][1])
+            await message.reply(f'{user.link}, Вы вышли (замуж\поженились) за игрока {User(id=result[arg][1]).link}',
+                                disable_web_page_preview=True)
+            sql.execute(
+                f"DELETE FROM users_offer WHERE to_whom={result[arg][0]} or from_whom={result[arg][1]}"
+                , commit=True)
+            sql.execute(
+                f"DELETE FROM users_offer WHERE to_whom={result[arg][1]} or from_whom={result[arg][0]}"
+                , commit=True)
+            settings = Settings(result[arg][1])
+            if settings.marry_notifies:
+                with suppress(TelegramBadRequest):
+                    await bot.send_message(chat_id=result[arg][1],
+                                           text=f'[БРАК]\n'
+                                                f'▶️ Игрок  {user.link} принял Ваше предложение руки и сердца! 👍🏻\n'
+                                                '💞 Для просмотра информации о браке введите «Брак»\n'
+                                                '🔔 Для настройки уведомлений введите «Уведомления»\n',
+                                           reply_markup=settings_notifies_kb(result[arg][1]),
+                                           disable_web_page_preview=True)
+            return
+    if not result:
+        return await message.reply(f'{user.link}, Вам ещё не делали предложения руки и сердца 😔',
+                                   disable_web_page_preview=True)
+    text = f"{user.link}, найдено {len(result)} предложения брака:\n"
+    numbers_emoji = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣']
+    keyboard = InlineKeyboardBuilder()
+    for index, (to_whom, from_whom) in enumerate(result, start=1):
+        emoji = ''.join(numbers_emoji[int(i)] for i in str(index))
+        text += f'<code>{emoji}</code> {User(id=from_whom).link}\n'
+        keyboard.add(
+            InlineKeyboardButton(text=f"{emoji}",
+                                 callback_data=MarryRequest(from_whom=from_whom, user_id=to_whom).pack())
+        )
+    text += '\n💞 Для согласия введите «Браки [номер предложения]» 👍🏻'
+    return await message.reply(text, reply_markup=keyboard.adjust(2).as_markup(),
+                               disable_web_page_preview=True)
 
 
 @flags.throttling_key('default')
@@ -78,28 +143,71 @@ async def marry_handler(message: Message):
                 Marry(user_id=user2.id)
                 return await message.reply(f'❌ Ошибка. У {user2.link} уже есть семья!', disable_web_page_preview=True)
             except:
-                try:
-                    await bot.send_message(chat_id=user2.id,
-                                           text=f'[💍] {user.link} предлагает вам жениться!',
-                                           reply_markup=marry_kb(user.id, user2.id), disable_web_page_preview=True)
-                except TelegramForbiddenError:
-                    return await message.reply(f'❌ {user2.link} ниразу не писал в лс боту и я к сожалению не могу '
-                                               'отправить ей запрос на свадьбу!', disable_web_page_preview=True)
+                to_whom = sql.execute(f"SELECT * FROM users_offer WHERE from_whom={user1.id} and to_whom={user2.id}",
+                                      fetchone=True)
+                from_whom = sql.execute(f"SELECT * FROM users_offer WHERE from_whom={user2.id} and to_whom={user1.id}",
+                                        fetchone=True)
+                if from_whom:
+                    Marry.create(user1=user1.id, user2=user2.id)
+
+                    await message.reply(
+                        f'{user1.link}, Вы вышли (замуж\поженились) за игрока {user2.link}',
+                        disable_web_page_preview=True)
+                    sql.execute(
+                        f"DELETE FROM users_offer WHERE to_whom={user1.id} or from_whom={user2.id}"
+                        , commit=True)
+                    sql.execute(
+                        f"DELETE FROM users_offer WHERE to_whom={user2.id} or from_whom={user1.id}"
+                        , commit=True)
+                    settings = Settings(user2.id)
+                    if settings.marry_notifies:
+                        with suppress(TelegramBadRequest):
+                            await bot.send_message(chat_id=user2.id,
+                                                   text=f'[БРАК]\n'
+                                                        f'▶️ Игрок  {user.link} принял Ваше предложение руки и сердца! 👍🏻\n'
+                                                        '💞 Для просмотра информации о браке введите «Брак»\n'
+                                                        '🔔 Для настройки уведомлений введите «Уведомления»\n',
+                                                   reply_markup=settings_notifies_kb(user2.id),
+                                                   disable_web_page_preview=True)
+                    return
+                if to_whom:
+                    return await message.reply(
+                        f'{user1.link}, Вы уже предлагали игроку {user2.link} выйти (замуж\пожениться) за\на Вас 👍🏻',
+                        disable_web_page_preview=True)
+                if to_whom and len(to_whom) >= 8:
+                    return await message.reply(
+                        f'{user1.link},У данного пользователя уже максимально количество предложений',
+                        disable_web_page_preview=True)
+
+                data = [(user2.id, user1.id)]
+                placeholders = ', '.join(['%s'] * len(data[0]))
+                sql.cursor.execute(f"INSERT INTO users_offer VALUES ({placeholders})", data[0])
+                sql.commit()
+                settings = Settings(user2.id)
+                if settings.marry_notifies:
+                    with suppress(TelegramBadRequest):
+                        await bot.send_message(chat_id=user2.id,
+                                               text=f'[БРАК]\n'
+                                                    f'💞 Игрок {user1.link} сделал(a) Вам предложение руки и сердца! \n'
+                                                    f'❕ Для просмотра информации введите «Браки»\n'
+                                                    '🔔 Для настройки уведомлений введите «Уведомления»',
+                                               reply_markup=settings_notifies_kb(user2.id),
+                                               disable_web_page_preview=True)
+
             return await message.reply(
-                f'✅ Вы успешно предложили {user2.link} пожениться!\n\nЯ уведомлю вас в личке если '
+                f'✅ Вы успешно предложили {user2.link} (пожениться\выйти замуж)!\n\nЯ уведомлю вас в личке если '
                 'он(а) согласится поэтому обязательно напишите мне что-то в лс @pegasusgame_bot',
                 disable_web_page_preview=True, reply_markup=check_ls_kb.as_markup())
 
-            # await message.reply(f'✅ Вы успешно приютили {user2.link}', disable_web_page_preview=True)
-            # await writelog(message.from_user.id, f'Приючение {user2.link}')
-            # return
+
 
         elif arg[0].lower() in ['выйти', 'разорвать', 'удалить']:
             if marry is None:
                 return await message.reply('❌ У вас нет семьи :(')
             if message.from_user.id in [marry.user1, marry.user2]:
-                marry.delete()
-                await message.reply('✅ Вы успешно удалили семью! Мне очень жаль :(')
+                await message.reply('❓ Вы уверены что хотите развезтись нажмите кнопку для подтверждения\n'
+                                    '▶ Кнопка действительна 30 секунд',
+                                    reply_markup=marry_divorce_kb(message.from_user.id, time.time()))
 
                 return
 
@@ -125,7 +233,12 @@ async def marry_handler(message: Message):
                               True, False)
 
             await message.reply(f'✅ Вы успешно сняли {to_str(summ)} с бюджета семьи!')
-            await writelog(message.from_user.id, f'Снятие {to_str(summ)} с бюджета семьи')
+            settings = Settings(marry.user2 if message.from_user.id == marry.user1 else marry.user1)
+            if settings.marry_notifies:
+                with suppress(TelegramBadRequest):
+                    await bot.send_message(settings.user_id,
+                                           f'[БРАК]\n❕ {user.link} снял с брака {to_str(summ)}',
+                                           disable_web_page_preview=True)
             return
         elif arg[0].lower() in ['положить', 'вложить', 'пополнить']:
             if marry is None:
@@ -149,7 +262,13 @@ async def marry_handler(message: Message):
                               True, False)
 
             await message.reply(f'✅ Вы успешно пополнили бюджет семьи на +{to_str(summ)}')
-            await writelog(message.from_user.id, f'Пополнение {to_str(summ)} в бюджет семьи')
+
+            settings = Settings(marry.user2 if message.from_user.id == marry.user1 else marry.user1)
+            if settings.marry_notifies:
+                with suppress(TelegramBadRequest):
+                    await bot.send_message(settings.user_id,
+                                           f'[БРАК]\n❕ {user.link} пополнил брак на {to_str(summ)}',
+                                           disable_web_page_preview=True)
             return
         elif arg[0].lower() in ['награда', 'вознаграждение', 'награждение']:
             lol = datetime.now() - marry.reg_date
@@ -223,35 +342,78 @@ async def marry_handler(message: Message):
 
 
 @flags.throttling_key('default')
-async def marry_call_handler(call: CallbackQuery):
-    user1 = int(call.data.split('_')[1])
-    if str(call.data.split('_')[0]) == 'maccept':
-        try:
-            Marry(user_id=user1)
-            await call.answer('❌ Пользователь уже в браке')
-            return await call.message.delete()
-        except:
-            pass
-        try:
-            Marry(user_id=call.from_user.id)
-            await call.answer('❌ Пользователь уже в браке')
-            return await call.message.delete()
-        except:
-            pass
-        try:
-            await bot.send_message(chat_id=user1,
-                                   text=f'Ура, ваша вторая половинка которой'
-                                        f' вы предлагали пожениться приняла запрос на свадьбу!')
-        except:
-            pass
-        Marry.create(user1=user1, user2=call.from_user.id)
-        await call.answer('Брак зарегистрирован!')
-
-        with suppress(TelegramBadRequest):
-            await call.message.delete()
+async def marry_call_handler(call: CallbackQuery, callback_data: MarryRequest):
+    try:
+        marry = Marry(user_id=call.from_user.id)
+    except:
+        marry = None
+    if marry:
+        return await call.message.edit_text(f'❌ У вас уже есть семья!', disable_web_page_preview=True)
+    if callback_data.user_id != call.from_user.id:
+        return await call.answer(f'🤨 Убери свои шаловливые руки!')
+    try:
+        Marry(user_id=callback_data.from_whom)
+        return await call.message.edit_text(f'❌ Ошибка. У него\ее уже есть семья!', disable_web_page_preview=True)
+    except:
+        Marry.create(user1=callback_data.from_whom, user2=callback_data.user_id)
+        user = User(id=callback_data.user_id)
+        await call.message.edit_text(
+            f'{user.link}, Вы вышли (замуж\поженились) за игрока {User(id=callback_data.from_whom).link}',
+            disable_web_page_preview=True)
+        sql.execute(
+            f"DELETE FROM users_offer WHERE to_whom={callback_data.from_whom} or from_whom={callback_data.user_id}"
+            , commit=True)
+        sql.execute(
+            f"DELETE FROM users_offer WHERE to_whom={callback_data.user_id} or from_whom={callback_data.from_whom}"
+            , commit=True)
+        settings = Settings(callback_data.from_whom)
+        if settings.marry_notifies:
+            with suppress(TelegramBadRequest):
+                await bot.send_message(chat_id=callback_data.from_whom,
+                                       text=f'[БРАК]\n'
+                                            f'▶️ Игрок  {user.link} принял Ваше предложение руки и сердца! 👍🏻\n'
+                                            '💞 Для просмотра информации о браке введите «Брак»\n'
+                                            '🔔 Для настройки уведомлений введите «Уведомления»\n',
+                                       reply_markup=settings_notifies_kb(callback_data.from_whom),
+                                       disable_web_page_preview=True)
         return
-    else:
-        await bot.send_message(chat_id=user1,
-                               text=f'К сожелению вам отказали')
+
+
+@flags.throttling_key('default')
+async def marry_divorce_handler(call: CallbackQuery):
+    divorce, user_id, time_call = call.data.split(":")
+    user_id = int(user_id)
+
+    if user_id != call.from_user.id:
+        return await call.answer(f'🤨 Убери свои шаловливые руки!')
+    if time.time() - float(time_call) > 30:
         with suppress(TelegramBadRequest):
-            return await call.message.delete()
+            await call.answer(f'⏳ Срок действия кнопки истек', show_alert=True)
+        return
+    try:
+        marry = Marry(user_id=call.from_user.id)
+    except:
+        marry = None
+    if marry is None:
+        with suppress(TelegramBadRequest):
+            call.message.edit_text('❌ У вас нет семьи :(')
+        return
+    with suppress(TelegramBadRequest):
+        user2 = User(id=marry.user2 if call.from_user.id == marry.user1 else marry.user1)
+        user1 = User(id=marry.user2 if user2.id == marry.user1 else marry.user1)
+        user1.edit('balance', user1.balance + round(marry.balance / 2))
+        user2.edit('balance', user2.balance + round(marry.balance / 2))
+        await call.message.edit_text(f'{user1.link}, Вы развелись с игроком {user2.link} 😟\n'
+                                     f'💸 Общий счёт был поделён поровну: +{to_str(round(marry.balance / 2))}',
+                                     disable_web_page_preview=True)
+        marry.delete()
+    settings = Settings(user2.id)
+    if settings.marry_notifies:
+        with suppress(TelegramBadRequest):
+            await bot.send_message(chat_id=user2.id,
+                                   text=f'[БРАК]\n'
+                                        f'💔 Ваша (жена\муж) «{user1.link}» решил(а) развестись с Вами ☹\n'
+                                        f'💸 Общий счёт был поделен поровну: +{to_str(round(marry.balance / 2))}\n'
+                                        '🔔 Для настройки уведомлений введите «Уведомления»\n',
+                                   reply_markup=settings_notifies_kb(user2.id),
+                                   disable_web_page_preview=True)

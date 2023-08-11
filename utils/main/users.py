@@ -14,7 +14,7 @@ from psycopg2._json import Json
 
 import config
 from utils.clan.clan import Clanuser, Clan
-from utils.items.items import item_case, works_items
+
 from utils.jobs.jobs import Job, levels
 from utils.main.cash import to_str
 from utils.main.db import sql, timetomin, timetostr
@@ -38,6 +38,33 @@ to_usd = lambda summ: int(float(summ) * config.bitcoin_price())
 datetime_bonus = datetime(year=1920, month=1, day=1).strftime('%d-%m-%Y %H:%M:%S')
 
 
+class Settings:
+
+    @staticmethod
+    def create(user_id: int):
+        res = (user_id, True, True, True, True, True, True)
+        sql.insert_data([res], 'settings')
+        return res
+
+    def __init__(self, user_id):
+        self.source: tuple = sql.select_data(user_id, 'user_id', True, 'settings')
+        if self.source is None:
+            self.source = Settings.create(user_id)
+        self.user_id: int = self.source[0]
+        self.pay_notifies: bool = bool(self.source[1])
+        self.city_notifies: bool = bool(self.source[2])
+        self.marry_notifies: bool = bool(self.source[3])
+        self.clan_notifies: bool = bool(self.source[4])
+        self.nick_hyperlink: bool = bool(self.source[5])
+        self.nick_clanteg: bool = bool(self.source[6])
+
+    def edit(self, name, value, attr=True):
+        if attr:
+            setattr(self, name, value)
+        sql.edit_data('user_id', self.user_id, name, value, 'settings')
+        return value
+
+
 class User:
 
     @staticmethod
@@ -45,11 +72,11 @@ class User:
         global all_users_
         now_date = datetime.now()
         reg_date = now_date.strftime('%d-%m-%Y %H:%M:%S')
-        res = (user_id, None, username, first_name, reg_date, False, 5000, 0, 0, Json(works_items), None,
+        res = (user_id, None, username, first_name, reg_date, 5000, 0, 0, None,
                datetime_bonus, ref_id, 0, False, 0, None, 10, None,
-               0, 0, 0, 0, None, None, 0, 0, None, None, None, 0.0, 0, False, None, 100, Json(item_case), None, False,
+               0, 0, 0, 0, None, None, 0, 0, None, None, None, 0.0, 0, False, None, None, False,
                False, 0, 0,
-               0, False, False)
+               0, False)
         sql.insert_data([res])
         all_users_.append(res[0])
         return res
@@ -97,55 +124,42 @@ class User:
         self.username: str = self.source[2]
         self.first_name: str | None = self.source[3]
         self.reg_date: datetime = datetime.strptime(str(self.source[4]), '%d-%m-%Y %H:%M:%S')
-        self.notifies = bool(self.source[5])
-        self.balance: int = self.source[6]
-        self.bank: int = self.source[7]
-        self.deposit: int = self.source[8]
-        self.items: dict = self.source[9]
-        self.deposit_date: int | None = self.source[10]
-        self.bonus: datetime = datetime.strptime(str(self.source[11]), '%d-%m-%Y %H:%M:%S')
-        self.ref: int | None = self.source[12]
-        self.refs: int = self.source[13]
-        self.lock: bool = bool(self.source[14])
-        self.credit: int = self.source[15]
-        self.credit_time: int | None = self.source[16]
-
-        self.energy: int = self.source[17]
-        self.energy_time: int | None = self.source[18]
-
-        self.xp: int = self.source[19]
-        self.sell_count: int = self.source[20]
-
-        self.level: int = self.source[21]
+        self.balance: int = self.source[5]
+        self.bank: int = self.source[6]
+        self.deposit: int = self.source[7]
+        self.deposit_date: int | None = self.source[8]
+        self.bonus: datetime = datetime.strptime(str(self.source[9]), '%d-%m-%Y %H:%M:%S')
+        self.ref: int | None = self.source[10]
+        self.refs: int = self.source[11]
+        self.lock: bool = bool(self.source[12])
+        self.credit: int = self.source[13]
+        self.credit_time: int | None = self.source[14]
+        self.energy: int = self.source[15]
+        self.energy_time: int | None = self.source[16]
+        self.xp: int = self.source[17]
+        self.sell_count: int = self.source[18]
+        self.level: int = self.source[19]
         self.level_json: dict = levels.get(self.level) if levels.get(self.level) else levels[12]
-        self.job_index: int = self.source[22]
+        self.job_index: int = self.source[20]
         self.job = Job(index=self.job_index) if self.job_index > 0 else None
-        self.job_time: int | None = self.source[23]
-        self.work_time: int | None = self.source[24]
-
-        self.percent: int = self.source[25]
-        self.coins: int = self.source[26]
-        self.donate_source: str = self.source[27]
-
-        self.prefix: str | None = self.source[28]
-
-        self.last_vidacha: datetime | None = self.source[29]
-
-        self.last_rob: int = self.source[30] if self.source[30] is not None else 0
-        self.shield_count: int = self.source[31]
-
-        self.autonalogs = bool(self.source[32])
-        self.ban_source = self.source[33]
-        self.health = float(self.source[34]) if float(self.source[34]) >= 0 else 0
-        self.cases: dict = self.source[35]
-        self.state_ruletka: str = self.source[36]
-        self.nickban = bool(self.source[37])
-        self.payban = bool(self.source[38])
-        self.donate_videocards: int = self.source[39]
-        self.bitcoins: int = self.source[40]
-        self.limitvidach: int = self.source[41]
-        self.clan_teg: bool = self.source[42]
-        self.blocked: bool = self.source[43]
+        self.job_time: int | None = self.source[21]
+        self.work_time: int | None = self.source[22]
+        self.percent: int = self.source[23]
+        self.coins: int = self.source[24]
+        self.donate_source: str = self.source[25]
+        self.prefix: str | None = self.source[26]
+        self.last_vidacha: datetime | None = self.source[27]
+        self.last_rob: int = self.source[28] if self.source[28] is not None else 0
+        self.shield_count: int = self.source[29]
+        self.autonalogs = bool(self.source[30])
+        self.ban_source = self.source[31]
+        self.state_ruletka: str = self.source[32]
+        self.nickban = bool(self.source[33])
+        self.payban = bool(self.source[34])
+        self.donate_videocards: int = self.source[35]
+        self.bitcoins: int = self.source[36]
+        self.limitvidach: int = self.source[37]
+        self.blocked: bool = self.source[38]
         d = self.donate
         if d:
             if first_name:
@@ -240,20 +254,21 @@ class User:
     def link(self):
 
         url = f'https://t.me/{self.username}' if self.username else f'tg://user?id={self.id}'
-        if self.clan_teg:
+        settings = Settings(self.id)
+        if settings.nick_clanteg:
             try:
                 clanuser = Clanuser(user_id=self.id)
                 clan = Clan(clan_id=clanuser.clan_id)
             except:
-                if self.notifies:
+                if settings.nick_hyperlink:
                     return f'<a href="{url}">{self.name if self.name else self.first_name}</a>'
                 return f'{self.name if self.name else self.first_name}'
-            if self.notifies:
+            if settings.nick_hyperlink:
                 return f'{clan.prefix} <a href="{url}">{self.name if self.name else self.first_name}</a>'
             return f'{clan.prefix} {self.name if self.name else self.first_name}'
 
         else:
-            if self.notifies:
+            if settings.nick_hyperlink:
                 return f'<a href="{url}">{self.name if self.name else self.first_name}</a>'
             return f'{self.name if self.name else self.first_name}'
 

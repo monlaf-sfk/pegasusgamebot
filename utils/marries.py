@@ -54,7 +54,7 @@ class Marry:
 
     @staticmethod
     def create(user1: int, user2: int):
-        res = (user1, user2, datetime.now().strftime('%d-%m-%Y %H:%M:%S'), 500, None, None, 1, '')
+        res = (user1, user2, datetime.now().strftime('%d-%m-%Y %H:%M:%S'), 0, None, None, 1, '')
         sql.get_cursor().execute("INSERT INTO marries VALUES(DEFAULT,%s,%s,%s,%s,%s,%s,%s,%s)", res)
 
         return res

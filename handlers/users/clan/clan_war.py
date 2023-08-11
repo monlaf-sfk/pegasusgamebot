@@ -1,10 +1,13 @@
+import asyncio
 import random
+from contextlib import suppress
 from datetime import datetime, timedelta
 import decimal
 import time
 
 import numpy as np
 from aiogram import flags, Router, F, Bot
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Message, CallbackQuery
 
 from config import bot_name
@@ -14,7 +17,8 @@ from utils.clan.clan import Clanuser, Clan
 from utils.clan.clanwar import ClanWar, ClanWarFind, ClanWarMember
 from utils.main.donates import to_str as unix_date
 from utils.main.db import sql, timetostr
-from utils.main.users import User
+from utils.main.users import User, Settings
+from utils.quests.main import QuestUser
 from utils.weapons.swords import Armory, ArmoryInv
 
 router = Router()
@@ -66,20 +70,33 @@ async def clan_handler(message: Message, bot: Bot):
                 disable_web_page_preview=True)
 
         matchmaking_time = sql.execute(
-            'SELECT AVG(EXTRACT(EPOCH FROM (end_time - start_time))) FROM ClanWarFind', fetch=True)
-        matchmaking_time = matchmaking_time[0][0] if matchmaking_time else 24 * 60 * 60
+            'SELECT AVG(EXTRACT(EPOCH FROM (end_time - start_time))) FROM ClanWarFind', fetchone=True)[0]
+
+        matchmaking_time = matchmaking_time if matchmaking_time else 24 * 60 * 60
 
         try:
             ClanWarFind(clan_id=clan.id)
         except:
             ClanWarFind.find_to_war(clan.id, clan.name, clan.power, 'FINDING')
-            return await message.reply(
+            await message.reply(
                 f'{user.link},  информация по клановой войне:\n'
                 '🛡 Идёт подбор противника...\n'
                 '👥 Участников: 0\n'
                 f'🕑 Приблизительное время подбора противника: {timetostr(matchmaking_time)}\n',
                 reply_markup=war_clan_member(clan_id=clan.id),
                 disable_web_page_preview=True)
+            clanusers = \
+                sql.execute(f"SELECT user_id FROM ClanUsers WHERE clan_id={clan.id}",
+                            fetch=True)
+            for user_id in clanusers:
+                settings = Settings(user_id[0])
+                if settings.clan_notifies:
+                    with suppress(TelegramBadRequest):
+                        await bot.send_message(chat_id=user_id[0], text=f"[КЛАН]\n"
+                                                                        f'▶️ Игрок «{user.link}» начал клановую войну!\n"'
+                                                                        '🔕 Для настройки уведомлений введите «Уведомления»')
+                    await asyncio.sleep(0.5)
+            return
 
         return await message.reply(
             f'{user.link},  информация по клановой войне:\n'
@@ -134,8 +151,9 @@ async def clan_handler(message: Message, bot: Bot):
             else:
 
                 matchmaking_time = sql.execute(
-                    'SELECT AVG(EXTRACT(EPOCH FROM (end_time - start_time))) FROM ClanWarFind', fetch=True)
-                matchmaking_time = matchmaking_time[0][0] if matchmaking_time else 24 * 60 * 60
+                    'SELECT AVG(EXTRACT(EPOCH FROM (end_time - start_time))) FROM ClanWarFind', fetchone=True)[0]
+
+                matchmaking_time = matchmaking_time if matchmaking_time else 24 * 60 * 60
 
                 return await message.reply(
                     f'{user.link},  информация по клановой войне:\n'
@@ -240,6 +258,9 @@ async def clanwar_action_call(callback_query: CallbackQuery):
         if not clan_war_member:
             ClanWarMember.insert_to_war(clanuser.user_id, clanuser.clan_id, clanwar.war_id, clanuser.power)
             clan_war_member = ClanWarMember(member_id=clanuser.user_id)
+            result = QuestUser(user_id=user.id).update_progres(quest_ids=20, add_to_progresses=1)
+            if result != '':
+                await callback_query.message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
 
         if clan_war_member.cooldown and time.time() - float(clan_war_member.cooldown) <= 300:
             return await callback_query.message.reply(

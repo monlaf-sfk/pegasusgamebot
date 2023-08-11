@@ -138,9 +138,7 @@ async def profile_handler_admin(message: Message):
             f'🔒 Кошелёк: {"Закрыт" if user.lock else "Открыт"}\n' \
             f'⚡ Энергия: {user.energy}{xd}\n' \
             f'💡️ XP: {user.xp}\n' \
-            f'⭐ BTC: <b>{btc.balance if btc else 0.0}</b>\n' \
-        # f'🎫 Скидка: x{user.sell_count}\n' \
-
+            f'⭐ BTC: <b>{btc.balance if btc else 0.0}</b>\n'
     try:
         text += f'⭐ Уровень: <b>{user.level_json.get("name")}</b>({user.level})\n'
     except:

@@ -7,6 +7,7 @@ from utils.logs import writelog
 from utils.main.cash import to_str, get_cash
 from utils.main.users import User
 from utils.promo.promo import Promocode, all_promo
+from utils.quests.main import QuestUser
 
 
 @flags.throttling_key('default')
@@ -44,11 +45,14 @@ async def activatepromo_handler(message: Message):
             user.edit('balance', user.balance - price * acts)
 
             Promocode.create(name, acts, price, 1, user.id)
-            await writelog(message.from_user.id, f'Создал промокод {name} на сумму {to_str(price)} и кол-во активаций '
-                                                 f'{acts}')
-            return await message.reply(f'🪄 Промокод <code>{name}</code> на сумму {to_str(price)} и кол-во активаций'
-                                       f' <b>{acts}</b> успешно создан (-{to_str(price * acts)} с баланса)')
-
+            # await writelog(message.from_user.id, f'Создал промокод {name} на сумму {to_str(price)} и кол-во активаций '
+            #                                      f'{acts}')
+            await message.reply(f'🪄 Промокод <code>{name}</code> на сумму {to_str(price)} и кол-во активаций'
+                                f' <b>{acts}</b> успешно создан (-{to_str(price * acts)} с баланса)')
+            result = QuestUser(user_id=user.id).update_progres(quest_ids=11, add_to_progresses=1)
+            if result != '':
+                await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
+            return
         if promo not in all_promo():
             return await message.reply('❌ Ошибка. Промокод не найден!')
         promo = Promocode(promo)

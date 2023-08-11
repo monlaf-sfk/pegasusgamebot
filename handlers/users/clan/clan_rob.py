@@ -1,6 +1,9 @@
+import asyncio
+from contextlib import suppress
 from datetime import timedelta, datetime
 
 from aiogram import flags, Router, F, Bot
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Message
 
 from utils.main.cash import to_str
@@ -12,7 +15,7 @@ from utils.clan.clan import Clanuser, Clan
 from utils.clan.clan_rob import ClanRob
 from utils.items.items import items_rob
 
-from utils.main.users import User
+from utils.main.users import User, Settings
 
 router = Router()
 
@@ -165,11 +168,23 @@ async def clan_rob_handler(message: Message, bot: Bot):
                                        disable_web_page_preview=True)
         ClanRob.create_rob(clan.id, index_rob, robs['time_prepare'])
         text = '\n'.join([f"{index}. {plan['name']}" for index, plan in robs['plan'].items()])
-        return await message.reply(f"{user.link}, Вы начали ограбление «{robs['name']}»:\n"
-                                   f"🕐 Время на подготовку: {robs['time_prepare']}\n"
-                                   f"🔫 Способы прохождения: \n{text}\n"
-                                   f"▶️ Выберите план с помощью команды «Ограбление план [номер]» ",
-                                   disable_web_page_preview=True)
+        await message.reply(f"{user.link}, Вы начали ограбление «{robs['name']}»:\n"
+                            f"🕐 Время на подготовку: {robs['time_prepare']}\n"
+                            f"🔫 Способы прохождения: \n{text}\n"
+                            f"▶️ Выберите план с помощью команды «Ограбление план [номер]» ",
+                            disable_web_page_preview=True)
+        clanusers = \
+            sql.execute(f"SELECT user_id FROM ClanUsers WHERE clan_id={clan.id}",
+                        fetch=True)
+        for user_id in clanusers:
+            settings = Settings(user_id[0])
+            if settings.clan_notifies:
+                with suppress(TelegramBadRequest):
+                    await bot.send_message(chat_id=user_id[0], text=f"""[КЛАН]
+▶️Началась подготовка к ограблению! Успей принять участие!
+📃 Для участия приобретите все требуемые предметы: команда «Шоп»
+🔕 Для настройки уведомлений введите «Уведомления»""")
+                await asyncio.sleep(0.5)
     elif not clan_rob:
         return await message.reply(opened_robs(clan.count_robs).format(user=user.link), disable_web_page_preview=True)
     elif len(arg) == 0 and clan_rob.plan_rob == 0:
@@ -212,10 +227,24 @@ async def clan_rob_handler(message: Message, bot: Bot):
         dt = datetime.now()
         time_rob = dt + timedelta(hours=1)
         clan_rob.edit("time_rob", time_rob.strftime('%d-%m-%Y %H:%M:%S'))
-        return await message.reply(f"{user.link}, ограбление началось!\n"
-                                   "🕙 Ограбление будет идти примерно 59м 59с\n"
-                                   "💬 Следить за ходом событий можно с помощью команд «Ограбление»\n",
-                                   disable_web_page_preview=True)
+        await message.reply(f"{user.link}, ограбление началось!\n"
+                            "🕙 Ограбление будет идти примерно 59м 59с\n"
+                            "💬 Следить за ходом событий можно с помощью команд «Ограбление»\n",
+                            disable_web_page_preview=True)
+        clanusers = \
+            sql.execute(f"SELECT user_id FROM ClanUsers WHERE rob_involved=True AND clan_id={clan.id}",
+                        fetch=True)
+        for user_id in clanusers:
+            settings = Settings(user_id[0])
+            if settings.clan_notifies:
+                with suppress(TelegramBadRequest):
+                    await bot.send_message(chat_id=user_id[0], text=f"""[КЛАН]
+▶️ Подготовка к ограблению завершена! Игрок «{user.link}» начал ограбление ☺️
+
+💬 Следить за ходом событий можно с помощью команд «Ограбление»
+🔕 Для настройки уведомлений введите «Уведомления»""")
+                await asyncio.sleep(0.5)
+
     elif arg[0].lower() == "план":
         if clanuser.status != 2:
             return await message.reply(f'❗ {user.link}, у Вас недостаточно прав для старта ограбления ☹️',

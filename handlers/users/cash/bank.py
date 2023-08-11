@@ -11,6 +11,7 @@ from utils.main.db import timetostr, sql
 from utils.main.users import User
 
 from filters.users import flood_handler
+from utils.quests.main import QuestUser
 
 
 @flags.throttling_key('default')
@@ -22,30 +23,41 @@ async def bank_handler(message: Message):
         user = User(user=message.from_user)
         try:
             arg = abs(get_cash(spliy[2].lower().replace('всё', str(user.bank)).replace('все', str(user.bank)))) if \
-            spliy[
-                1].lower() in ['снять', 'вывести', 'обналичить'] else abs(get_cash(
+                spliy[
+                    1].lower() in ['снять', 'вывести', 'обналичить'] else abs(get_cash(
                 spliy[2].lower().replace('всё', str(user.balance)).replace('все', str(user.balance))))
             if arg <= 0:
                 raise Exception(123)
         except:
-            return await message.reply(f'{user.link}, на банковском счёте: {to_str(user.bank)}\n'
-                                       '❓ Откройте кредит, если вам нужны деньги : «Кредит»',
-                                       disable_web_page_preview=True)
+            await message.reply(f'{user.link}, на банковском счёте: {to_str(user.bank)}\n'
+                                '❓ Откройте кредит, если вам нужны деньги : «Кредит»',
+                                disable_web_page_preview=True)
+            result = QuestUser(user_id=user.id).update_progres(quest_ids=7, add_to_progresses=1)
+            if result != '':
+                await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
+            return
         if spliy[1].lower() in ['положить', 'пополнить']:
             if user.balance < arg:
                 return await message.reply('💸 На руках недостаточно средств, чтобы пополнить такую сумму в банк!')
             user.editmany(balance=user.balance - arg, bank=user.bank + arg)
             await message.reply(f'✅ Вы пополнили баланс в банке на +{to_str(arg)}, текущий баланс в банке: '
                                 f'{to_str(user.bank)}')
-            await writelog(message.from_user.id, f'Банк +{to_str(arg)}')
+            result = QuestUser(user_id=user.id).update_progres(quest_ids=6, add_to_progresses=arg)
+            if result != '':
+                await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
+            # await writelog(message.from_user.id, f'Банк +{to_str(arg)}')
             return
         elif spliy[1].lower() in ['снять', 'вывести']:
             if user.bank < arg:
                 return await message.reply('💳 В банке недостаточно средств, чтобы снять средства!')
             user.editmany(balance=user.balance + arg, bank=user.bank - arg)
+
             await message.reply(f'✅ Вы сняли средства в размере {to_str(arg)} и теперь у вас на руках '
                                 f'{to_str(user.balance)}')
-            await writelog(message.from_user.id, f'Банк -{to_str(arg)}')
+            result = QuestUser(user_id=user.id).update_progres(quest_ids=5, add_to_progresses=arg)
+            if result != '':
+                await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
+            # await writelog(message.from_user.id, f'Банк -{to_str(arg)}')
             return
         elif spliy[1].lower() in ['кредит', 'взять', 'погасить']:
             return await credit_handler(message)

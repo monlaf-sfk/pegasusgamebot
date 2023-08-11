@@ -4,7 +4,7 @@ import random
 
 from config import bot_name
 from keyboard.jobs import shaxta_kb
-from utils.items.items import works_items
+from utils.items.work_items import works_items, get_workitems_count, set_workitems_count
 from utils.main.cash import to_str
 from utils.main.db import sql
 from utils.main.users import User
@@ -83,11 +83,9 @@ async def mine_handler(message: Message):
                         completed[i] = len(item_counts)
                         item_counts.append(
                             random.randint(1, 30) if i not in [1, 5, 6, 7, 8, 10] else random.randint(1, 10))
-                count_user = user.items[f'{item_id[0]}']['count'] + item_counts[0]
-                sql.execute(
-                    "UPDATE users SET items = jsonb_set(items, "
-                    f"'{{{item_id[0]}, count}}', "
-                    f"'{count_user}') WHERE id={user.id}", commit=True)
+
+                count_user = get_workitems_count(item_id[0], user.id)
+                set_workitems_count(item_id[0], user.id, count_user + item_counts[0] if count_user else item_counts[0])
 
                 text = ''
                 for i, index in completed.items():

@@ -10,6 +10,7 @@ from utils.main.cash import to_str, get_cash
 from utils.main.users import User
 
 from filters.users import flood_handler2, flood_handler
+from utils.quests.main import QuestUser
 
 
 @flags.throttling_key('default')
@@ -50,6 +51,7 @@ async def dice_handler(message: Message):
             return await message.reply(f'❌  {user.link}, Число должно быть от 1 до 6!', disable_web_page_preview=True)
 
         dice = (await message.reply_dice()).dice
+
         if dice.value != index:
             user.edit('balance', user.balance - summ)
             await asyncio.sleep(3)
@@ -59,10 +61,14 @@ async def dice_handler(message: Message):
                                 'деньги!',
                                 reply_markup=play_dice_kb.as_markup())
             # await writelog(message.from_user.id, f'Кубик и проигрыш')
-            return
-        x = int(summ * 2)
-        user.edit('balance', user.balance + x - summ)
-        await asyncio.sleep(3)
-        await message.reply(f'🏅 Вы угадали число! На ваш баланс зачислено +{to_str(x)}',
-                            reply_markup=play_dice_kb.as_markup())
+        else:
+            x = int(summ * 2)
+            user.edit('balance', user.balance + x - summ)
+            await asyncio.sleep(3)
+            await message.reply(f'🏅 Вы угадали число! На ваш баланс зачислено +{to_str(x)}',
+                                reply_markup=play_dice_kb.as_markup())
+        if dice.value == 6:
+            result = QuestUser(user_id=user.id).update_progres(1, 1)
+            if result != '':
+                await message.reply(text=result.format(user=user.link), disable_web_page_preview=True)
         return

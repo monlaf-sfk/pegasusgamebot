@@ -1,56 +1,82 @@
 import random
-import string
-import time
+import logging
+from aiogram import Bot, Dispatcher, types
+from aiogram.contrib.middlewares.logging import LoggingMiddleware
+from aiogram.types import ParseMode
+from PIL import Image, ImageDraw
 
-from datetime import datetime
-from threading import Lock
+API_TOKEN = 'YOUR_API_TOKEN'  # Замените на ваш API токен
 
-import psycopg2
-from psycopg2._json import Json
+logging.basicConfig(level=logging.INFO)
 
-from utils.items.items import works_items, item_case
-from utils.main.db import sql
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher(bot)
+dp.middleware.setup(LoggingMiddleware())
 
-lock = Lock()
-conn = psycopg2.connect(user="postgres",
-                        # пароль, который указали при установке PostgreSQL
-                        password="1234",
-                        host="localhost",
-                        port="5432",
-                        dbname="pegasus_db")
-cursor = conn.cursor()
-datetime_bonus = datetime(year=1920, month=1, day=1).strftime('%d-%m-%Y %H:%M:%S')
+correct_cup = random.randint(1, 3)
 
 
-def main():
-    # a=time.time()
-    # cursor.execute(f"SELECT id, first_name, name, username, deposit+bank+balance, prefix FROM users ORDER BY deposit+bank+balance DESC LIMIT 200;")
-    # print(cursor.fetchall())
-    # print(time.time()-a)
-    for i in range(10000):
-        now_date = datetime.now()
-        reg_date = now_date.strftime('%d-%m-%Y %H:%M:%S')
-        username = ''.join(
-            random.choice(string.ascii_letters + '0123456789_') for _ in range(random.randint(6, 10))).lower()
-        first_name = ''.join(
-            random.choice(string.ascii_letters + '0123456789_') for _ in range(random.randint(6, 10))).lower()
-        id = i + random.randint(1000000, 99999999999999)
-        x = f'{4},{datetime.now().strftime("%d-%m-%Y %H:%M")},False,{now_date.strftime("%d-%m-%Y %H:%M")}'
-        res = (id, None, username, first_name, reg_date, False, 5000, 0, 0, Json(works_items), None,
-               datetime_bonus, None, 0, False, 0, None, 10, None,
-               0, 0, 0, 0, None, None, 0, 0, x, None, None, 0.0, 0, False, None, 100, Json(item_case), None, False,
-               False, 0, 0,
-               0, False, True)
-        len_title = "%s," * (len(list(res)) - 1) + "%s"
-    
-        with lock:
-            res2 = (id, 1, 0, time.time(), 0, 0, 1000, 17_500, 0.5)
-            len_title2 = "%s," * (len(list(res2)) - 1) + "%s"
-            cursor.execute(f"INSERT INTO bitcoin VALUES ({len_title2})", res2)
-            cursor.execute(f"INSERT INTO users VALUES ({len_title})", res)
-            conn.commit()
-        print(i)
+def generate_cup_game_image(correct_cup):
+    image = Image.new("RGB", (600, 400), "white")
+    draw = ImageDraw.Draw(image)
+
+    cup_width = 150
+    cup_height = 200
+    cup_spacing = 160
+    cup_top = 100
+    cup_colors = ["#ffd700", "#32cd32", "#4169e1"]
+
+    for i in range(3):
+        cup_left = (image.width - (cup_width * 3 + cup_spacing * 2)) / 2 + i * (cup_width + cup_spacing)
+        cup_right = cup_left + cup_width
+
+        draw.polygon([(cup_left, cup_top + cup_height), (cup_right, cup_top + cup_height),
+                      ((cup_left + cup_right) / 2, cup_top + cup_height + 30)], fill=cup_colors[i])
+        draw.rectangle([cup_left + 25, cup_top, cup_right - 25, cup_top + cup_height], outline="black", width=3)
+
+        if i + 1 == correct_cup:
+            ball_x = (cup_left + cup_right) / 2
+            ball_y = cup_top + cup_height - 60
+            ball_radius = 30
+            draw.ellipse((ball_x - ball_radius, ball_y - ball_radius, ball_x + ball_radius, ball_y + ball_radius),
+                         fill="white")
+
+    return image
+
+
+@dp.message_handler(commands=['start'])
+async def start_game(message: types.Message):
+    global correct_cup
+    correct_cup = random.randint(1, 3)
+
+    image = generate_cup_game_image(correct_cup)
+    with open("cup_game_image.png", "wb") as image_file:
+        image.save(image_file, format="PNG")
+
+    await bot.send_photo(message.chat.id, photo=open("cup_game_image.png", "rb"))
+    await message.reply("Привет! Давай сыграем в игру со стаканчиками. В каком стакане шарик? (1, 2 или 3)")
+
+
+@dp.message_handler(lambda message: message.text in ['1', '2', '3'])
+async def check_answer(message: types.Message):
+    user_answer = int(message.text)
+    if user_answer == correct_cup:
+        response_text = "Верно! Шарик действительно был в стакане {}.".format(correct_cup)
+    else:
+        response_text = "Неверно! Шарик был в стакане {}.".format(correct_cup)
+
+    await message.reply(response_text)
+
+    correct_cup = random.randint(1, 3)
+    image = generate_cup_game_image(correct_cup)
+    with open("cup_game_image.png", "wb") as image_file:
+        image.save(image_file, format="PNG")
+
+    await bot.send_photo(message.chat.id, photo=open("cup_game_image.png", "rb"))
+    await message.reply("Сыграем еще раз? В каком стакане будет шарик? (1, 2 или 3)")
 
 
 if __name__ == '__main__':
-    main()
+    from aiogram import executor
+
+    executor.start_polling(dp, skip_updates=True)

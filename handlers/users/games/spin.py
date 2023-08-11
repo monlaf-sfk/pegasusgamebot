@@ -11,6 +11,8 @@ from utils.main.users import User
 
 from typing import List, Tuple
 
+from utils.quests.main import QuestUser
+
 
 def get_score_change(dice_value: int) -> int:
     """
@@ -71,6 +73,14 @@ def get_combo_data(dice_value: int) -> Tuple[int, str]:
     )
 
 
+multiplier_dict = {
+    1: 1.5,
+    2: 2,
+    3: 2.5,
+    4: 3
+}
+
+
 @flags.throttling_key('default')
 async def spin_handler(message: Message):
     flood2 = await flood_handler2(message)
@@ -100,6 +110,7 @@ async def spin_handler(message: Message):
 
         casino = (await message.reply_dice(emoji='🎰')).dice
         score_change, combo_text = get_combo_data(casino.value)
+
         if score_change < 0:
             user.edit('balance', user.balance - summ)
             await asyncio.sleep(2.5)
@@ -107,35 +118,20 @@ async def spin_handler(message: Message):
                 f'😖 {user.link}, Ваша ставка была умножена на (x0) и вы потеряли {to_str(summ)}!\n'
                 f'🎰 Комбинация: {str(combo_text).replace(",", " ")}', disable_web_page_preview=True,
                 reply_markup=play_spin_kb.as_markup())
-        elif score_change == 1:
-            summ = int(summ * 1.5)
+
+        if score_change in multiplier_dict:
+            multiplier = multiplier_dict[score_change]
+            summ = int(summ * multiplier)
             user.edit('balance', user.balance + summ - ssumm)
             await asyncio.sleep(2.5)
-            return await message.reply(
-                f'🎰 {user.link}, Вы умножили свою ставку на (x1.5) и получили +{to_str(summ)} на баланс!\n'
-                f'🎰 Комбинация: {str(combo_text).replace(",", " ")}', disable_web_page_preview=True,
-                reply_markup=play_spin_kb.as_markup())
-        elif score_change == 2:
-            summ = int(summ * 2)
-            user.edit('balance', user.balance + summ - ssumm)
-            await asyncio.sleep(2.5)
-            return await message.reply(
-                f'🎰 {user.link}, Вы умножили свою ставку на (x2) и получили +{to_str(summ)} на баланс!\n'
-                f'🎰 Комбинация: {str(combo_text).replace(",", " ")}', disable_web_page_preview=True,
-                reply_markup=play_spin_kb.as_markup())
-        elif score_change == 3:
-            summ = int(summ * 2.5)
-            user.edit('balance', user.balance + summ - ssumm)
-            await asyncio.sleep(2.5)
-            return await message.reply(
-                f'🎰 {user.link}, Вы умножили свою ставку на (x2.5) и получили +{to_str(summ)} на баланс!\n'
-                f'🎰 Комбинация: {str(combo_text).replace(",", " ")}', disable_web_page_preview=True,
-                reply_markup=play_spin_kb.as_markup())
-        elif score_change == 4:
-            summ = int(summ * 3)
-            user.edit('balance', user.balance + summ - ssumm)
-            await asyncio.sleep(2.5)
-            return await message.reply(
-                f'🎰 {user.link}, Вы умножили свою ставку на (x3) и получили +{to_str(summ)} на баланс!\n'
-                f'🎰 Комбинация: {str(combo_text).replace(",", " ")}', disable_web_page_preview=True,
-                reply_markup=play_spin_kb.as_markup())
+            await message.reply(
+                f'🎰 {user.link}, Вы умножили свою ставку на (x{multiplier}) и получили +{to_str(summ)} на баланс!\n'
+                f'🎰 Комбинация: {str(combo_text).replace(",", " ")}',
+                disable_web_page_preview=True,
+                reply_markup=play_spin_kb.as_markup()
+
+            )
+
+            result = QuestUser(user_id=user.id).update_progres(quest_ids=2, add_to_progresses=1)
+            if result != '':
+                await message.reply(text=result.format(user=user.link), disable_web_page_preview=True)

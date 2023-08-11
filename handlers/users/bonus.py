@@ -7,6 +7,7 @@ from loader import bot
 from utils.main.cash import to_str
 from utils.main.donates import to_str as to_strs
 from utils.main.users import User
+from utils.quests.main import QuestUser
 
 day = 60 * 60 * 24
 
@@ -31,5 +32,7 @@ async def bonus_handler(message: Message):
 
         await message.reply(f'✅ Вы активировали ежедневный бонус,'
                             f' на ваш баланс зачислено +{to_str(bonus)}\n🎁 дополнительный бонус за реф. {to_str(dop_bonus)}')
-
+        result = QuestUser(user_id=user.id).update_progres(quest_ids=[8, 9], add_to_progresses=[bonus + dop_bonus, 1])
+        if result != '':
+            await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
         return

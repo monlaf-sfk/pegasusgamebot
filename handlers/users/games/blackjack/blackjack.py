@@ -29,6 +29,7 @@ from middlewares.check_active_game import CheckActiveGameBlackMiddleware
 
 from utils.main.cash import get_cash, to_str
 from utils.main.users import User
+from utils.quests.main import QuestUser
 
 router = Router()
 router.message.filter(F.chat.type.in_({"private"}))
@@ -389,6 +390,10 @@ async def start_blackjack(message: Message, state: FSMContext, bot: bot, fsm_sto
                                     reply_markup=replay_game_black_kb(message.from_user.id,
                                                                       summ5), disable_web_page_preview=True)
                 user.edit('balance', user.balance + summ - ssumm)
+                result = QuestUser(user_id=user.id).update_progres(quest_ids=3, add_to_progresses=1)
+                if result != '':
+                    await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
+
                 return await state.clear()
 
         else:
@@ -470,6 +475,9 @@ async def new_game_blackjack(callback_query: CallbackQuery, state: FSMContext, c
                                                                                      summ5),
                                                    disable_web_page_preview=True)
             user.edit('balance', user.balance + summ - ssumm)
+            result = QuestUser(user_id=user.id).update_progres(quest_ids=3, add_to_progresses=1)
+            if result != '':
+                await callback_query.message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
             return await state.clear()
     else:
 
@@ -680,6 +688,10 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                                                                                          summ5),
                                                        disable_web_page_preview=True)
                 user.edit('balance', user.balance - summ5)
+                result = QuestUser(user_id=user.id).update_progres(quest_ids=3, add_to_progresses=1)
+                if result != '':
+                    await callback_query.message.answer(text=result.format(user=user.link),
+                                                        disable_web_page_preview=True)
                 await state.clear()
             return
         else:
@@ -750,12 +762,14 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
         while dealer_hand_value < 17:
             dealer_hand.append(deck.pop())
             dealer_hand_value = get_hand_value(dealer_hand)
-        result = await check_win(player_hand, dealer_hand, user.id, summ5)
+        result, quest_result = await check_win(player_hand, dealer_hand, user.id, summ5)
         with suppress(TelegramBadRequest):
             await callback_query.message.edit_text(result,
                                                    reply_markup=replay_game_black_kb(callback_query.from_user.id,
                                                                                      summ5),
                                                    disable_web_page_preview=True)
+            if quest_result:
+                await callback_query.message.answer(quest_result, disable_web_page_preview=True)
 
         return await state.clear()
     if action == 'double':
@@ -791,11 +805,13 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
             dealer_hand.append(deck.pop())
             dealer_hand_value = get_hand_value(dealer_hand)
         with suppress(TelegramBadRequest):
-            result = await check_win(player_hand, dealer_hand, user.id, summ5 * 2)
+            result, quest_result = await check_win(player_hand, dealer_hand, user.id, summ5 * 2)
             await callback_query.message.edit_text(result,
                                                    reply_markup=replay_game_black_kb(callback_query.from_user.id,
                                                                                      summ5),
                                                    disable_web_page_preview=True)
+            if quest_result:
+                await callback_query.message.answer(quest_result, disable_web_page_preview=True)
 
         return await state.clear()
 
@@ -928,12 +944,14 @@ async def action2_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
             while dealer_hand_value < 17:
                 dealer_hand.append(deck.pop())
                 dealer_hand_value = get_hand_value(dealer_hand)
-            result = await check_result(player_hand, player_hand2, dealer_hand, user.id, summ5)
+            result, quest_result = await check_result(player_hand, player_hand2, dealer_hand, user.id, summ5)
             with suppress(TelegramBadRequest):
                 await callback_query.message.edit_text(result,
                                                        reply_markup=replay_game_black_kb(callback_query.from_user.id,
                                                                                          summ5),
                                                        disable_web_page_preview=True)
+                if quest_result:
+                    await callback_query.message.answer(quest_result, disable_web_page_preview=True)
 
                 await state.clear()
             return
@@ -968,12 +986,14 @@ async def action2_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
         while dealer_hand_value < 17:
             dealer_hand.append(deck.pop())
             dealer_hand_value = get_hand_value(dealer_hand)
-        result = await check_result(player_hand, player_hand2, dealer_hand, user.id, summ5)
+        result, quest_result = await check_result(player_hand, player_hand2, dealer_hand, user.id, summ5)
         with suppress(TelegramBadRequest):
             await callback_query.message.edit_text(result,
                                                    reply_markup=replay_game_black_kb(callback_query.from_user.id,
                                                                                      summ5),
                                                    disable_web_page_preview=True)
+            if quest_result:
+                await callback_query.message.answer(quest_result, disable_web_page_preview=True)
             await state.clear()
         return
 
@@ -1020,6 +1040,10 @@ async def action3_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
                                                                                          summ5),
                                                        disable_web_page_preview=True)
                 user.edit('balance', user.balance - summ5 + insurance)
+                result = QuestUser(user_id=user.id).update_progres(quest_ids=2, add_to_progresses=1)
+                if result != '':
+                    await callback_query.message.answer(text=result.format(user=user.link),
+                                                        disable_web_page_preview=True)
                 await state.clear()
             return
         else:
@@ -1049,12 +1073,14 @@ async def action3_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
         while dealer_hand_value < 17:
             dealer_hand.append(deck.pop())
             dealer_hand_value = get_hand_value(dealer_hand)
-        result = await check_win(player_hand, dealer_hand, user.id, summ5, insurance)
+        result, quest_result = await check_win(player_hand, dealer_hand, user.id, summ5, insurance)
         with suppress(TelegramBadRequest):
             await callback_query.message.edit_text(result,
                                                    reply_markup=replay_game_black_kb(callback_query.from_user.id,
                                                                                      summ5),
                                                    disable_web_page_preview=True)
+            if quest_result:
+                await callback_query.message.answer(quest_result, disable_web_page_preview=True)
             await state.clear()
         return
     if action == 'double':
@@ -1079,10 +1105,12 @@ async def action3_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
             dealer_hand.append(deck.pop())
             dealer_hand_value = get_hand_value(dealer_hand)
         with suppress(TelegramBadRequest):
-            result = await check_win(player_hand, dealer_hand, user.id, summ5 * 2, insurance)
+            result, quest_result = await check_win(player_hand, dealer_hand, user.id, summ5 * 2, insurance)
             await callback_query.message.edit_text(result,
                                                    reply_markup=replay_game_black_kb(callback_query.from_user.id,
                                                                                      summ5),
                                                    disable_web_page_preview=True)
+            if quest_result:
+                await callback_query.message.answer(quest_result, disable_web_page_preview=True)
 
         return await state.clear()

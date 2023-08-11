@@ -4,6 +4,7 @@ from aiogram import flags
 from aiogram.types import Message
 
 from utils.main.users import User
+from utils.quests.main import QuestUser
 
 
 @flags.throttling_key('default')
@@ -21,6 +22,9 @@ async def globus_handler(message: Message):
     g = random.choice(h)
     user = User(id=message.from_user.id)
     await message.reply(f"""🔮 {user.link}, {g} """, disable_web_page_preview=True)
+    result = QuestUser(user_id=user.id).update_progres(quest_ids=18, add_to_progresses=1)
+    if result != '':
+        await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
 
 
 @flags.throttling_key('default')
@@ -36,6 +40,9 @@ async def chance_handler(message: Message):
     procent = random.randint(0, 100)
     user = User(id=message.from_user.id)
     await message.reply(f"""📊 {user.link}, {g} {procent}%""", disable_web_page_preview=True)
+    result = QuestUser(user_id=user.id).update_progres(quest_ids=22, add_to_progresses=1)
+    if result != '':
+        await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
 
 
 @flags.throttling_key('default')
@@ -75,3 +82,6 @@ async def choice_handler(message: Message):
     g = random.choice(h)
     user = User(id=message.from_user.id)
     await message.reply(f"""⚖️ {user.link}, {g}  """, disable_web_page_preview=True)
+    result = QuestUser(user_id=user.id).update_progres(quest_ids=21, add_to_progresses=1)
+    if result != '':
+        await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)

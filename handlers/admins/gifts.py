@@ -11,10 +11,11 @@ import config
 from config import owner_id
 from keyboard.main import uchas, cancel
 from loader import bot
+from utils.items.cases import item_case, set_item_count, get_item_count
 
-from utils.items.items import item_case
 from utils.main.db import sql
 from utils.main.users import User
+from utils.quests.main import QuestUser
 
 
 class Gift(StatesGroup):
@@ -188,7 +189,12 @@ async def gift_participate_handler(callback_query: CallbackQuery):
                                                 message_id=callback_query.message.message_id,
                                                 reply_markup=uchas(count, contest.text_button).as_markup())
             await bot.answer_callback_query(callback_query.id, show_alert=True, text='Вы приняли участие в розыгреше ✅')
-
+            result = QuestUser(user_id=callback_query.from_user.id).update_progres(quest_ids=10,
+                                                                                   add_to_progresses=1)
+            if result != '':
+                await bot.send_message(chat_id=callback_query.from_user.id,
+                                       text=result.format(user=User(id=callback_query.from_user.id).link),
+                                       disable_web_page_preview=True)
         else:
             await bot.answer_callback_query(callback_query.id, show_alert=True, text='⁉️ Вы уже участвуете !')
     else:
@@ -238,11 +244,10 @@ async def gift_get_handler(message: Message):
                                                text="🎁 Вам была выдана награда за участие в розыгрыше!\n"
                                                     f"💵 {contest.count_reward}")
                     elif contest.type_reward == 'cases':
-                        sql.execute(
-                            "UPDATE users SET cases = jsonb_set(cases, "
-                            f"'{{{4}, count}}', "
-                            f"to_jsonb((cases->'{4}'->>'count')::int + {contest.count_reward})::text::jsonb) WHERE id={user_id}",
-                            commit=True)
+                        count_user = get_item_count(4, user_id)
+                        set_item_count(4, user_id,
+                                       count_user + contest.count_reward if count_user else contest.count_reward)
+
                         case = item_case[4]
                         await bot.send_message(chat_id=user_id,
                                                text="🎁 Вам была выдана награда за участие в розыгрыше!\n"

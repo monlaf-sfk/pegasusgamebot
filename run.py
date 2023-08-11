@@ -1,10 +1,8 @@
 import asyncio
 import logging
-
-from aiogram.filters import Command, ExceptionTypeFilter
+from aiogram.filters import Command
 from aiogram.fsm.strategy import FSMStrategy
 from aiogram_dialog import setup_dialogs
-from aiogram_dialog.api.exceptions import UnknownIntent, UnknownState, OutdatedIntent
 
 import app
 import config
@@ -91,12 +89,15 @@ from handlers.users.items import item_handler
 from handlers.users.jobs.jobs import jobs_handler
 from handlers.users.main import start_handler, ref_call_handler, help_handler, help_call_handler, \
     confirming_callback
-from handlers.users.marries import marry_handler, marry_call_handler
+from handlers.users.marries import marry_handler, marry_call_handler, marries_request_handler, MarryRequest, \
+    marry_divorce_handler
 from handlers.users.me import balance_handler, profile_handler, nickname_handler, notifies_handler, imush_user_handler, \
-    status_handler
+    status_handler, settings_handler, settings_callback, settings_notifies_callback, settings_nick_callback, \
+    settings_notifies_handler
 from handlers.users.nalogs import nalogs_handler, autonalog_handler
 
 from handlers.users.promo import activatepromo_handler
+from handlers.users.quests import quest_handler, quest_callback, quest_pagination_callback
 from handlers.users.ref import refferal_handler
 from handlers.users.rp import rp_commands_handler, emojis
 
@@ -105,6 +106,7 @@ from handlers.users.shop.shop import shop_dialog, shop_list_handler
 from handlers.users.top import topback_handler_call, top_handler_call, top_handler
 from handlers.users.works.mine import mine_handler
 from handlers.users.works.zavod import zavod_handler
+from keyboard.main import SettingsCallback, SettingsNotifiesCallback, SettingsNickCallback
 from loader import bot
 from middlewares.Throttling import ThrottlingCallMiddleware, ThrottlingMiddleware
 from states.admins import ABD
@@ -434,10 +436,14 @@ async def main():
     dp.message.register(city_info_handler, F.text.lower() == "хелп город")
     # Family system
     dp.message.register(
-        marry_handler, Trigger(["marry", "семья", "брак", "браки", "marries"])
+        marry_handler, Trigger(["marry", "семья", "брак", "marries"])
     )
-    dp.callback_query.register(marry_call_handler, F.data.startswith("maccept_"))
-    dp.callback_query.register(marry_call_handler, F.data.startswith("mdecline_"))
+    dp.message.register(
+        marries_request_handler, Trigger(["браки"])
+    )
+    dp.callback_query.register(marry_call_handler, MarryRequest.filter())
+    dp.callback_query.register(marry_divorce_handler, F.data.startswith("divorce"))
+
     # clan system
     dp.message.register(
         clan_list_handler, (F.text.lower() == "клан список") | (F.text.lower() == "кланы"))
@@ -557,7 +563,22 @@ async def main():
     dp.message.register(
         auction_lotinfo_handler, F.text.startswith("/lot_")
     )
+    dp.message.register(
+        quest_handler, Trigger(["квест", "квесты", 'quest'])
+    )
+    dp.callback_query.register(quest_callback, F.data.startswith("quest_"))
+    dp.callback_query.register(quest_pagination_callback, F.data.startswith("pag_quest_"))
 
+    dp.message.register(
+        settings_notifies_handler, Trigger(["увед"])
+    )
+    dp.message.register(
+        settings_handler, Trigger(["настройки", "уведомления"])
+    )
+    dp.callback_query.register(settings_handler, F.data == "settings_user")
+    dp.callback_query.register(settings_callback, SettingsCallback.filter())
+    dp.callback_query.register(settings_notifies_callback, SettingsNotifiesCallback.filter())
+    dp.callback_query.register(settings_nick_callback, SettingsNickCallback.filter())
     import utils.schedulers
 
     dp.include_router(dialog_router)

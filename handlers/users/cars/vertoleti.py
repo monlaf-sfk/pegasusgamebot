@@ -6,6 +6,7 @@ from aiogram.types import Message
 from config import bot_name
 from keyboard.generate import show_balance_kb, show_inv_kb, show_vertolet_kb, vertolet_kb, buy_vertolet_kb, \
     ride_vertolet_kb
+from utils.items.work_items import get_workitems_count, set_workitems_count
 
 from utils.main.vertoleti import vertoleti, Vertolet
 from utils.main.cash import to_str, get_cash
@@ -125,18 +126,17 @@ async def vertoleti_handler(message: Message):
             return
 
         elif arg[0].lower() in ['починить', 'чинить', 'починка']:
-            items = sql.execute(f'SELECT items FROM users WHERE id = {message.from_user.id}', False, True)[0][0]
+            count_user = get_workitems_count(8, message.from_user.id)
 
-            if items['8']['count'] < 10:
+            if not count_user or count_user < 10:
+                count_user = 0 if not count_user else count_user
                 return await message.reply(
-                    f"❌ Не хватает {10 - items['8']['count']} <b>Болтиков 🔩</b> для починки!'",
+                    f"❌ Не хватает {10 - count_user} <b>Болтиков 🔩</b> для починки!'",
                     reply_markup=show_inv_kb.as_markup())
 
-            count_items = items['8']['count'] - 10
-            sql.executescript(f"UPDATE users SET items = jsonb_set(items, "
-                              "'{8, count}', "
-                              f"'{count_items}') WHERE id={message.from_user.id};\n"
-                              f"UPDATE vertoleti SET fuel = fuel + 1 WHERE owner = {vertolet.owner};")
+            set_workitems_count(8, message.from_user.id, count_user - 10)
+
+            sql.executescript(f"UPDATE vertoleti SET fuel = fuel + 1 WHERE owner = {vertolet.owner};")
 
             await message.reply('✅ Вертолёт восстановлен на +1%')
 

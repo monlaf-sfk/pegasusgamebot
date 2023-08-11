@@ -11,6 +11,7 @@ from aiogram.types import Message, CallbackQuery
 from config import bot_name
 from keyboard.generate import show_balance_kb, buy_computer_kb, show_computer_kb, show_inv_kb, \
     computer_keyboard
+from utils.items.work_items import get_workitems_count, set_workitems_count
 from utils.main.cash import to_str, get_cash
 from utils.main.computer import computers, Computer
 from utils.main.db import sql, timetostr
@@ -179,18 +180,17 @@ async def computers_handler(message: Message):
             if computer.strength >= 100:
                 return await message.reply('❌ У вас не сломан компьютер!',
                                            reply_markup=show_computer_kb.as_markup())
-            items = sql.execute(f'SELECT items FROM users WHERE id = {message.from_user.id}', False, True)[0][0]
+            count_user = get_workitems_count(8, message.from_user.id)
 
-            if items['8']['count'] < 10:
+            if not count_user or count_user < 10:
+                count_user = 0 if not count_user else count_user
                 return await message.reply(
-                    f"❌ Не хватает {10 - items['8']['count']} <b>Болтиков 🔩</b> для починки!'",
+                    f"❌ Не хватает {10 - count_user} <b>Болтиков 🔩</b> для починки!'",
                     reply_markup=show_inv_kb.as_markup())
 
-            count_items = items['8']['count'] - 10
-            sql.executescript(f"UPDATE users SET items = jsonb_set(items, "
-                              "'{8, count}', "
-                              f"'{count_items}') WHERE id={message.from_user.id};\n"
-                              f'UPDATE computers SET strength =strength+ 1 WHERE owner = {message.from_user.id};',
+            set_workitems_count(8, message.from_user.id, count_user - 10)
+
+            sql.executescript(f'UPDATE computers SET strength =strength+ 1 WHERE owner = {message.from_user.id};',
                               commit=True)
             await message.reply('✅ Компьютер восстановлен на +1%')
 

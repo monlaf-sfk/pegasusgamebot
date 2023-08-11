@@ -1,4 +1,5 @@
-from aiogram.types import InlineKeyboardButton, KeyboardButton
+from aiogram.filters.callback_data import CallbackData
+from aiogram.types import InlineKeyboardButton, KeyboardButton, InlineKeyboardMarkup
 from aiogram.types import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
@@ -12,6 +13,34 @@ invite_kb.adjust(2)
 
 check_ls_kb = InlineKeyboardBuilder()
 check_ls_kb.add(InlineKeyboardButton(text='🔗 Перейти в бота', url=f'https://t.me/{bot_name}'))
+
+
+def quest_pag_kb(user_id, current_page, total_pages):
+    kb = InlineKeyboardBuilder()
+    kb.add(InlineKeyboardButton(text='❓ Подсказки', callback_data=f'quest_advise_{user_id}'))
+    kb.add(InlineKeyboardButton(text='🔄 Новые квесты', callback_data=f'quest_reload_{user_id}'))
+    kb.add(InlineKeyboardButton(text='🏆 Достижения', callback_data=f'quest_achiv_{user_id}'))
+
+    if current_page > 1:
+        kb.add(
+            InlineKeyboardButton(text="⬅️ Назад", callback_data=f"pag_quest_prev_{current_page - 1}_{user_id}"))
+
+    if current_page < total_pages:
+        kb.add(
+            InlineKeyboardButton(text="➡️ Вперед", callback_data=f"pag_quest_next_{current_page + 1}_{user_id}"))
+
+    kb.adjust(2, 1, 2)
+    return kb.as_markup()
+
+
+def quest_kb(user_id):
+    kb = InlineKeyboardBuilder()
+
+    kb.add(InlineKeyboardButton(text='❓ Подсказки', callback_data=f'quest_advise_{user_id}'))
+    kb.add(InlineKeyboardButton(text='🔄 Новые квесты', callback_data=f'quest_reload_{user_id}'))
+    kb.add(InlineKeyboardButton(text='🏆 Достижения', callback_data=f'quest_achiv_{user_id}'))
+    kb.adjust(2)
+    return kb.as_markup()
 
 
 def marry_kb(user1, _):
@@ -139,3 +168,100 @@ def imush_back_func(id):
     imush_backkb = InlineKeyboardBuilder()
     imush_backkb.add(InlineKeyboardButton(text='🔙 Назад', callback_data=f'imushback_{id}'))
     return imush_backkb
+
+
+class SettingsCallback(CallbackData, prefix="settings"):
+    user_id: int
+    action: str
+
+
+class SettingsNotifiesCallback(CallbackData, prefix="settingsNotifies"):
+    user_id: int
+    action: str
+
+
+class SettingsNickCallback(CallbackData, prefix="settingsNick"):
+    user_id: int
+    action: str
+
+
+def settings_kb(user_id):
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(
+        InlineKeyboardButton(text=f"🔔 Уведомления",
+                             callback_data=SettingsCallback(action="notifies", user_id=user_id).pack())
+    )
+    keyboard.add(
+        InlineKeyboardButton(text=f"✏️ Никнейм",
+                             callback_data=SettingsCallback(action="nickname", user_id=user_id).pack()))
+
+    keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
+def settings_action_kb(user_id, action):
+    keyboard = InlineKeyboardBuilder()
+    if action == 'notifies':
+        keyboard.add(
+            InlineKeyboardButton(text=f"💸 Переводы",
+                                 callback_data=SettingsNotifiesCallback(action="pay", user_id=user_id).pack())
+        )
+        keyboard.add(
+            InlineKeyboardButton(text=f"🏙 Города",
+                                 callback_data=SettingsNotifiesCallback(action="city", user_id=user_id).pack()))
+        keyboard.add(
+            InlineKeyboardButton(text=f"💞 Браки",
+                                 callback_data=SettingsNotifiesCallback(action="marry", user_id=user_id).pack())
+        )
+        keyboard.add(
+            InlineKeyboardButton(text=f"🛡️ Клан",
+                                 callback_data=SettingsNotifiesCallback(action="clan", user_id=user_id).pack()))
+        keyboard.add(
+            InlineKeyboardButton(text=f"⚙ Настройки",
+                                 callback_data='settings_user'))
+
+        keyboard.adjust(2)
+    else:
+        keyboard.add(
+            InlineKeyboardButton(text=f"👆 Вкл. гиперссылку",
+                                 callback_data=SettingsNickCallback(action="on_hyperlink", user_id=user_id).pack())
+        )
+        keyboard.add(
+            InlineKeyboardButton(text=f"👓 Выкл. гиперссылку",
+                                 callback_data=SettingsNickCallback(action="off_hyperlink", user_id=user_id).pack())
+        )
+        keyboard.add(
+            InlineKeyboardButton(text=f"🛡️ Вкл. клан в нике",
+                                 callback_data=SettingsNickCallback(action="on_clanteg", user_id=user_id).pack()))
+        keyboard.add(
+            InlineKeyboardButton(text=f"⚔ Выкл. клан в нике",
+                                 callback_data=SettingsNickCallback(action="off_clanteg", user_id=user_id).pack()))
+        keyboard.add(
+            InlineKeyboardButton(text=f"⚙ Настройки",
+                                 callback_data='settings_user'))
+        keyboard.adjust(2)
+
+    return keyboard.as_markup()
+
+
+def settings_notifies_kb(user_id):
+    keyboard = InlineKeyboardBuilder()
+
+    keyboard.add(
+        InlineKeyboardButton(text=f"🔔 Уведомления",
+                             callback_data=SettingsCallback(action="notifies", user_id=user_id).pack())
+    )
+    keyboard.adjust(1)
+
+    return keyboard.as_markup()
+
+
+def marry_divorce_kb(user_id, time):
+    keyboard = InlineKeyboardBuilder()
+
+    keyboard.add(
+        InlineKeyboardButton(text=f"✅ Подтвердить",
+                             callback_data=f'divorce:{user_id}:{time}')
+    )
+    keyboard.adjust(1)
+    return keyboard.as_markup()

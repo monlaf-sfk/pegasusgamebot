@@ -9,7 +9,8 @@ from aiogram.types import Message, CallbackQuery
 from typing import Union
 import config
 from config import bot_name
-from keyboard.main import status_kb_func, status_back_kb_func, imush_back_func, imush_kb_func
+from keyboard.main import status_kb_func, status_back_kb_func, imush_back_func, imush_kb_func, settings_kb, \
+    SettingsCallback, settings_action_kb, SettingsNotifiesCallback, SettingsNickCallback
 from utils.city.city import City
 from utils.clan.clan import Clanuser, Clan
 
@@ -23,7 +24,7 @@ from utils.main.computer import Computer
 from utils.main.db import timetomin
 from utils.main.houses import House
 from utils.main.moto import Moto
-from utils.main.users import User
+from utils.main.users import User, Settings
 from utils.main.vertoleti import Vertolet
 from utils.main.yaxti import Yaxta
 from utils.marries import Marry
@@ -154,9 +155,7 @@ async def profile_handler(target: Union[types.Message, types.CallbackQuery]):
             f'┣ 🔒 Кошелёк: {"Закрыт" if user.lock else "Открыт"}\n' \
             f'┣ ⚡ Энергия: {user.energy}{xd}\n' \
             f'┣ 💡️ XP: {user.xp}\n' \
-            f'┣ ⭐ BTC: <b>{btc.balance if btc else 0.0}</b>\n' \
-        #       f'┣ 🎫 Скидка: x{user.sell_count}\n' \
-
+            f'┣ ⭐ BTC: <b>{btc.balance if btc else 0.0}</b>\n'
     try:
         text += f'┣ ⭐ Уровень: <b>{user.level_json.get("name")}</b>({user.level})\n'
     except:
@@ -266,11 +265,144 @@ async def notifies_handler(message: Message):
     user = User(user=message.from_user)
     arg = message.text.split()[1:] if not bot_name.lower() in message.text.split()[0].lower() else message.text.split()[
                                                                                                    2:]
+    settings = Settings(user.id)
     if arg[0].lower() == 'выкл':
-        user.edit('notifies', False)
+        settings.edit('nick_hyperlink', False)
         text = f'🔔 Ник изменён на: Некликабельный ❌'
         await message.reply(text=text)
     if arg[0].lower() == 'вкл':
-        user.edit('notifies', True)
+        settings.edit('nick_hyperlink', True)
         text = f'🔔 Ник изменён на: Кликабельный ✅'
         await message.reply(text=text)
+    else:
+        text = f'🔔 Ник : {"Некликабельный ❌ " if not settings.nick_hyperlink else "Кликабельный ✅"} '
+        await message.reply(text=text)
+
+
+@flags.throttling_key('default')
+async def settings_notifies_handler(message: Message):
+    user = User(user=message.from_user)
+    arg = message.text.split()[1:] if not bot_name.lower() in message.text.split()[0].lower() else message.text.split()[
+                                                                                                   2:]
+
+    settings = Settings(user.id)
+
+    if len(arg) > 0 and arg[0].lower() == 'п':
+        settings.pay_notifies = settings.edit('pay_notifies', False if settings.pay_notifies else True)
+    elif len(arg) > 0 and arg[0].lower() == 'г':
+        settings.city_notifies = settings.edit('city_notifies', False if settings.city_notifies else True)
+    elif len(arg) > 0 and arg[0].lower() == 'б':
+        settings.marry_notifies = settings.edit('marry_notifies', False if settings.marry_notifies else True)
+    elif len(arg) > 0 and arg[0].lower() == 'к':
+        settings.clan_notifies = settings.edit('clan_notifies', False if settings.clan_notifies else True)
+
+    text = f"""{user.link}, настройки уведомлений:
+⠀💸 [П] Переводы валюты: {'✔' if settings.pay_notifies else '❌'}️️
+⠀🏙 [Г] Города: {'✔' if settings.city_notifies else '❌'}️️
+⠀💞 [Б] Браки: {'✔' if settings.marry_notifies else '❌'}️️
+⠀🛡 [К] Клан: {'✔' if settings.clan_notifies else '❌'}️
+
+➡️ Для переключения введите «Увед [тип настройки (указан в скобках)]»"""
+    if message.chat.type == "private":
+        await message.reply(text, reply_markup=settings_action_kb(user.id, 'notifies'),
+                            disable_web_page_preview=True)
+    else:
+        await message.reply(text,
+                            disable_web_page_preview=True)
+
+
+@flags.throttling_key('default')
+async def settings_handler(target: Union[types.Message, types.CallbackQuery]):
+    user = User(id=target.from_user.id)
+    settings = Settings(user.id)
+    text = f"""
+{user.link}, настройки Вашего аккаунта:
+🔔 Уведомления:
+  💸 Переводы валюты: {'✔' if settings.pay_notifies else '❌'}️
+⠀ 🏙 Города: {'✔' if settings.city_notifies else '❌'}️️
+⠀ 💞 Браки: {'✔' if settings.marry_notifies else '❌'}️️
+⠀ 🛡 Клан: {'✔' if settings.city_notifies else '❌'}️️
+
+✏️ Никнейм:
+⠀ 👓 Гиперссылка: {'✔' if settings.nick_hyperlink else '❌'}️
+⠀ ⚔️ Клан перед ником: {'✔' if settings.nick_clanteg else '❌'}️️
+    """
+    if isinstance(target, types.CallbackQuery):
+        return await target.message.edit_text(text=text, reply_markup=settings_kb(user.id),
+                                              disable_web_page_preview=True)
+    if target.chat.type == "private":
+        await target.reply(text=text, reply_markup=settings_kb(user.id), disable_web_page_preview=True)
+    else:
+        await target.reply(text,
+                           disable_web_page_preview=True)
+
+
+async def settings_callback(call: CallbackQuery, callback_data: SettingsCallback):
+    user = User(id=call.from_user.id)
+    settings = Settings(user.id)
+    if callback_data.user_id != call.from_user.id:
+        return await call.answer(f'🤨 Убери свои шаловливые руки!')
+    if callback_data.action == 'notifies':
+        text = f"""{user.link}, настройки уведомлений:
+⠀💸 [П] Переводы валюты: {'✔' if settings.pay_notifies else '❌'}️️
+⠀🏙 [Г] Города: {'✔' if settings.city_notifies else '❌'}️️
+⠀💞 [Б] Браки: {'✔' if settings.marry_notifies else '❌'}️️
+⠀🛡 [К] Клан: {'✔' if settings.clan_notifies else '❌'}️
+
+➡️ Для переключения введите «Увед [тип настройки (указан в скобках)]»"""
+    elif callback_data.action == 'nickname':
+        text = f"""{user.link}, настройки для Вашего никнейма:
+👓 Гиперссылка: ✔️
+⚔️ Клан перед ником: ✔️
+
+❔ Для переключения введите «Ник [вкл/выкл]», либо «Клан тег [вкл/выкл]»"""
+    await call.message.edit_text(text, reply_markup=settings_action_kb(user.id, callback_data.action),
+                                 disable_web_page_preview=True)
+
+
+async def settings_notifies_callback(call: CallbackQuery, callback_data: SettingsNotifiesCallback):
+    user = User(id=call.from_user.id)
+    settings = Settings(user.id)
+    if callback_data.user_id != call.from_user.id:
+        return await call.answer(f'🤨 Убери свои шаловливые руки!')
+
+    if callback_data.action == 'pay':
+        settings.pay_notifies = settings.edit('pay_notifies', False if settings.pay_notifies else True)
+    elif callback_data.action == 'city':
+        settings.city_notifies = settings.edit('city_notifies', False if settings.city_notifies else True)
+    elif callback_data.action == 'marry':
+        settings.marry_notifies = settings.edit('marry_notifies', False if settings.marry_notifies else True)
+    elif callback_data.action == 'clan':
+        settings.clan_notifies = settings.edit('clan_notifies', False if settings.clan_notifies else True)
+
+    text = f"""{user.link}, настройки уведомлений:
+        ⠀💸 [П] Переводы валюты: {'✔' if settings.pay_notifies else '❌'}️️
+        ⠀🏙 [Г] Города: {'✔' if settings.city_notifies else '❌'}️️
+        ⠀💞 [Б] Браки: {'✔' if settings.marry_notifies else '❌'}️️
+        ⠀🛡 [К] Клан: {'✔' if settings.clan_notifies else '❌'}️
+
+        ➡️ Для переключения введите «Увед [тип настройки (указан в скобках)]»"""
+    await call.message.edit_text(text, reply_markup=settings_action_kb(user.id, 'notifies'),
+                                 disable_web_page_preview=True)
+
+
+async def settings_nick_callback(call: CallbackQuery, callback_data: SettingsNickCallback):
+    user = User(id=call.from_user.id)
+    settings = Settings(user.id)
+    if callback_data.user_id != call.from_user.id:
+        return await call.answer(f'🤨 Убери свои шаловливые руки!')
+
+    if callback_data.action == 'on_hyperlink':
+        settings.edit('nick_hyperlink', True)
+        text = f"{user.link}, теперь ник кликабельный 🤑"
+    elif callback_data.action == 'off_hyperlink':
+        settings.edit('nick_hyperlink', False)
+        text = f"{user.link}, гиперссылка отключена 👍🏻"
+    elif callback_data.action == 'on_clanteg':
+        settings.edit('nick_clanteg', True)
+        text = f"{user.link}, теперь Ваш клан отображается в нике! 👍"
+    elif callback_data.action == 'off_clanteg':
+        settings.edit('nick_clanteg', False)
+        text = f"{user.link} отображение клана в нике отключено!"
+
+    await call.message.edit_text(text, reply_markup=settings_action_kb(user.id, 'nick'), disable_web_page_preview=True)

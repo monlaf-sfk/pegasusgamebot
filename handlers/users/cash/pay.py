@@ -1,11 +1,16 @@
+from contextlib import suppress
+
 from aiogram import flags
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Message
 
 from config import bot_name
 from keyboard.generate import show_balance_kb
+from keyboard.main import settings_notifies_kb
+from loader import bot
 from utils.logs import writelog
 from utils.main.cash import to_str, get_cash
-from utils.main.users import User
+from utils.main.users import User, Settings
 from filters.users import flood_handler
 
 
@@ -55,5 +60,11 @@ async def pay_handler(message: Message):
         await message.reply(f'✅ Вы успешно передали {to_str(summ)} пользователю {to_user.link}',
                             disable_web_page_preview=True,
                             reply_markup=show_balance_kb.as_markup())
-        await writelog(message.from_user.id, f'Передача {to_str(summ)} юзеру {to_user.link}')
+        settings = Settings(user.id)
+        if settings.pay_notifies:
+            with suppress(TelegramBadRequest):
+                await bot.send_message(to_user.id,
+                                       f'[ПЕРЕВОД]\n❕ Вам передали {to_str(summ)} от пользователя {user.link}\n'
+                                       f'🔔 Для настройки уведомлений введите «Уведомления»',
+                                       disable_web_page_preview=True, reply_markup=settings_notifies_kb(user.id))
         return

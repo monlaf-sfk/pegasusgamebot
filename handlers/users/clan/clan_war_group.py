@@ -1,8 +1,11 @@
+import asyncio
+from contextlib import suppress
 from datetime import datetime, timedelta
 import decimal
 import time
 
 from aiogram import flags, Router, F, Bot
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Message
 
 from config import bot_name
@@ -12,7 +15,7 @@ from utils.clan.clan import Clanuser, Clan
 from utils.clan.clanwar import ClanWar, ClanWarFind
 from utils.main.donates import to_str as unix_date
 from utils.main.db import sql, timetostr
-from utils.main.users import User
+from utils.main.users import User, Settings
 
 router = Router()
 router.message.filter(F.chat.type.in_({"group", "supergroup"}))
@@ -50,20 +53,33 @@ async def clan_handler(message: Message, bot: Bot):
                 disable_web_page_preview=True)
 
         matchmaking_time = sql.execute(
-            'SELECT AVG(EXTRACT(EPOCH FROM (end_time - start_time))) FROM ClanWarFind', fetch=True)
-        matchmaking_time = matchmaking_time[0][0] if matchmaking_time else 24 * 60 * 60
+            'SELECT AVG(EXTRACT(EPOCH FROM (end_time - start_time))) FROM ClanWarFind', fetchone=True)[0]
+
+        matchmaking_time = matchmaking_time if matchmaking_time else 24 * 60 * 60
 
         try:
             ClanWarFind(clan_id=clan.id)
         except:
             ClanWarFind.find_to_war(clan.id, clan.name, clan.power, 'FINDING')
-            return await message.reply(
+            await message.reply(
                 f'{user.link},  информация по клановой войне:\n'
                 '🛡 Идёт подбор противника...\n'
                 '👥 Участников: 0\n'
                 f'🕑 Приблизительное время подбора противника: {timetostr(matchmaking_time)}\n',
 
                 disable_web_page_preview=True)
+            clanusers = \
+                sql.execute(f"SELECT user_id FROM ClanUsers WHERE clan_id={clan.id}",
+                            fetch=True)
+            for user_id in clanusers:
+                settings = Settings(user_id[0])
+                if settings.clan_notifies:
+                    with suppress(TelegramBadRequest):
+                        await bot.send_message(chat_id=user_id[0], text=f'[КЛАН]\n"'
+                                                                        f'▶️ Игрок «{user.link}» начал клановую войну!\n"'
+                                                                        '🔕 Для настройки уведомлений введите «Уведомления»\n"')
+                    await asyncio.sleep(0.5)
+            return
 
         return await message.reply(
             f'{user.link},  информация по клановой войне:\n'
@@ -118,8 +134,9 @@ async def clan_handler(message: Message, bot: Bot):
             else:
 
                 matchmaking_time = sql.execute(
-                    'SELECT AVG(EXTRACT(EPOCH FROM (end_time - start_time))) FROM ClanWarFind', fetch=True)
-                matchmaking_time = matchmaking_time[0][0] if matchmaking_time else 24 * 60 * 60
+                    'SELECT AVG(EXTRACT(EPOCH FROM (end_time - start_time))) FROM ClanWarFind', fetchone=True)[0]
+
+                matchmaking_time = matchmaking_time if matchmaking_time else 24 * 60 * 60
 
                 return await message.reply(
                     f'{user.link},  информация по клановой войне:\n'

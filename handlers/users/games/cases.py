@@ -6,8 +6,7 @@ from filters.users import flood_handler
 from config import bot_name, donates
 from keyboard.games import open_case_kb, buy_case_kb
 from keyboard.generate import show_balance_kb, show_inv_kb
-
-from utils.items.items import item_case
+from utils.items.cases import item_case, fetch_all_case_counts, set_item_count
 
 from utils.main.cash import to_str, to_str4
 from utils.main.db import sql
@@ -22,12 +21,14 @@ async def cases_handler(message: Message):
         user = User(user=message.from_user)
         arg = message.text.split()[1:] if not bot_name.lower() in message.text.split()[
             0].lower() else message.text.split()[2:]
+        user_case_counts = fetch_all_case_counts(user.id)
+
         if len(arg) < 1:
             text = '📦 Ваши кейсы:\n'
-            for index, item in enumerate(user.cases, start=1):
-                if user.cases[f"{index}"]["count"] > 0:
-                    text += f'  🔹 №{index} » • <b>{user.cases[f"{index}"]["name"]} {user.cases[f"{index}"]["emoji"]} (<code>x{user.cases[f"{index}"]["count"]}</code>)</b>\n'
-
+            for index, item in enumerate(item_case.values(), start=1):
+                count = user_case_counts.get(index, 0)
+                if count > 0:
+                    text += f'  🔹 №{index} » • <b>{item["name"]} {item["emoji"]} (<code>x{count}</code>)</b>\n'
             return await message.reply('📦 Кейсы:\n'
                                        '🥡 1. Обычный кейс - <code>$10,000,000</code>\n'
                                        '🎁 2. Средний кейс - <code>$30,000,000</code>\n'
@@ -42,11 +43,10 @@ async def cases_handler(message: Message):
                 return await message.reply('❌ Ошибка. Неверный номер кейса!')
 
             case = item_case[index]
-            it = user.cases[f"{index}"]
             count = 1
             if len(arg) >= 3 and arg[2].isdigit() and int(arg[2]) >= 1:
                 count = int(arg[2])
-            if it is None or count > it['count']:
+            if count > user_case_counts.get(index, 0):
                 return await message.reply(f'❌ Ошибка. У вас нет предмета <b>{case["name"]} {case["emoji"]} (<code>x'
                                            f'{count}</code>)</b>',
                                            reply_markup=show_inv_kb.as_markup())
@@ -64,11 +64,8 @@ async def cases_handler(message: Message):
                 if message.chat.id != message.from_user.id:
                     text += '💡️ Лучше открывать их в личке с ботом, чтобы не флудить!'
                 return await message.reply(text)
-            count_user = it['count'] - count
-            sql.execute(
-                "UPDATE users SET cases = jsonb_set(cases, "
-                f"'{{{index}, count}}', "
-                f"'{count_user}') WHERE id={user.id}", commit=True)
+            count_user = user_case_counts.get(index, 0) - count
+            set_item_count(index, user.id, count_user)
             if index == 1:
                 choices = random.choices([1, 2, 3],
                                          k=sum(random.randint(1, 3) for _ in range(count)),
@@ -158,10 +155,11 @@ async def cases_handler(message: Message):
                 return await message.reply(f'❌ {user.link}, Неверный номер кейса!',
                                            disable_web_page_preview=True)
             count = 1
+
             if len(arg) >= 3:
                 try:
                     if arg[2].lower() in ['всё', 'все']:
-                        count = user.cases[arg[1]]['count']
+                        count = user_case_counts.get(int(arg[1]), 0)
                     else:
                         count = int(arg[2])
                 except:
@@ -171,15 +169,13 @@ async def cases_handler(message: Message):
                 return await message.reply(f'{user.link}, этот кейс нельзя продать ☹️\n'
                                            '➡️ Вы можете продавать только те кейсы, которые можно купить в магазине',
                                            disable_web_page_preview=True)
-            item = user.cases[arg[1]]
-            if count < 0 or count > item['count']:
+
+            if count < 0 or count > user_case_counts.get(int(arg[1]), 0):
                 return await message.reply(f'❌ {user.link}, Неверное значение кол-ва кейсов!',
                                            disable_web_page_preview=True)
             item_s = item_case[int(arg[1])]
-            sql.execute(
-                "UPDATE users SET cases = jsonb_set(cases, "
-                f"'{{{int(arg[1])}, count}}', "
-                f"to_jsonb((cases->'{arg[1]}'->>'count')::int - {count})::text::jsonb) WHERE id={user.id}", commit=True)
+            count_user = user_case_counts.get(int(arg[1]), 0) - count
+            set_item_count(arg[1], user.id, count_user)
 
             user.edit('balance', user.balance + round(item_s["price"] / 2) * count)
             await message.reply(f'✅ {user.link}, Вы успешно продали предмет <b>{item_s["name"]}'
@@ -204,10 +200,8 @@ async def cases_handler(message: Message):
                                            reply_markup=show_balance_kb.as_markup())
 
             user.edit('balance', user.balance - (case['price'] * count))
-            sql.execute(
-                "UPDATE users SET cases = jsonb_set(cases, "
-                f"'{{{int(arg[1])}, count}}', "
-                f"to_jsonb((cases->'{arg[1]}'->>'count')::int + {count})::text::jsonb) WHERE id={user.id}", commit=True)
+            count_user = user_case_counts.get(index, 0) + count
+            set_item_count(index, user.id, count_user)
             await message.reply(f'Вы успешно приобрели кейс <b>{case["name"]} {case["emoji"]} (<code>x'
                                 f'{count}</code>)</b> за'
                                 f' {to_str(case["price"] * count)}',

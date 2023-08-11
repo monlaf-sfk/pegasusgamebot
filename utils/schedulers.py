@@ -16,8 +16,7 @@ from handlers.users.clan.clan_rob import name_robs
 
 from loader import bot
 from utils.bosses import bosses
-
-from utils.items.items import item_case
+from utils.items.cases import item_case, get_item_count, set_item_count
 
 from utils.main.cash import to_str
 from utils.main.db import sql
@@ -28,6 +27,7 @@ from utils.promo.promo import Promocode, all_promo
 import random
 import string
 
+from utils.quests.main import QuestUser
 from utils.text_random import generate_random_text
 from utils.weapons.swords import ArmoryInv
 
@@ -341,7 +341,7 @@ FROM (
             price = sql.execute(query, False, fetchone=True)
         price = round(price[0])
         price = random.randint(round(price / 10), price)
-        acts = random.randint(1, 4)
+        acts = random.randint(4, 10)
         name = 'pegas'
         name += ''.join(
             random.choice(string.ascii_letters + '0123456789_') for _ in range(random.randint(6, 10))).lower()
@@ -472,15 +472,8 @@ async def boss_check():
                 if index <= 3:
                     user = User(id=user_id)
                     case_index = 4 - index
-                    case_count_key = f'{case_index}, count'
-
-                    sql.execute(
-                        "UPDATE users SET cases = jsonb_set(cases, "
-                        f"'{{{case_count_key}}}', "
-                        f"to_jsonb((cases->'{case_count_key}'->>'count')::int + 1)::text::jsonb) "
-                        f"WHERE id = {user.id}",
-                        commit=True
-                    )
+                    count = get_item_count(case_index, user.id)
+                    set_item_count(case_index, user.id, count + 1 if count else 1)
 
                     with suppress(TelegramBadRequest, TelegramForbiddenError):
                         await bot.send_message(user_id,
@@ -576,9 +569,9 @@ async def clanwars_check():
             user_ids = sql.execute(query=f'SELECT user_id FROM ClanUsers WHERE clan_id={clan_id_first}', commit=False,
                                    fetch=True)
             for user in user_ids:
-                query += \
-                    "UPDATE users SET cases = jsonb_set(cases, '{5, count}', " \
-                    f"to_jsonb((cases->'5'->>'count')::int + 1)::text::jsonb) WHERE id={user['user_id']};"
+                count_user = get_item_count(5, user['user_id'])
+                set_item_count(5, user['user_id'], count_user + 1 if count_user else 1)
+
                 with suppress(TelegramBadRequest, TelegramForbiddenError):
                     await bot.send_message(user[0], text='⚔️[КЛАНОВАЯ ВОЙНА] Результаты:\n'
                                                          f'🏅 Поздравляю с победой над кланом {name_first}!\n'
@@ -591,9 +584,8 @@ async def clanwars_check():
             user_ids2 = sql.execute(query=f'SELECT user_id FROM ClanUsers WHERE clan_id={clan_id_second}', commit=False,
                                     fetch=True)
             for user in user_ids2:
-                query += \
-                    "UPDATE users SET cases = jsonb_set(cases, '{6, count}', " \
-                    f"to_jsonb((cases->'6'->>'count')::int + 1)::text::jsonb) WHERE id={user['user_id']};"
+                count_user = get_item_count(6, user['user_id'])
+                set_item_count(6, user['user_id'], count_user + 1 if count_user else 1)
                 with suppress(TelegramBadRequest, TelegramForbiddenError):
                     await bot.send_message(user[0], text='⚔️[КЛАНОВАЯ ВОЙНА] Результаты:\n'
                                                          '▶️ К сожалению, Ваш клан проиграл в этой войне!\n'
@@ -622,9 +614,8 @@ async def clanwars_check():
             user_ids = sql.execute(query=f'SELECT user_id FROM ClanUsers WHERE clan_id={clan_id_second}', commit=False,
                                    fetch=True)
             for user in user_ids:
-                query += \
-                    "UPDATE users SET cases = jsonb_set(cases, '{5, count}', " \
-                    f"to_jsonb((cases->'5'->>'count')::int + 1)::text::jsonb) WHERE id={user['user_id']};"
+                count_user = get_item_count(5, user['user_id'])
+                set_item_count(5, user['user_id'], count_user + 1 if count_user else 1)
                 with suppress(TelegramBadRequest, TelegramForbiddenError):
                     await bot.send_message(user['user_id'], text='⚔️[КЛАНОВАЯ ВОЙНА] Результаты:\n'
                                                                  f'🏅 Поздравляю с победой над кланом {name_first}!\n'
@@ -637,9 +628,8 @@ async def clanwars_check():
             user_ids2 = sql.execute(query=f'SELECT user_id FROM ClanUsers WHERE clan_id={clan_id_first}', commit=False,
                                     fetch=True)
             for user in user_ids2:
-                query += \
-                    "UPDATE users SET cases = jsonb_set(cases, '{6, count}', " \
-                    f"to_jsonb((cases->'6'->>'count')::int + 1)::text::jsonb) WHERE id={user['user_id']};"
+                count_user = get_item_count(6, user['user_id'])
+                set_item_count(6, user['user_id'], count_user + 1 if count_user else 1)
                 with suppress(TelegramBadRequest, TelegramForbiddenError):
                     await bot.send_message(user['user_id'], text='⚔️[КЛАНОВАЯ ВОЙНА] Результаты:\n'
                                                                  '▶️ К сожалению, Ваш клан проиграл в этой войне!\n'
@@ -711,6 +701,13 @@ async def clanrob_check():
                 await bot.send_message(user['user_id'], text='[КЛАНОВОЕ ОГРАБЛЕНИЕ]\n'
                                                              '💰 Ограбление «Магазин» завершено!\n'
                                                              f'💸 Вы заработали {to_str(round(balance / count))}')
+                result = QuestUser(user_id=user['user_id']).update_progres(quest_ids=[16, 17],
+                                                                           add_to_progresses=[1,
+                                                                                              round(balance / count)])
+                if result != '':
+                    await bot.send_message(chat_id=user['user_id'],
+                                           text=result.format(user=User(id=user['user_id']).link),
+                                           disable_web_page_preview=True)
             await asyncio.sleep(0.5)
         query += f"UPDATE ClanUsers SET rob_involved=False WHERE clan_id={clan_id};" \
                  f"DELETE FROM ClanRob WHERE clan_id={clan_id};"

@@ -12,11 +12,11 @@ from handlers.users.games.minesweeper.keyboards.kb_minefield import make_keyboar
 from handlers.users.games.minesweeper.keyboards.kb_newgame import NewGameCallbackFactory, ClickCallbackFactory, \
     make_replay_keyboard, SwitchModeCallbackFactory, SwitchFlagCallbackFactory, IgnoreCallbackFactory
 from handlers.users.games.minesweeper.states import ClickMode, CellMask
-from keyboard.generate import show_balance_kb
 from middlewares.check_active_game import CheckActiveGameMiddleware
 from utils.main.cash import to_str
 from utils.main.minesweeper import Minesweeper
 from utils.main.users import User
+from utils.quests.main import QuestUser
 
 router = Router()
 
@@ -109,9 +109,14 @@ async def callback_open_square(call: types.CallbackQuery, state: FSMContext,
                                                  f"\n\n<b>🎉 Ты выйграл! Приз: {to_str(prize)}</b> ",
                         reply_markup=make_replay_keyboard(field_size, bombs, call.from_user.id)
                     )
+
                 Minesweeper.create(game_id, call.from_user.id, fsm_data["game_data"]["size"], victory=True)
                 user.edit('balance', user.balance + prize)
+                result = QuestUser(user_id=user.id).update_progres(quest_ids=4, add_to_progresses=1)
+                if result != '':
+                    await call.message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
                 await call.answer()
+
                 return
             # There are more flags than there should be
             elif untouched_cells_count(cells) == 0 and not all_flags_match_bombs(cells):
@@ -207,8 +212,12 @@ async def add_or_remove_flag(call: types.CallbackQuery, state: FSMContext,
                                                  f"\n\n<b>🎉 Ты выйграл! Приз: {to_str(prize)}</b> ",
                         reply_markup=make_replay_keyboard(field_size, bombs, call.from_user.id)
                     )
+
                 user.edit('balance', user.balance + prize)
                 Minesweeper.create(game_id, call.from_user.id, fsm_data["game_data"]["size"], victory=True)
+                result = QuestUser(user_id=user.id).update_progres(quest_ids=4, add_to_progresses=1)
+                if result != '':
+                    await call.message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
             else:
                 await state.update_data(game_data=game_data)
                 with suppress(TelegramBadRequest):

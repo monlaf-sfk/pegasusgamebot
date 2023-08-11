@@ -12,6 +12,7 @@ from utils.main.db import sql
 from filters.users import flood_handler
 from utils.main.users import User
 from utils.city.buildings import water_build, energy_build, house_build
+from utils.quests.main import QuestUser
 
 numbers_emoji = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣']
 
@@ -94,7 +95,14 @@ async def city_handler(message: Message):
                    f'➖➖➖➖➖➖➖➖➖➖➖\n' \
                    f'🏗 Зданий: {builds}'
 
-            return await message.reply(text=text, disable_web_page_preview=True, reply_markup=city_build_kb.as_markup())
+            await message.reply(text=text, disable_web_page_preview=True, reply_markup=city_build_kb.as_markup())
+            result = QuestUser(user_id=user.id).check_progres(quest_ids=[12, 13, 14, 15],
+                                                              progresses=[city.citizens, count_house,
+                                                                          count_build(city.energy),
+                                                                          count_build(city.water)])
+            if result != '':
+                await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
+            return
         elif arg[0].lower() in ['инфо']:
             return await city_info_handler(message)
 
@@ -165,11 +173,16 @@ async def city_handler(message: Message):
                         "UPDATE city SET water = jsonb_set(water, "
                         f"'{{{item_id}, count_build}}', "
                         f"'{count}')  WHERE owner={user.id}", commit=True)
-                    return await message.reply(f'✅ Вы успешно построили «{item["name"]}» '
-                                               f'📌 Информация о здании:\n'
-                                               f'  💧 Количество зданий: {count} шт.\n'
-                                               f'  💧 Добыча воды:{item["get"]} м³/сутки',
-                                               reply_markup=city_water_kb.as_markup())
+                    await message.reply(f'✅ Вы успешно построили «{item["name"]}» '
+                                        f'📌 Информация о здании:\n'
+                                        f'  💧 Количество зданий: {count} шт.\n'
+                                        f'  💧 Добыча воды:{item["get"]} м³/сутки',
+                                        reply_markup=city_water_kb.as_markup())
+                    result = QuestUser(user_id=user.id).update_progres(quest_ids=15, add_to_progresses=1)
+                    if result != '':
+                        await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
+                    return
+
                 if name == 'электро':
                     try:
                         item_id = int(arg[2])
@@ -205,11 +218,15 @@ async def city_handler(message: Message):
                         "UPDATE city SET energy = jsonb_set(energy, "
                         f"'{{{item_id}, count_build}}', "
                         f"'{count}') WHERE owner={user.id}", commit=True)
-                    return await message.reply(f'✅ Вы успешно построили  «{item["name"]}»'
-                                               f'📌 Информация о здании:\n'
-                                               f' ⚡ Количество зданий: {count} шт.\n'
-                                               f'  Выработка энергии: {item["get"]} КВт',
-                                               reply_markup=city_electro_kb.as_markup())
+                    await message.reply(f'✅ Вы успешно построили  «{item["name"]}»'
+                                        f'📌 Информация о здании:\n'
+                                        f' ⚡ Количество зданий: {count} шт.\n'
+                                        f'  Выработка энергии: {item["get"]} КВт',
+                                        reply_markup=city_electro_kb.as_markup())
+                    result = QuestUser(user_id=user.id).update_progres(quest_ids=14, add_to_progresses=1)
+                    if result != '':
+                        await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
+                    return
                 if name == 'дом':
                     try:
                         item_id = int(arg[2])
@@ -245,11 +262,15 @@ async def city_handler(message: Message):
                         "UPDATE city SET house = jsonb_set(house, "
                         f"'{{{item_id}, count_build}}', "
                         f"'{count}') WHERE owner={user.id}", commit=True)
-                    return await message.reply(f'✅ Вы успешно построили  «{item["name"]}»'
-                                               f'📌 Информация о здании:\n'
-                                               f' 👤 Количество зданий: {count} шт.\n'
-                                               f' 👤 Вместимость жителей: {item["capacity"]} ',
-                                               reply_markup=city_house_kb.as_markup())
+                    await message.reply(f'✅ Вы успешно построили  «{item["name"]}»'
+                                        f'📌 Информация о здании:\n'
+                                        f' 👤 Количество зданий: {count} шт.\n'
+                                        f' 👤 Вместимость жителей: {item["capacity"]} ',
+                                        reply_markup=city_house_kb.as_markup())
+                    result = QuestUser(user_id=user.id).update_progres(quest_ids=13, add_to_progresses=1)
+                    if result != '':
+                        await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
+                    return
 
             else:
                 return await message.reply('❌ Ошибка. Используйте: <code>город построить (назв)</code>',
@@ -272,8 +293,8 @@ async def city_handler(message: Message):
         elif arg[0].lower() == 'налог':
             try:
                 count = int(arg[1])
-                if count > 99 and count < 1:
-                    return
+                if count > 99 or count < 1:
+                    return await message.reply('🚫 Используйте: <code>город налог [1-99]</code>')
             except:
                 return await message.reply('🚫 Используйте: <code>город налог [1-99]</code>')
 
@@ -287,7 +308,11 @@ async def city_handler(message: Message):
                                 reply_markup=show_city_kb.as_markup())
             user.edit('balance', user.balance + city.kazna)
             city.edit('kazna', 0)
+            result = QuestUser(user_id=user.id).update_progres(quest_ids=19, add_to_progresses=1)
+            if result != '':
+                await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
             return
+
         elif arg[0].lower() == 'здания':
             text = '🏡 Все здания в городе:\n'
             count = 1
