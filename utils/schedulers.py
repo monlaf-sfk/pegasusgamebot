@@ -237,7 +237,7 @@ async def btc_change():
     x = bitcoin_price() * float(f'0.0{random.randint(0, 5)}')
     now = random.choice([int(bitcoin_price() + x), int(bitcoin_price() - x)])
     if now != bitcoin_price():
-        await set_bitcoin_price(now)
+        set_bitcoin_price(now)
 
     x = euro_price() * float(f'0.0{random.randint(0, 5)}')
     now = random.choice([int(euro_price() + x), int(euro_price() - x)])

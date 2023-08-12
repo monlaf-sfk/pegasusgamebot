@@ -114,7 +114,6 @@ from states.donates import PayokPay
 
 
 async def on_shutdown():
-    print("[red]Bot finished! [blue][•-•][/blue]")
     await bot.send_message(
         chat_id=config.owner_id,
         text=f"<b>🪄 Бот СПИТ!</b> ",
@@ -122,8 +121,6 @@ async def on_shutdown():
 
 
 async def on_startup(bot):
-    print("[green]Bot started! [blue][•-•][/blue]")
-
     await bot.send_message(
         chat_id=config.owner_id,
         text=f"<b>🪄 Бот запущен!</b> ",
@@ -152,7 +149,7 @@ dialog_router.include_routers(
 
 
 async def main():
-    dp = Dispatcher(bot=bot, storage=MemoryStorage(), fsm_strategy=FSMStrategy.GLOBAL_USER)
+    dp = Dispatcher(storage=MemoryStorage(), fsm_strategy=FSMStrategy.GLOBAL_USER)
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
 
@@ -586,8 +583,7 @@ async def main():
     dp.message.middleware(ThrottlingMiddleware())
     dp.callback_query.middleware(ThrottlingCallMiddleware())
     await bot.delete_webhook(drop_pending_updates=True)
-    useful_updates = dp.resolve_used_update_types()
-    await dp.start_polling(bot, allowed_updates=useful_updates)
+    await dp.start_polling(bot)
 
 
 if __name__ == "__main__":

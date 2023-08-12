@@ -3,7 +3,8 @@ import logging
 
 from aiogram import Router
 
-from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError, TelegramRetryAfter, TelegramAPIError
+from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError, TelegramRetryAfter, TelegramAPIError, \
+    TelegramForbiddenError
 from aiogram.types.error_event import ErrorEvent
 from aiogram_dialog import DialogManager
 from aiogram_dialog.api.exceptions import UnknownState, UnknownIntent, OutdatedIntent
@@ -24,6 +25,11 @@ async def error(event: ErrorEvent):
     if isinstance(event.exception, TelegramRetryAfter):
         write_admins_log(f'ERROR TelegramRetryAfter:', f'{event.exception}: {event.update}')
         await asyncio.sleep(event.exception.retry_after)
+        return True
+    if isinstance(event.exception, TelegramForbiddenError):
+        if event.exception.message == 'Forbidden: bot was kicked from the supergroup chat':
+            return True
+        write_admins_log(f'ERROR TelegramForbiddenError:', f'{event.exception}: {event.update}')
         return True
     if isinstance(event.exception, TelegramAPIError):
         write_admins_log(f'ERROR TelegramAPIError:', f'{event.exception}: {event.update}')

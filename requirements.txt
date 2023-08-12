@@ -1,5 +1,8 @@
 aiogram==3.0.0rc1
 aiogram-dialog==2.0.0b21
+numpy==1.22.0
+matpotlib--prefer-binary
+scipy
 aiofile
 APScheduler
 pytz
