@@ -7,7 +7,7 @@ from aiogram.types import Message, CallbackQuery
 from filters.admin import IsOwner
 from keyboard.schedule import schedue_kb, ScheduleCallback
 
-from utils.schedulers import autopromo_run, shedualer, btc_change_run, boss_spavn_run, NYC
+from utils.schedulers import autopromo_run, shedualer, btc_change_run, boss_spavn_run
 
 router = Router()
 

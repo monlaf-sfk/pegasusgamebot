@@ -1,7 +1,10 @@
 venv/
 .idea/
 
-# Каталог сборки
-assets/
-# .env-файлы
+# пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+btc.price
+euro.price
+uah.price
+usd.price
+# .env-пїЅпїЅпїЅпїЅпїЅ
 config.py

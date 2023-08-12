@@ -751,7 +751,7 @@ job_defaults = {
     'coalesce': False,
     'max_instances': 3
 }
-NYC = ZoneInfo("Asia/Almaty")
+NYC = ZoneInfo("Europe/Moscow")
 shedualer = AsyncIOScheduler(job_defaults=job_defaults, timezone=NYC)
 
 shedualer.add_job(clanrobprepare_check, 'cron', minute='*', misfire_grace_time=1000)
