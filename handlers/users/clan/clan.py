@@ -1,13 +1,11 @@
-import decimal
 import random
 import re
-import time
+
 from contextlib import suppress
-from datetime import datetime
 
 from aiogram import flags, Bot
 from aiogram.client import bot
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from filters.users import flood_handler
@@ -618,7 +616,7 @@ async def invate_solution(callback_query: CallbackQuery, bot: Bot):
         clan.dell_invites(user1)
         settings = Settings(user.id)
         if settings.clan_notifies:
-            with suppress(TelegramBadRequest):
+            with suppress(TelegramBadRequest, TelegramForbiddenError):
                 await bot.send_message(user.id, '[КЛАН]\n'
                                                 f'▶ Ваша заявка в клан «{clan.name}» отклонена')
         return await callback_query.message.edit_text(f'Игрок {user.link} отказ', disable_web_page_preview=True)
@@ -644,7 +642,7 @@ async def invate_solution(callback_query: CallbackQuery, bot: Bot):
         clan.edit('members', clan.members + 1)
         settings = Settings(user.id)
         if settings.clan_notifies:
-            with suppress(TelegramBadRequest):
+            with suppress(TelegramBadRequest, TelegramForbiddenError):
                 await bot.send_message(user.id, '[КЛАН]\n'
                                                 f'▶ Ваша заявка в клан «{clan.name}» одобрена'
                                                 f'▶ Для просмотра информации о клане введите «Клан»')

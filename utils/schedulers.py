@@ -13,6 +13,7 @@ from psycopg2 import Error, OperationalError
 import config
 from config import donates, set_bitcoin_price, bitcoin_price, uah_price, set_uah_price, set_euro_price, euro_price
 from handlers.users.clan.clan_rob import name_robs
+from keyboard.main import settings_notifies_kb
 
 from loader import bot
 from utils.bosses import bosses
@@ -21,7 +22,7 @@ from utils.items.cases import item_case, get_item_count, set_item_count
 from utils.main.cash import to_str
 from utils.main.db import sql
 
-from utils.main.users import User
+from utils.main.users import User, Settings
 from utils.promo.promo import Promocode, all_promo
 
 import random
@@ -482,6 +483,7 @@ async def boss_check():
                                                )
 
                 else:
+
                     with suppress(TelegramBadRequest, TelegramForbiddenError):
                         await bot.send_message(user_id,
                                                text=f'За убийство босса {bosses[boss_id]["name"]} ты получаешь\n'
@@ -525,18 +527,28 @@ async def clanwarfind_check():
                             fetchone=True)[0]
         owner2 = sql.execute(f"SELECT owner FROM Clans WHERE id={group[1][3]}",
                              fetchone=True)[0]
-        with suppress(TelegramBadRequest):
-            await bot.send_message(chat_id=owner2, text='[КЛАНОВАЯ ВОЙНА]\n'
-                                                        f' Война началась! Противник - «{group[0][4]}» ⚔\n'
-                                                        '➖ У Вас есть 3 часа на начальную подготовку.\n'
-                                                        '➖ Участвуйте в одиночных боях и получайте дополнительные награды! \n',
-                                   disable_web_page_preview=True)
-        with suppress(TelegramBadRequest):
-            await bot.send_message(chat_id=owner, text='[КЛАНОВАЯ ВОЙНА]\n'
-                                                       f' Война началась! Противник - «{group[1][4]}» ⚔\n'
-                                                       '➖ У Вас есть 3 часа на начальную подготовку.\n'
-                                                       '➖ Участвуйте в одиночных боях и получайте дополнительные награды! \n',
-                                   disable_web_page_preview=True)
+        settings = Settings(owner2)
+
+        if settings.clan_notifies:
+            with suppress(TelegramBadRequest, TelegramForbiddenError):
+                await bot.send_message(chat_id=owner2, text='[КЛАНОВАЯ ВОЙНА]\n'
+                                                            f' Война началась! Противник - «{group[0][4]}» ⚔\n'
+                                                            '➖ У Вас есть 3 часа на начальную подготовку.\n'
+                                                            '➖ Участвуйте в одиночных боях и получайте дополнительные награды! \n'
+                                                            '🔔 Для настройки уведомлений введите «Уведомления»\n',
+                                       reply_markup=settings_notifies_kb(owner2)
+                                       ,
+                                       disable_web_page_preview=True)
+        settings = Settings(owner)
+        if settings.clan_notifies:
+            with suppress(TelegramBadRequest, TelegramForbiddenError):
+                await bot.send_message(chat_id=owner, text='[КЛАНОВАЯ ВОЙНА]\n'
+                                                           f' Война началась! Противник - «{group[1][4]}» ⚔\n'
+                                                           '➖ У Вас есть 3 часа на начальную подготовку.\n'
+                                                           '➖ Участвуйте в одиночных боях и получайте дополнительные награды! \n'
+                                                           '🔔 Для настройки уведомлений введите «Уведомления»\n',
+                                       reply_markup=settings_notifies_kb(owner),
+                                       disable_web_page_preview=True)
 
 
 async def clanwars_check():
@@ -569,31 +581,38 @@ async def clanwars_check():
             user_ids = sql.execute(query=f'SELECT user_id FROM ClanUsers WHERE clan_id={clan_id_first}', commit=False,
                                    fetch=True)
             for user in user_ids:
-                count_user = get_item_count(5, user['user_id'])
-                set_item_count(5, user['user_id'], count_user + 1 if count_user else 1)
-
-                with suppress(TelegramBadRequest, TelegramForbiddenError):
-                    await bot.send_message(user[0], text='⚔️[КЛАНОВАЯ ВОЙНА] Результаты:\n'
-                                                         f'🏅 Поздравляю с победой над кланом {name_first}!\n'
-                                                         '🎁 Выигрышные призы:\n'
-                                                         '🔥 Рейтинг клана: +5.000 ед.\n'
-                                                         '💰 Валюта: 150.000.000$\n'
-                                                         '👑 Рейтинг: +500 ед.\n'
-                                                         '🥇 Выигрышный кейс (1x)\n')
+                count_user = get_item_count(5, user[0])
+                set_item_count(5, user[0], count_user + 1 if count_user else 1)
+                settings = Settings(user[0])
+                if settings.clan_notifies:
+                    with suppress(TelegramBadRequest, TelegramForbiddenError):
+                        await bot.send_message(user[0], text='⚔️[КЛАНОВАЯ ВОЙНА] Результаты:\n'
+                                                             f'🏅 Поздравляю с победой над кланом {name_first}!\n'
+                                                             '🎁 Выигрышные призы:\n'
+                                                             '🔥 Рейтинг клана: +5.000 ед.\n'
+                                                             '💰 Валюта: 150.000.000$\n'
+                                                             '👑 Рейтинг: +500 ед.\n'
+                                                             '🥇 Выигрышный кейс (1x)\n\n'
+                                                             '🔔 Для настройки уведомлений введите «Уведомления»\n',
+                                               reply_markup=settings_notifies_kb(user[0]))
                 await asyncio.sleep(0.5)
             user_ids2 = sql.execute(query=f'SELECT user_id FROM ClanUsers WHERE clan_id={clan_id_second}', commit=False,
                                     fetch=True)
             for user in user_ids2:
-                count_user = get_item_count(6, user['user_id'])
-                set_item_count(6, user['user_id'], count_user + 1 if count_user else 1)
-                with suppress(TelegramBadRequest, TelegramForbiddenError):
-                    await bot.send_message(user[0], text='⚔️[КЛАНОВАЯ ВОЙНА] Результаты:\n'
-                                                         '▶️ К сожалению, Ваш клан проиграл в этой войне!\n'
-                                                         '🎁 Утешительные призы:\n'
-                                                         '🔥 Рейтинг клана: +1.000 ед.\n'
-                                                         '💰 Валюта: 50.000.000$\n'
-                                                         '👑 Рейтинг: +100 ед.\n'
-                                                         '🥈 Утешительный кейс (1x)\n')
+                count_user = get_item_count(6, user[0])
+                set_item_count(6, user[0], count_user + 1 if count_user else 1)
+                settings = Settings(user[0])
+                if settings.clan_notifies:
+                    with suppress(TelegramBadRequest, TelegramForbiddenError):
+                        await bot.send_message(user[0], text='⚔️[КЛАНОВАЯ ВОЙНА] Результаты:\n'
+                                                             '▶️ К сожалению, Ваш клан проиграл в этой войне!\n'
+                                                             '🎁 Утешительные призы:\n'
+                                                             '🔥 Рейтинг клана: +1.000 ед.\n'
+                                                             '💰 Валюта: 50.000.000$\n'
+                                                             '👑 Рейтинг: +100 ед.\n'
+                                                             '🥈 Утешительный кейс (1x)\n\n'
+                                                             '🔔 Для настройки уведомлений введите «Уведомления»\n',
+                                               reply_markup=settings_notifies_kb(user[0]))
                 await asyncio.sleep(0.5)
 
         elif rating_first < rating_second:
@@ -616,28 +635,36 @@ async def clanwars_check():
             for user in user_ids:
                 count_user = get_item_count(5, user['user_id'])
                 set_item_count(5, user['user_id'], count_user + 1 if count_user else 1)
-                with suppress(TelegramBadRequest, TelegramForbiddenError):
-                    await bot.send_message(user['user_id'], text='⚔️[КЛАНОВАЯ ВОЙНА] Результаты:\n'
-                                                                 f'🏅 Поздравляю с победой над кланом {name_first}!\n'
-                                                                 '🎁 Выигрышные призы:\n'
-                                                                 '🔥 Рейтинг клана: +5.000 ед.\n'
-                                                                 '💰 Валюта: 150.000.000$\n'
-                                                                 '👑 Рейтинг: +500 ед\n.'
-                                                                 '🥇 Выигрышный кейс (1x)\n')
+                settings = Settings(user['user_id'])
+                if settings.clan_notifies:
+                    with suppress(TelegramBadRequest, TelegramForbiddenError):
+                        await bot.send_message(user['user_id'], text='⚔️[КЛАНОВАЯ ВОЙНА] Результаты:\n'
+                                                                     f'🏅 Поздравляю с победой над кланом {name_first}!\n'
+                                                                     '🎁 Выигрышные призы:\n'
+                                                                     '🔥 Рейтинг клана: +5.000 ед.\n'
+                                                                     '💰 Валюта: 150.000.000$\n'
+                                                                     '👑 Рейтинг: +500 ед\n.'
+                                                                     '🥇 Выигрышный кейс (1x)\n\n'
+                                                                     '🔔 Для настройки уведомлений введите «Уведомления»\n',
+                                               reply_markup=settings_notifies_kb(user['user_id']))
                 await asyncio.sleep(0.5)
             user_ids2 = sql.execute(query=f'SELECT user_id FROM ClanUsers WHERE clan_id={clan_id_first}', commit=False,
                                     fetch=True)
             for user in user_ids2:
                 count_user = get_item_count(6, user['user_id'])
                 set_item_count(6, user['user_id'], count_user + 1 if count_user else 1)
-                with suppress(TelegramBadRequest, TelegramForbiddenError):
-                    await bot.send_message(user['user_id'], text='⚔️[КЛАНОВАЯ ВОЙНА] Результаты:\n'
-                                                                 '▶️ К сожалению, Ваш клан проиграл в этой войне!\n'
-                                                                 '🎁 Утешительные призы:\n'
-                                                                 '🔥 Рейтинг клана: +1.000 ед.\n'
-                                                                 '💰 Валюта: 50.000.000$\n'
-                                                                 '👑 Рейтинг: +100 ед.\n'
-                                                                 '🥈 Утешительный кейс (1x)\n')
+                settings = Settings(user['user_id'])
+                if settings.clan_notifies:
+                    with suppress(TelegramBadRequest, TelegramForbiddenError):
+                        await bot.send_message(user['user_id'], text='⚔️[КЛАНОВАЯ ВОЙНА] Результаты:\n'
+                                                                     '▶️ К сожалению, Ваш клан проиграл в этой войне!\n'
+                                                                     '🎁 Утешительные призы:\n'
+                                                                     '🔥 Рейтинг клана: +1.000 ед.\n'
+                                                                     '💰 Валюта: 50.000.000$\n'
+                                                                     '👑 Рейтинг: +100 ед.\n'
+                                                                     '🥈 Утешительный кейс (1x)\n\n'
+                                                                     '🔔 Для настройки уведомлений введите «Уведомления»\n',
+                                               reply_markup=settings_notifies_kb(user['user_id']))
                 await asyncio.sleep(0.5)
 
 
@@ -647,9 +674,13 @@ async def clanwars_check():
                 commit=False,
                 fetch=True)
             for user in user_ids:
-                with suppress(TelegramBadRequest, TelegramForbiddenError):
-                    await bot.send_message(user[0], text='⚔️[КЛАНОВАЯ ВОЙНА] Результаты:\n'
-                                                         '🟰 Ничья Кланы равны по силе !\n')
+                settings = Settings(user[0])
+                if settings.clan_notifies:
+                    with suppress(TelegramBadRequest, TelegramForbiddenError):
+                        await bot.send_message(user[0], text='⚔️[КЛАНОВАЯ ВОЙНА] Результаты:\n'
+                                                             '🟰 Ничья Кланы равны по силе !\n\n'
+                                                             '🔔 Для настройки уведомлений введите «Уведомления»\n',
+                                               reply_markup=settings_notifies_kb(user[0]))
                 await asyncio.sleep(0.5)
 
         sql.execute(f"DELETE FROM WarParticipants WHERE clan_id = {clan_id_first} or clan_id={clan_id_second};"
@@ -700,7 +731,9 @@ async def clanrob_check():
             with suppress(TelegramBadRequest, TelegramForbiddenError):
                 await bot.send_message(user['user_id'], text='[КЛАНОВОЕ ОГРАБЛЕНИЕ]\n'
                                                              '💰 Ограбление «Магазин» завершено!\n'
-                                                             f'💸 Вы заработали {to_str(round(balance / count))}')
+                                                             f'💸 Вы заработали {to_str(round(balance / count))}'
+                                                             '🔔 Для настройки уведомлений введите «Уведомления»\n',
+                                       reply_markup=settings_notifies_kb(user['user_id']))
                 result = QuestUser(user_id=user['user_id']).update_progres(quest_ids=[16, 17],
                                                                            add_to_progresses=[1,
                                                                                               round(balance / count)])

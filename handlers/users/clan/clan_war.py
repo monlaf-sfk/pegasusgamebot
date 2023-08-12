@@ -7,7 +7,7 @@ import time
 
 import numpy as np
 from aiogram import flags, Router, F, Bot
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.types import Message, CallbackQuery
 
 from config import bot_name
@@ -91,7 +91,7 @@ async def clan_handler(message: Message, bot: Bot):
             for user_id in clanusers:
                 settings = Settings(user_id[0])
                 if settings.clan_notifies:
-                    with suppress(TelegramBadRequest):
+                    with suppress(TelegramBadRequest, TelegramForbiddenError):
                         await bot.send_message(chat_id=user_id[0], text=f"[КЛАН]\n"
                                                                         f'▶️ Игрок «{user.link}» начал клановую войну!\n"'
                                                                         '🔕 Для настройки уведомлений введите «Уведомления»')

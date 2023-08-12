@@ -6,7 +6,7 @@ from contextlib import suppress
 from datetime import datetime
 
 from aiogram import flags
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.filters.callback_data import CallbackData
 
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -61,7 +61,7 @@ async def marries_request_handler(message: Message):
                 , commit=True)
             settings = Settings(result[arg][1])
             if settings.marry_notifies:
-                with suppress(TelegramBadRequest):
+                with suppress(TelegramBadRequest, TelegramForbiddenError):
                     await bot.send_message(chat_id=result[arg][1],
                                            text=f'[БРАК]\n'
                                                 f'▶️ Игрок  {user.link} принял Ваше предложение руки и сердца! 👍🏻\n'
@@ -161,7 +161,7 @@ async def marry_handler(message: Message):
                         , commit=True)
                     settings = Settings(user2.id)
                     if settings.marry_notifies:
-                        with suppress(TelegramBadRequest):
+                        with suppress(TelegramBadRequest, TelegramForbiddenError):
                             await bot.send_message(chat_id=user2.id,
                                                    text=f'[БРАК]\n'
                                                         f'▶️ Игрок  {user.link} принял Ваше предложение руки и сердца! 👍🏻\n'
@@ -185,7 +185,7 @@ async def marry_handler(message: Message):
                 sql.commit()
                 settings = Settings(user2.id)
                 if settings.marry_notifies:
-                    with suppress(TelegramBadRequest):
+                    with suppress(TelegramBadRequest, TelegramForbiddenError):
                         await bot.send_message(chat_id=user2.id,
                                                text=f'[БРАК]\n'
                                                     f'💞 Игрок {user1.link} сделал(a) Вам предложение руки и сердца! \n'
@@ -235,9 +235,11 @@ async def marry_handler(message: Message):
             await message.reply(f'✅ Вы успешно сняли {to_str(summ)} с бюджета семьи!')
             settings = Settings(marry.user2 if message.from_user.id == marry.user1 else marry.user1)
             if settings.marry_notifies:
-                with suppress(TelegramBadRequest):
+                with suppress(TelegramBadRequest, TelegramForbiddenError):
                     await bot.send_message(settings.user_id,
-                                           f'[БРАК]\n❕ {user.link} снял с брака {to_str(summ)}',
+                                           f'[БРАК]\n❕ {user.link} снял с брака {to_str(summ)}\n'
+                                           '🔔 Для настройки уведомлений введите «Уведомления»\n',
+                                           reply_markup=settings_notifies_kb(settings.user_id),
                                            disable_web_page_preview=True)
             return
         elif arg[0].lower() in ['положить', 'вложить', 'пополнить']:
@@ -265,9 +267,11 @@ async def marry_handler(message: Message):
 
             settings = Settings(marry.user2 if message.from_user.id == marry.user1 else marry.user1)
             if settings.marry_notifies:
-                with suppress(TelegramBadRequest):
+                with suppress(TelegramBadRequest, TelegramForbiddenError):
                     await bot.send_message(settings.user_id,
-                                           f'[БРАК]\n❕ {user.link} пополнил брак на {to_str(summ)}',
+                                           f'[БРАК]\n❕ {user.link} пополнил брак на {to_str(summ)}\n'
+                                           '🔔 Для настройки уведомлений введите «Уведомления»\n',
+                                           reply_markup=settings_notifies_kb(settings.user_id),
                                            disable_web_page_preview=True)
             return
         elif arg[0].lower() in ['награда', 'вознаграждение', 'награждение']:
@@ -368,7 +372,7 @@ async def marry_call_handler(call: CallbackQuery, callback_data: MarryRequest):
             , commit=True)
         settings = Settings(callback_data.from_whom)
         if settings.marry_notifies:
-            with suppress(TelegramBadRequest):
+            with suppress(TelegramBadRequest, TelegramForbiddenError):
                 await bot.send_message(chat_id=callback_data.from_whom,
                                        text=f'[БРАК]\n'
                                             f'▶️ Игрок  {user.link} принял Ваше предложение руки и сердца! 👍🏻\n'
@@ -395,7 +399,7 @@ async def marry_divorce_handler(call: CallbackQuery):
     except:
         marry = None
     if marry is None:
-        with suppress(TelegramBadRequest):
+        with suppress(TelegramBadRequest, TelegramForbiddenError):
             call.message.edit_text('❌ У вас нет семьи :(')
         return
     with suppress(TelegramBadRequest):
@@ -409,7 +413,7 @@ async def marry_divorce_handler(call: CallbackQuery):
         marry.delete()
     settings = Settings(user2.id)
     if settings.marry_notifies:
-        with suppress(TelegramBadRequest):
+        with suppress(TelegramBadRequest, TelegramForbiddenError):
             await bot.send_message(chat_id=user2.id,
                                    text=f'[БРАК]\n'
                                         f'💔 Ваша (жена\муж) «{user1.link}» решил(а) развестись с Вами ☹\n'

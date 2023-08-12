@@ -3,7 +3,7 @@ from contextlib import suppress
 from datetime import timedelta, datetime
 
 from aiogram import flags, Router, F, Bot
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.types import Message
 
 from utils.main.cash import to_str
@@ -179,7 +179,7 @@ async def clan_rob_handler(message: Message, bot: Bot):
         for user_id in clanusers:
             settings = Settings(user_id[0])
             if settings.clan_notifies:
-                with suppress(TelegramBadRequest):
+                with suppress(TelegramBadRequest, TelegramForbiddenError):
                     await bot.send_message(chat_id=user_id[0], text=f"""[КЛАН]
 ▶️Началась подготовка к ограблению! Успей принять участие!
 📃 Для участия приобретите все требуемые предметы: команда «Шоп»
@@ -237,7 +237,7 @@ async def clan_rob_handler(message: Message, bot: Bot):
         for user_id in clanusers:
             settings = Settings(user_id[0])
             if settings.clan_notifies:
-                with suppress(TelegramBadRequest):
+                with suppress(TelegramBadRequest, TelegramForbiddenError):
                     await bot.send_message(chat_id=user_id[0], text=f"""[КЛАН]
 ▶️ Подготовка к ограблению завершена! Игрок «{user.link}» начал ограбление ☺️
 

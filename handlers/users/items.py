@@ -1,9 +1,8 @@
 from contextlib import suppress
 
 from aiogram import flags, Bot
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.types import Message
-from psycopg2._json import Json
 
 from keyboard.main import inv_kb, settings_notifies_kb
 
@@ -73,7 +72,7 @@ async def item_handler(message: Message, bot: Bot):
                                 f' {item_s["emoji"]}</b> пользователю {to_user.link}', disable_web_page_preview=True)
             settings = Settings(user.id)
             if settings.pay_notifies:
-                with suppress(TelegramBadRequest):
+                with suppress(TelegramBadRequest, TelegramForbiddenError):
                     await bot.send_message(to_user.id,
                                            f'[ПЕРЕВОД]\n❕ Вам передали (<code>x{count}</code>) <b>{item_s["name"]}'
                                            f' {item_s["emoji"]}</b> от пользователя {user.link}\n'
