@@ -135,7 +135,11 @@ async def bitcoin_handler(message: Message):
             user_summ = to_usd(summ)
 
             if user_summ > xa:
-                return await message.reply(f'❌ Недостаточно денег на Балансе! Нужно: {to_str(user_summ)}')
+                text = f'❌ Недостаточно денег на руках, нужно: {to_str(user_summ)}'
+                if len(text) > 4095:
+                    return await message.reply(f'❌ Недостаточно денег на руках\n♾ Нужно: Очень много денег!',
+                                               reply_markup=show_balance_kb.as_markup())
+                return await message.reply(text)
 
             sql.executescript(f'UPDATE users SET bitcoins = bitcoins + {summ} WHERE id = {user.id};\n'
                               f'UPDATE users SET balance = balance - {user_summ} WHERE id = {message.from_user.id};',
@@ -183,7 +187,11 @@ async def videocards_handler(message: Message):
         summ = int((bitcoin.bitcoin.videoprice * count) * cc)
 
         if summ > sql.execute(f'SELECT balance FROM users WHERE id = {message.from_user.id}', False, True)[0][0]:
-            return await message.reply(f'❌ Недостаточно денег на руках, нужно: {to_str(summ)}',
+            text = f'❌ Недостаточно денег на руках, нужно: {to_str(summ)}'
+            if len(text) > 4095:
+                return await message.reply(f'❌ Недостаточно денег на руках\n♾ Нужно: Очень много денег!',
+                                           reply_markup=show_balance_kb.as_markup())
+            return await message.reply(text,
                                        reply_markup=show_balance_kb.as_markup())
         user = User(id=message.from_user.id)
         donate = 0

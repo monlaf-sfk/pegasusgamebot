@@ -244,6 +244,27 @@ def settings_action_kb(user_id, action):
     return keyboard.as_markup()
 
 
+settings_switch_kb = InlineKeyboardBuilder()
+settings_switch_kb.add(InlineKeyboardButton(text='💸 Переводы', switch_inline_query_current_chat='Увед п'))
+settings_switch_kb.add(InlineKeyboardButton(text='🏙 Города', switch_inline_query_current_chat='Увед г'))
+settings_switch_kb.add(InlineKeyboardButton(text='💞 Браки', switch_inline_query_current_chat='Увед б'))
+settings_switch_kb.add(InlineKeyboardButton(text='🛡️ Клан', switch_inline_query_current_chat='Увед к'))
+settings_switch_kb.adjust(2)
+
+settings2_switch_kb = InlineKeyboardBuilder()
+settings2_switch_kb.add(InlineKeyboardButton(text='👆 Вкл. гиперссылку', switch_inline_query_current_chat='Ник вкл'))
+settings2_switch_kb.add(InlineKeyboardButton(text='👓 Выкл. гиперссылку', switch_inline_query_current_chat='Ник выкл'))
+settings3_switch_kb = settings2_switch_kb.copy().adjust(1)
+
+settings2_switch_kb.add(
+    InlineKeyboardButton(text='🛡️ Вкл. клан в нике', switch_inline_query_current_chat='Клан тег вкл'))
+settings2_switch_kb.add(
+    InlineKeyboardButton(text='⚔ Выкл. клан в нике', switch_inline_query_current_chat='Клан тег выкл'))
+settings4_switch_kb = InlineKeyboardMarkup(
+    inline_keyboard=[[sublist] for sublist in settings2_switch_kb.export()[0][2:]])
+settings2_switch_kb.adjust(2)
+
+
 def settings_notifies_kb(user_id):
     keyboard = InlineKeyboardBuilder()
 
