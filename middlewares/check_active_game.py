@@ -69,7 +69,7 @@ class CheckActiveGameBlackMiddleware(BaseMiddleware):
 
         state = data["fsm_storage"]
 
-        user_data = await state.get_data(bot=bot, key=StorageKey(
+        user_data = await state.get_data(key=StorageKey(
             user_id=event.from_user.id,
             chat_id=event.from_user.id,
             bot_id=bot.id))
