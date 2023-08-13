@@ -45,7 +45,8 @@ async def darts_handler(message: Message):
         darts = (await message.reply_dice(emoji='🎯')).dice
 
         if darts.value in values[3]:
-
+            summ = int(summ * 2)
+            user.edit('balance', user.balance + summ - ssumm)
             await asyncio.sleep(3)
             return await message.reply(
                 f'🎯 {user.link}, Вы умножили свою ставку на (x2) и получили +{to_str(summ)} на баланс!',
