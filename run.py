@@ -282,7 +282,7 @@ async def main():
         nickname_handler, Trigger(["+ник", "+nick", "+nickname", "+name", "+никнейм"])
     )
     dp.message.register(
-        notifies_handler, Trigger(["ник вкл", "ник выкл"])
+        notifies_handler, Trigger(["ник", "ник"])
     )
 
     dp.callback_query.register(imush_user_handler, F.data.startswith("imush:"))
@@ -567,10 +567,10 @@ async def main():
     dp.callback_query.register(quest_pagination_callback, F.data.startswith("pag_quest_"))
 
     dp.message.register(
-        settings_notifies_handler, Trigger(["увед"])
+        settings_notifies_handler, Trigger(["увед", "уведомления"])
     )
     dp.message.register(
-        settings_handler, Trigger(["настройки", "уведомления"])
+        settings_handler, Trigger(["настройки"])
     )
     dp.callback_query.register(settings_handler, F.data == "settings_user")
     dp.callback_query.register(settings_callback, SettingsCallback.filter())

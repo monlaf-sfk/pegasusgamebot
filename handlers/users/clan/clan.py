@@ -14,6 +14,7 @@ from aiogram.types import Message, InlineKeyboardButton, CallbackQuery
 from keyboard.clans import member_kb, info_clan
 
 from config import bot_name
+from keyboard.main import settings2_switch_kb, settings4_switch_kb
 from utils.clan.clan import Clanuser, Clan, status_clan, level_clan
 from utils.clan.clanwar import ClanWar, ClanWarFind
 from utils.logs import writelog
@@ -95,6 +96,23 @@ async def clan_handler(message: Message):
                 except:
                     pass
                 return
+        elif len(arg) != 0 and arg[0].lower() in ['тег']:
+            if len(arg) <= 1:
+                return await message.reply(f'❌ {user.link},  Используйте Клан тег [вкл\выкл]!',
+                                           disable_web_page_preview=True,
+                                           reply_markup=settings4_switch_kb)
+            settings = Settings(user.id)
+            if arg[1].lower() == 'выкл':
+                settings.edit('nick_clanteg', False)
+                text = f'{user.link}, отображение клана в нике отключено! 👍'
+                await message.reply(text=text, disable_web_page_preview=True,
+                                    reply_markup=settings4_switch_kb)
+            if arg[1].lower() == 'вкл':
+                settings.edit('nick_clanteg', True)
+                text = f'{user.link}, теперь Ваш клан отображается в нике!'
+                await message.reply(text=text, disable_web_page_preview=True,
+                                    reply_markup=settings4_switch_kb)
+            return
         if clanuser is None:
             return await message.reply(f'❌ {user.link}, У вас нет клана :(', disable_web_page_preview=True)
         if len(arg) == 0 or arg[0].lower() in ['мой', 'моя', 'моё']:
@@ -492,20 +510,7 @@ async def clan_handler(message: Message):
             clan.edit('description', description)
             return await message.reply(
                 f'❕ {user.link}, Успешно сменили описание клана', disable_web_page_preview=True)
-        elif arg[0].lower() in ['тег']:
 
-            if len(arg) <= 1:
-                return await message.reply(f'❌ {user.link},  Используйте Клан тег [вкл\выкл]!',
-                                           disable_web_page_preview=True)
-            settings = Settings(user.id)
-            if arg[1].lower() == 'выкл':
-                settings.edit('nick_clanteg', True)
-                text = f'{user.link}, отображение клана в нике отключено! 👍'
-                await message.reply(text=text, disable_web_page_preview=True)
-            if arg[1].lower() == 'вкл':
-                settings.edit('nick_clanteg', True)
-                text = f'{user.link}, теперь Ваш клан отображается в нике!'
-                await message.reply(text=text, disable_web_page_preview=True)
         else:
             return await message.reply(f'❌ {user.link},  Используйте помощь чтобы узнать команды!',
                                        disable_web_page_preview=True)

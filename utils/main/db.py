@@ -110,7 +110,7 @@ class Lsql:
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS users(
             id NUMERIC PRIMARY KEY,
             name text ,username text ,first_name text ,reg_date text ,
-            balance NUMERIC ,bank INT,deposit NUMERIC ,
+            balance NUMERIC ,bank NUMERIC,deposit NUMERIC ,
             deposit_date NUMERIC ,bonus text ,ref NUMERIC,refs NUMERIC ,
             lock BOOLEAN ,credit NUMERIC ,credit_time NUMERIC ,energy INT ,energy_time NUMERIC,
             xp NUMERIC ,sell_count INT,level NUMERIC ,job_index NUMERIC ,job_time NUMERIC , 

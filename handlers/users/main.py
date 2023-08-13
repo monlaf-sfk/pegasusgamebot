@@ -161,13 +161,13 @@ async def start_handler(message: Message, fsm_storage: BaseStorage):
                     reply_markup=markup
                 )
 
-                await fsm_storage.set_state(bot=bot, state=ConfirmUserState.IncomerUser, key=StorageKey(
+                await fsm_storage.set_state(state=ConfirmUserState.IncomerUser, key=StorageKey(
                     user_id=message.from_user.id,
                     chat_id=message.from_user.id,
                     bot_id=bot.id))
 
                 data = {"user_id": message.from_user.id}
-                await fsm_storage.update_data(bot=bot, data=data, key=StorageKey(
+                await fsm_storage.update_data(data=data, key=StorageKey(
                     user_id=message.from_user.id,
                     chat_id=message.from_user.id,
                     bot_id=bot.id))

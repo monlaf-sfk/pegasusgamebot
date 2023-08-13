@@ -10,7 +10,8 @@ from typing import Union
 import config
 from config import bot_name
 from keyboard.main import status_kb_func, status_back_kb_func, imush_back_func, imush_kb_func, settings_kb, \
-    SettingsCallback, settings_action_kb, SettingsNotifiesCallback, SettingsNickCallback
+    SettingsCallback, settings_action_kb, SettingsNotifiesCallback, SettingsNickCallback, settings_switch_kb, \
+    settings2_switch_kb, settings3_switch_kb
 from utils.city.city import City
 from utils.clan.clan import Clanuser, Clan
 
@@ -83,13 +84,15 @@ async def nickname_handler(message: Message):
     if user.nickban:
         return await message.reply('❌ На ваш аккаунт наложено ограничение к смене ника!')
     if not args:
-        return await message.reply(f'👓 Ваш никнейм: <b>{user.name if user.name else user.first_name}</b>')
+        return await message.reply(f'👓 Ваш никнейм: <b>{user.name if user.name else user.first_name}</b>',
+                                   reply_markup=settings3_switch_kb.as_markup())
     else:
         if len(args) > 16 or len(args) < 4:
             return await message.reply('❌ Ошибка! Максимальная длина ника: 16, Минимальная: 6\n')
 
         user.edit('name', args)
-        await message.reply(f'✅ Ваш никнейм успешно изменён на: <code>{user.link}</code>')
+        await message.reply(f'✅ Ваш никнейм успешно изменён на: <code>{user.link}</code>',
+                            reply_markup=settings3_switch_kb.as_markup())
 
 
 @flags.throttling_key('default')
@@ -266,17 +269,23 @@ async def notifies_handler(message: Message):
     arg = message.text.split()[1:] if not bot_name.lower() in message.text.split()[0].lower() else message.text.split()[
                                                                                                    2:]
     settings = Settings(user.id)
-    if arg[0].lower() == 'выкл':
+
+    if len(arg) == 0:
+        text = f'🔔 Ник : {"Некликабельный ❌ " if not settings.nick_hyperlink else "Кликабельный ✅"} \n' \
+               f'➡ Используйте «+Ник <code>[новый никнейм]</code>» '
+        await message.reply(text=text, reply_markup=settings3_switch_kb.as_markup())
+    elif arg[0].lower() == 'выкл':
         settings.edit('nick_hyperlink', False)
         text = f'🔔 Ник изменён на: Некликабельный ❌'
-        await message.reply(text=text)
-    if arg[0].lower() == 'вкл':
+        await message.reply(text=text, reply_markup=settings3_switch_kb.as_markup())
+    elif arg[0].lower() == 'вкл':
         settings.edit('nick_hyperlink', True)
         text = f'🔔 Ник изменён на: Кликабельный ✅'
-        await message.reply(text=text)
+        await message.reply(text=text, reply_markup=settings3_switch_kb.as_markup())
     else:
-        text = f'🔔 Ник : {"Некликабельный ❌ " if not settings.nick_hyperlink else "Кликабельный ✅"} '
-        await message.reply(text=text)
+        text = f'🔔 Ник : {"Некликабельный ❌ " if not settings.nick_hyperlink else "Кликабельный ✅"} \n' \
+               f'➡ Используйте «+Ник <code>[новый никнейм]</code>» '
+        await message.reply(text=text, reply_markup=settings3_switch_kb.as_markup())
 
 
 @flags.throttling_key('default')
@@ -286,7 +295,6 @@ async def settings_notifies_handler(message: Message):
                                                                                                    2:]
 
     settings = Settings(user.id)
-
     if len(arg) > 0 and arg[0].lower() == 'п':
         settings.pay_notifies = settings.edit('pay_notifies', False if settings.pay_notifies else True)
     elif len(arg) > 0 and arg[0].lower() == 'г':
@@ -307,7 +315,7 @@ async def settings_notifies_handler(message: Message):
         await message.reply(text, reply_markup=settings_action_kb(user.id, 'notifies'),
                             disable_web_page_preview=True)
     else:
-        await message.reply(text,
+        await message.reply(text, reply_markup=settings_switch_kb.as_markup(),
                             disable_web_page_preview=True)
 
 
@@ -333,7 +341,8 @@ async def settings_handler(target: Union[types.Message, types.CallbackQuery]):
     if target.chat.type == "private":
         await target.reply(text=text, reply_markup=settings_kb(user.id), disable_web_page_preview=True)
     else:
-        await target.reply(text,
+        settings2_switch_kb.attach(settings_switch_kb)
+        await target.reply(text, reply_markup=settings2_switch_kb.as_markup(),
                            disable_web_page_preview=True)
 
 
