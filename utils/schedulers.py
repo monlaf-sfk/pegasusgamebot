@@ -6,6 +6,7 @@ import asyncio
 from threading import Lock
 
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
+from apscheduler.schedulers.blocking import BlockingScheduler
 from backports.zoneinfo import ZoneInfo
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from psycopg2 import Error, OperationalError
@@ -16,6 +17,7 @@ from handlers.users.clan.clan_rob import name_robs
 from keyboard.main import settings_notifies_kb
 
 from loader import bot
+from utils.backup import scheduled_backup
 from utils.bosses import bosses
 from utils.items.cases import item_case, get_item_count, set_item_count
 
@@ -797,4 +799,6 @@ shedualer.add_job(check_jobs, 'cron', minute='*', misfire_grace_time=1000)
 
 btc_change_run = shedualer.add_job(btc_change, 'cron', hour='*', misfire_grace_time=1000)
 
+shedualer.add_job(scheduled_backup, 'cron', day_of_week='tue,fri', hour=18, minute=30,
+                  misfire_grace_time=1000)
 shedualer.start()

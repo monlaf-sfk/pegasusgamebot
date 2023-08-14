@@ -63,7 +63,7 @@ from handlers.users.donate import donate_help_handler, zadonatit_handler, donate
     check_handler_crypto, crypto_info_handler, crypto_buy_handler, CryptoBot, check_handler_crystal, \
     crystal_buy_handler, crystal_info_handler, CrystalPay, payok_buy_handler, check_handler_payok, payok_info_handler
 
-from handlers.users.funny import globus_handler, chance_handler, choice_handler
+from handlers.users.funny import globus_handler, chance_handler, choice_handler, reverse_handler
 from handlers.users.games import tictactoe
 from handlers.users.games.basketball import basketball_handler
 from handlers.users.games.blackjack import blackjack, blackjack_ls
@@ -542,14 +542,18 @@ async def main():
     )
     # fun
     dp.message.register(
-        globus_handler, Trigger(["Шар"])
+        globus_handler, Trigger(["шар"])
     )
     dp.message.register(
-        chance_handler, Trigger(["Шанс"])
+        chance_handler, Trigger(["шанс"])
     )
     dp.message.register(
-        choice_handler, Trigger(["Выбери"])
+        choice_handler, Trigger(["выбери"])
     )
+    dp.message.register(
+        reverse_handler, Trigger(["переверни"])
+    )
+
     # aукцион
     dp.message.register(
         start_auction, Trigger(["аукцион"])

@@ -3,10 +3,12 @@ import re
 import time
 from contextlib import suppress
 
+import aiohttp
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Message, FSInputFile, BufferedInputFile
 from aiogram import Router, F, flags
 
+from filters.triggers import Trigger
 from handlers.admins.pyrogram import get_user_id
 
 from utils.main.db import sql, timetostr
@@ -19,6 +21,29 @@ from aiogram.filters import Command
 from utils.main.users import User
 
 router = Router()
+
+
+async def get_anek():
+    async with aiohttp.ClientSession() as session:
+        async with session.get('https://www.anekdot.ru/random/anekdot/') as response:
+            body = await response.text()
+            res = re.search(r'<div class="text">([^<]+)</div>', body, re.IGNORECASE)
+            if res:
+                anek = res.group(1).replace('&quot;', '"').replace('<br>', '\n').strip()
+                return anek
+            return None
+
+
+@router.message(Trigger(["анекдот"]))
+async def send_anek(message: Message):
+    anek = await get_anek()
+    user = User(user=message.from_user)
+    if anek:
+
+        await message.reply(f'{user.link}, анекдот:\n{anek}', disable_web_page_preview=True)
+    else:
+        await message.reply(f'{user.link}, извините, не удалось получить анекдот. Попробуйте позже.',
+                            disable_web_page_preview=True)
 
 
 @router.message(F.photo)

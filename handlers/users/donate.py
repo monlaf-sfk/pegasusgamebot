@@ -381,7 +381,7 @@ async def crystal_info_handler(call: CallbackQuery, state: FSMContext):
 
 async def crystal_buy_handler(message: Message, state: FSMContext):
     if message.chat.type != 'private':
-        return await message.reply("❌ Пополнить можно только в личные сообщения", reply_markup=check_ls_kb.as_markup())
+        return await state.clear()
     await state.clear()
     if not message.text.isdigit() or int(message.text) <= 0:
         return await message.reply('❌ Неверная сумма!')
@@ -435,7 +435,7 @@ async def crypto_info_handler(call: CallbackQuery, state: FSMContext):
 
 async def crypto_buy_handler(message: Message, state):
     if message.chat.type != 'private':
-        return await message.reply("❌ Пополнить можно только в личные сообщения", reply_markup=check_ls_kb.as_markup())
+        return await state.clear()
     await state.clear()
     if not message.text.isdigit() or int(message.text) < 10 or int(message.text) > 1000:
         return await message.reply('❌ Минимум 10 коинов = 0.1 TON , Макс. 1000 коинов')
@@ -493,7 +493,7 @@ async def payok_info_handler(call: CallbackQuery, state: FSMContext):
 
 async def payok_buy_handler(message: Message, state):
     if message.chat.type != 'private':
-        return await message.reply("❌ Пополнить можно только в личные сообщения", reply_markup=check_ls_kb.as_markup())
+        return await state.clear()
     await state.clear()
     if not message.text.isdigit() or int(message.text) < 1:
         return await message.reply('❌ Минимальная сумма оплаты = 1 рубль.')
