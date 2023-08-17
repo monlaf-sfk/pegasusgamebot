@@ -19,8 +19,6 @@ from utils.main.users import User
 def btc_iad():
     data = pd.read_csv('assets/btc.price', sep=' ', header=None, names=['Date', 'Time', 'Price'])
 
-    # Разделение даты и времени
-
     # Преобразование столбцов в нужные форматы
     data['Date'] = pd.to_datetime(data['Date'], format='%Y-%m-%d')
     data['Time'] = pd.to_datetime(data['Time'], format='%H:%M:%S').dt.time
@@ -28,7 +26,7 @@ def btc_iad():
     # Создание столбца 'Date' для временных меток
     data['Date'] = pd.to_datetime(data['Date'].astype(str) + ' ' + data['Time'].astype(str))
     end_date = data['Date'].max()
-    start_date = end_date - pd.DateOffset(weeks=1)
+    start_date = end_date - pd.DateOffset(days=5)
     filtered_data = data[(data['Date'] >= start_date) & (data['Date'] <= end_date)]
 
     # Создание графика
@@ -38,15 +36,16 @@ def btc_iad():
     # Plot the original data as scatter points
     plt.plot(filtered_data['Date'], filtered_data['Price'], marker='o', linestyle=(0, (5, 1)), color='b',
              label='Динамика цен')
-    # Smooth the curve using a moving average or another smoothing technique
-    window_size = 5  # Adjust this value for smoother or rougher curves
-    smoothed_prices = np.convolve(filtered_data['Price'], np.ones(window_size) / window_size, mode='same')
 
-    plt.plot(filtered_data['Date'], smoothed_prices, color='r', label='Сглаженная цена', linewidth=2)
+    # Smooth the curve using Exponential Moving Average (EMA)
+    window_size = 5
+    alpha = 2 / (window_size + 1)
+    ema_smoothed = filtered_data['Price'].ewm(alpha=alpha).mean()
 
-    for date, price in zip(filtered_data['Date'], filtered_data['Price']):
-        smoothed_price = smoothed_prices[np.where(filtered_data['Date'] == date)]
+    # Plot the smoothed curve
+    plt.plot(filtered_data['Date'], ema_smoothed, color='r', label='Сглаженная цена', linewidth=2)
 
+    for date, price, smoothed_price in zip(filtered_data['Date'], filtered_data['Price'], ema_smoothed):
         offset_x = pd.Timedelta(minutes=30)  # Смещение по оси X
         offset_y = 5 if price > smoothed_price else -15  # Смещение по оси Y
         annotation_text = f'{price:.0f} ↑' if price > smoothed_price else f'{price:.0f} ↓'
@@ -81,11 +80,9 @@ def btc_iad():
 async def bitcoin_handler(message: Message):
     flood = await flood_handler(message)
     if flood:
-
         arg = message.text.split()[1:] if not config.bot_name.lower() in message.text.split()[
             0].lower() else message.text.split()[2:]
-
-        if message.text.split()[0].lower() == 'курс' or arg[0].lower() in ['курс', 'биткоин', 'биткоина']:
+        if len(arg) == 0 or arg[0].lower() in ['курс', 'биткоин', 'биткоина']:
             img = btc_iad()
             text_file = BufferedInputFile(img.getvalue(), filename="fetch.png")
             return await message.reply_photo(caption='🔋 Текущий курс биткоина:\n'
@@ -94,19 +91,17 @@ async def bitcoin_handler(message: Message):
                                                      f'<b>💹 Курс меняется раз в час.</b>',
                                              photo=text_file)
 
-        # if len(arg) == 0 or arg[0].lower() not in [ 'купить']:
-        #     return await ferma_handler(message)
         user = User(id=message.from_user.id)
-        if len(arg) == 0 and arg[0].lower() not in ['продать']:
-            return await message.reply('❌ Используйте: <code>Биткоин купить (кол-во)</code>')
+        if len(arg) == 0 or arg[0].lower() not in ['продать', 'купить']:
+            return await message.reply('❌ Используйте: <code>Биткоин купить/продать (кол-во)</code>')
         elif arg[0].lower() in ['продать']:
             try:
                 if arg[1].isdigit():
                     summ = get_cash(arg[1])
                 else:
-                    return await message.reply('❌ Используйте: <code>Биткоин купить (кол-во)</code>')
+                    return await message.reply('❌ Используйте: <code>Биткоин продать (кол-во)</code>')
             except:
-                summ = user.bitcoins
+                return await message.reply('❌ Используйте: <code>Биткоин продать (кол-во)</code>')
             if summ <= 0:
                 return await message.reply('😴 Кол-во BTC меньше или равно нулю!')
             elif summ > user.bitcoins:
@@ -123,13 +118,13 @@ async def bitcoin_handler(message: Message):
             await message.reply(f'✅ Вы успешно продали биткоины на сумму: {to_str(user_summ)} !')
 
             return
-        else:
+        elif arg[0].lower() in ['купить']:
             try:
                 xa = sql.execute(f'SELECT balance FROM users WHERE id = {message.from_user.id}', False, True)[0][0]
                 summ = get_cash(arg[1]) if arg[1].lower() not in ['всё', 'все'] else int(xa / to_usd(1))
                 if summ <= 0:
                     return await message.reply('❌ Количество не может быть меньше 0')
-            except (ValueError, OverflowError):
+            except (ValueError, OverflowError, IndexError):
                 return await message.reply('❌ Используйте: <code>Биткоин купить (кол-во)</code>')
 
             user_summ = to_usd(summ)
@@ -153,9 +148,6 @@ async def bitcoin_handler(message: Message):
             # await config.set_bitcoin_price(now)
 
             return
-        # except Exception as e:
-        #     print(e)
-        #     return await message.reply('❌ Используйте: <code>Биткоин продать\купить (кол-во)</code>')
 
 
 @flags.throttling_key('default')

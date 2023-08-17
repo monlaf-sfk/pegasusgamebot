@@ -1,3 +1,4 @@
+import json
 import random
 from contextlib import suppress
 from uuid import uuid4
@@ -26,6 +27,8 @@ from keyboard.generate import show_balance_kb
 from keyboard.main import check_ls_kb
 from loader import bot
 from middlewares.check_active_game import CheckActiveGameBlackMiddleware
+from states.sqlite_state import get_user_data, set_user_data, update_data_and_state, \
+    update_data_for_group_state, delete_user_state, get_user_state_data
 
 from utils.main.cash import get_cash, to_str
 from utils.main.users import User
@@ -91,257 +94,143 @@ async def help_blackjack(message: Message):
 
 
 async def check_state(message: Message, state: FSMContext, fsm_storage: BaseStorage, bot: bot):
-    user = User(id=message.from_user.id if message.from_user.id else message.from_user.id)
+    user_id = message.from_user.id
+    user = User(id=user_id)
+    if isinstance(message, CallbackQuery):
+        message = message.message
+
     smile = ['♠', '🃏', '♣', '♥', '♦', '🎴']
     rsmile = random.choice(smile)
-    if isinstance(message, CallbackQuery):
-        state_get = await fsm_storage.get_state(key=StorageKey(
-            user_id=message.from_user.id,
-            chat_id=message.from_user.id,
-            bot_id=bot.id))
-        if state_get == 'BlackjackGame:waiting_for_action':
-            user_data = await fsm_storage.get_data(key=StorageKey(
-                user_id=message.from_user.id,
-                chat_id=message.from_user.id,
-                bot_id=bot.id))
-            game_id = user_data.get("game_id")
-            player_hand = user_data.get("player_hand")
-            player_hand2 = user_data.get("player_hand2")
-            dealer_hand = user_data.get("dealer_hand")
 
-            if player_hand2:
-                text_player = f'➖ 1-я рука - (Текущая): \n{await get_numerate_cards(player_hand)}'
-                text_player2 = f'➖ 2-я рука: \n{await get_numerate_cards(player_hand2)}'
-                text_dil = f'{await get_numerate_cards(dealer_hand)}'
+    def get_text_player_hand(player_hand):
+        return '\n'.join([f'  {numbers_emoji[i]} {card}' for i, card in enumerate(player_hand, start=1)])
 
-                await message.message.edit_text(
-                    f"{rsmile} {user.link}, Нажмите на кнопки для продолжения:"
-                    f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
-                    f"{text_player}"
-                    f"{text_player2}"
-                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                    f"\n{text_dil}"
-                    ,
-                    reply_markup=game_blackjack_kb(game_id, user.id, split=True),
-                    disable_web_page_preview=True)
-                return
-            else:
-                kb = game_blackjack_kb(game_id, user.id, player_hand, dealer_hand) if get_card_value(
-                    player_hand[0]) != get_card_value(
-                    player_hand[1]) else game_blackjacksplit_kb(game_id, user.id, dealer_hand)
+    def get_text_dealer_hand(dealer_hand):
+        return f"  1️⃣ {dealer_hand[0]}"
 
-                text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
-                text_dil = f'{await get_numerate_cards(dealer_hand)}'
-                await message.message.edit_text(
-                    f"{rsmile} {user.link}, Нажмите на кнопки для продолжения:"
-                    f"\n🎫 Ваша руки: {get_hand_value(player_hand)}\n"
-                    f"{text_player}"
-                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                    f"\n{text_dil}"
-                    ,
-                    reply_markup=kb,
-                    disable_web_page_preview=True)
-                return
-        if state_get == 'BlackjackGame:waiting_for_action2':
-            user_data = await fsm_storage.get_data(key=StorageKey(
-                user_id=message.from_user.id,
-                chat_id=message.from_user.id,
-                bot_id=bot.id))
-            game_id = user_data.get("game_id")
-            player_hand = user_data.get("player_hand")
-            player_hand2 = user_data.get("player_hand2")
-            dealer_hand = user_data.get("dealer_hand")
+    state_key = StorageKey(user_id=user_id, chat_id=user_id, bot_id=bot.id)
+    state_get = await fsm_storage.get_state(key=state_key)
+    user_data = await fsm_storage.get_data(key=state_key)
 
-            if player_hand2:
-                text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
-                text_player2 = f'➖ 2-я рука - (Текущая): \n{await get_numerate_cards(player_hand2)}'
-                text_dil = f'{await get_numerate_cards(dealer_hand)}'
+    game_id = user_data.get("game_id")
+    player_hand = user_data.get("player_hand")
+    player_hand2 = user_data.get("player_hand2")
+    dealer_hand = user_data.get("dealer_hand")
 
-                await message.message.edit_text(
-                    f"{rsmile} {user.link}, Нажмите на кнопки для продолжения:"
-                    f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
-                    f"{text_player}"
-                    f"{text_player2}"
-                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                    f"\n{text_dil}"
-                    ,
-                    reply_markup=game_blackjack_kb(game_id, user.id, split=True),
-                    disable_web_page_preview=True)
-                return
-            else:
-                kb = game_blackjack_kb(game_id, user.id, player_hand, dealer_hand) if get_card_value(
-                    player_hand[0]) != get_card_value(
-                    player_hand[1]) else game_blackjacksplit_kb(game_id, user.id, dealer_hand)
+    text_player = get_text_player_hand(player_hand)
 
-                text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
-                text_dil = f'{await get_numerate_cards(dealer_hand)}'
-                await message.message.edit_text(
-                    f"{user.link}, Нажмите на кнопки для продолжения:"
-                    f"\n🎫 Ваша руки: {get_hand_value(player_hand)}\n"
-                    f"{text_player}"
-                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                    f"\n{text_dil}"
-                    ,
-                    reply_markup=kb,
-                    disable_web_page_preview=True)
-                return
-        if state_get == 'BlackjackGame:waiting_for_action3':
-
-            user_data = await fsm_storage.get_data(key=StorageKey(
-                user_id=message.from_user.id,
-                chat_id=message.from_user.id,
-                bot_id=bot.id))
-            game_id = user_data.get("game_id")
-            player_hand = user_data.get("player_hand")
-            dealer_hand = user_data.get("dealer_hand")
-            text_player = '➖ 1-я рука:\n'
-            for index, cards in enumerate(player_hand, start=1):
-                emoji = ''.join(numbers_emoji[int(i)] for i in str(index))
-                text_player += f'  {emoji} {cards}\n'
-            with suppress(TelegramBadRequest):
-                await message.message.edit_text(
-                    f"{rsmile} {user.link}, Нажмите на кнопки для продолжения:"
-                    f"\n🎫 Ваша руки: {get_hand_value(player_hand)}\n"
-                    f"{text_player}"
-                    f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                    f"\n 1️⃣ {dealer_hand[0]}"
-                    ,
-                    reply_markup=game_blackjack_insurance_kb(game_id, message.from_user.id),
-                    disable_web_page_preview=True)
-            return
-    state_get = await fsm_storage.get_state(key=StorageKey(
-        user_id=message.from_user.id,
-        chat_id=message.from_user.id,
-        bot_id=bot.id))
-
-    if state_get == 'BlackjackGame:waiting_for_action':
-        user_data = await fsm_storage.get_data(key=StorageKey(
-            user_id=message.from_user.id,
-            chat_id=message.from_user.id,
-            bot_id=bot.id))
-
-        game_id = user_data.get("game_id")
-        player_hand = user_data.get("player_hand")
-        player_hand2 = user_data.get("player_hand2")
-        dealer_hand = user_data.get("dealer_hand")
-
-        if player_hand2:
-            text_player = f'➖ 1-я рука - (Текущая): \n{await get_numerate_cards(player_hand)}'
-            text_player2 = f'➖ 2-я рука: \n{await get_numerate_cards(player_hand2)}'
-            text_dil = f'{await get_numerate_cards(dealer_hand)}'
-
-            await message.reply(
-                f"{rsmile} {user.link}, Нажмите на кнопки для продолжения:"
-                f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
-                f"{text_player}"
-                f"{text_player2}"
-                f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                f"\n{text_dil}"
-                ,
-                reply_markup=game_blackjack_kb(game_id, user.id, split=True),
-                disable_web_page_preview=True)
-            return
-        else:
-            kb = game_blackjack_kb(game_id, user.id, player_hand, dealer_hand) if get_card_value(
-                player_hand[0]) != get_card_value(
-                player_hand[1]) else game_blackjacksplit_kb(game_id, user.id, dealer_hand)
-
-            text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
-
-            text_dil = f'{await get_numerate_cards(dealer_hand)}'
-            await message.reply(
-                f"{rsmile} {user.link}, Нажмите на кнопки для продолжения:"
-                f"\n🎫 Ваша руки: {get_hand_value(player_hand)}\n"
-                f"{text_player}"
-                f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                f"\n{text_dil}"
-                ,
-                reply_markup=kb,
-                disable_web_page_preview=True)
-            return
     if state_get == 'BlackjackGame:waiting_for_action2':
-        user_data = await fsm_storage.get_data(key=StorageKey(
-            user_id=message.from_user.id,
-            chat_id=message.from_user.id,
-            bot_id=bot.id))
-        game_id = user_data.get("game_id")
-        player_hand = user_data.get("player_hand")
-        player_hand2 = user_data.get("player_hand2")
-        dealer_hand = user_data.get("dealer_hand")
+        text_player2 = get_text_player_hand(player_hand2)
+        text_dil = get_text_dealer_hand(dealer_hand)
 
         if player_hand2:
-            text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
-            text_player2 = f'➖ 2-я рука - (Текущая): \n{await get_numerate_cards(player_hand2)}'
-            text_dil = f'{await get_numerate_cards(dealer_hand)}'
+            text_player = f'➖ 1-я рука:\n{text_player}'
+            text_player2 = f'➖ 2-я рука - (Текущая):\n{text_player2}'
 
             await message.reply(
                 f"{rsmile} {user.link}, Нажмите на кнопки для продолжения:"
                 f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
-                f"{text_player}"
-                f"{text_player2}"
-                f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                f"\n{text_dil}"
-                ,
-                reply_markup=game_blackjack_kb(game_id, user.id, split=True),
-                disable_web_page_preview=True)
-            return
+                f"{text_player}\n{text_player2}"
+                f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                f"\n{text_dil}",
+                reply_markup=game_blackjack_kb(game_id, user_id, split=True),
+                disable_web_page_preview=True
+            )
         else:
-            kb = game_blackjack_kb(game_id, user.id, player_hand, dealer_hand) if get_card_value(
-                player_hand[0]) != get_card_value(
-                player_hand[1]) else game_blackjacksplit_kb(game_id, user.id, dealer_hand)
+            kb = game_blackjack_kb(game_id, user_id, player_hand, dealer_hand) if get_card_value(
+                player_hand[0]) != get_card_value(player_hand[1]) else game_blackjacksplit_kb(game_id, user_id,
+                                                                                              dealer_hand)
 
-            text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
-            text_dil = f'{await get_numerate_cards(dealer_hand)}'
+            text_dil = get_text_dealer_hand(dealer_hand)
+
             await message.reply(
                 f"{rsmile} {user.link}, Нажмите на кнопки для продолжения:"
-                f"\n🎫 Ваша руки: {get_hand_value(player_hand)}\n"
-                f"{text_player}"
-                f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                f"\n{text_dil}"
-                ,
+                f"\n🎫 Ваша руки: {get_hand_value(player_hand)}\n{text_player}"
+                f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                f"\n{text_dil}",
                 reply_markup=kb,
-                disable_web_page_preview=True)
-            return
-    if state_get == 'BlackjackGame:waiting_for_action3':
-        user_data = await fsm_storage.get_data(key=StorageKey(
-            user_id=message.from_user.id,
-            chat_id=message.from_user.id,
-            bot_id=bot.id))
-        game_id = user_data.get("game_id")
-        player_hand = user_data.get("player_hand")
-        dealer_hand = user_data.get("dealer_hand")
-        text_player = '➖ 1-я рука:\n'
-        for index, cards in enumerate(player_hand, start=1):
-            emoji = ''.join(numbers_emoji[int(i)] for i in str(index))
-            text_player += f'  {emoji} {cards}\n'
+                disable_web_page_preview=True
+            )
+
+    elif state_get == 'BlackjackGame:waiting_for_action3':
+        text_player = get_text_player_hand(player_hand)
+        text_dil = get_text_dealer_hand(dealer_hand)
+
         with suppress(TelegramBadRequest):
             await message.reply(
                 f"{rsmile} {user.link}, Нажмите на кнопки для продолжения:"
-                f"\n🎫 Ваша руки: {get_hand_value(player_hand)}\n"
-                f"{text_player}"
-                f"🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                f"\n 1️⃣ {dealer_hand[0]}"
-                ,
-                reply_markup=game_blackjack_insurance_kb(game_id, message.from_user.id),
-                disable_web_page_preview=True)
-        return
+                f"\n🎫 Ваша руки: {get_hand_value(player_hand)}\n{text_player}"
+                f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                f"\n{text_dil}",
+                reply_markup=game_blackjack_insurance_kb(game_id, user_id),
+                disable_web_page_preview=True
+            )
+
+    else:
+        if player_hand2:
+            text_player2 = get_text_player_hand(player_hand2)
+            text_dil = get_text_dealer_hand(dealer_hand)
+
+            await message.reply(
+                f"{rsmile} {user.link}, Нажмите на кнопки для продолжения:"
+                f"\n🎫 Ваша руки: {get_hand_value(player_hand)} & {get_hand_value(player_hand2)}\n"
+                f"{text_player}\n{text_player2}"
+                f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                f"\n{text_dil}",
+                reply_markup=game_blackjack_kb(game_id, user_id, split=True),
+                disable_web_page_preview=True
+            )
+        else:
+            kb = game_blackjack_kb(game_id, user_id, player_hand, dealer_hand) if get_card_value(
+                player_hand[0]) != get_card_value(player_hand[1]) else game_blackjacksplit_kb(game_id, user_id,
+                                                                                              dealer_hand)
+
+            text_dil = get_text_dealer_hand(dealer_hand)
+
+            await message.reply(
+                f"{rsmile} {user.link}, Нажмите на кнопки для продолжения:"
+                f"\n🎫 Ваша руки: {get_hand_value(player_hand)}\n{text_player}"
+                f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                f"\n{text_dil}",
+                reply_markup=kb,
+                disable_web_page_preview=True
+            )
 
 
 @router.message(Trigger(["блэкджек", "бд"]))
 async def start_blackjack(message: Message, state: FSMContext, bot: bot, fsm_storage: BaseStorage):
     flood2 = await flood_handler2(message)
     flood = await flood_handler(message)
+
     if flood and flood2:
-        state_get = await fsm_storage.get_state(key=StorageKey(
-            user_id=message.from_user.id,
-            chat_id=message.from_user.id,
-            bot_id=bot.id))
-        if state_get == 'BlackjackGame:waiting_for_action':
-            return await check_state(message, state, fsm_storage, bot)
-        if state_get == 'BlackjackGame:waiting_for_action2':
-            return await check_state(message, state, fsm_storage, bot)
-        if state_get == 'BlackjackGame:waiting_for_action3':
-            return await check_state(message, state, fsm_storage, bot)
+        state_db = await get_user_state_data(message.from_user.id, 'BlackjackGame')
+
+        if not state_db:
+            state_get = await fsm_storage.get_state(
+                key=StorageKey(user_id=message.from_user.id, chat_id=message.from_user.id, bot_id=bot.id))
+
+            if state_get in ['BlackjackGame:waiting_for_action', 'BlackjackGame:waiting_for_action2',
+                             'BlackjackGame:waiting_for_action3']:
+                return await check_state(message, state_get, fsm_storage, bot)
+        else:
+
+            await fsm_storage.set_data(data=state_db["data"],
+                                       key=StorageKey(user_id=message.from_user.id, chat_id=message.from_user.id,
+                                                      bot_id=bot.id))
+
+            state_mapping = {
+                'waiting_for_action': BlackjackGame.waiting_for_action,
+                'waiting_for_action2': BlackjackGame.waiting_for_action2,
+                'waiting_for_action3': BlackjackGame.waiting_for_action3
+            }
+
+            state_key = state_mapping.get(state_db["state"])
+            if state_key:
+                await fsm_storage.set_state(state=state_key,
+                                            key=StorageKey(user_id=message.from_user.id, chat_id=message.from_user.id,
+                                                           bot_id=bot.id))
+                return await check_state(message, f'BlackjackGame.{state_key}', fsm_storage, bot)
+
         arg = message.text.split()[1:] if not bot_name.lower() in message.text.split()[
             0].lower() else message.text.split()[2:]
         user = User(user=message.from_user)
@@ -351,24 +240,27 @@ async def start_blackjack(message: Message, state: FSMContext, bot: bot, fsm_sto
             summ5 = 0
         smile = ['♠', '🃏', '♣', '♥', '♦', '🎴']
         rsmile = random.choice(smile)
+
         if len(arg) == 0:
             return await message.answer(
                 f"{rsmile} для начала игры в «БлэкДжек», введите сумму ставки: «Бд [сумма]» (минимальная ставка: 10$) "
                 f"\n❓ Помощь: «Помощь блэкджек»",
-                reply_markup=newgame_black_kb(message.from_user.id, summ5))
+                reply_markup=newgame_black_kb(message.from_user.id, summ5)
+            )
+
         if summ5 <= 10:
-            return await message.reply('❌ Ставка должна быть больше 10$',
-                                       reply_markup=show_balance_kb.as_markup())
+            return await message.reply('❌ Ставка должна быть больше 10$', reply_markup=show_balance_kb.as_markup())
+
         if user.balance < summ5:
             return await message.reply('❌ Ошибка. Недостаточно денег на руках для ставки! 💸',
                                        reply_markup=show_balance_kb.as_markup())
 
         game_id = str(uuid4())
         newgame_dict = {"game_id": game_id}
-        await fsm_storage.set_data(data=newgame_dict, key=StorageKey(
-            user_id=message.from_user.id,
-            chat_id=message.from_user.id,
-            bot_id=bot.id))
+        await fsm_storage.set_data(data=newgame_dict,
+                                   key=StorageKey(user_id=message.from_user.id, chat_id=message.from_user.id,
+                                                  bot_id=bot.id))
+
         deck = create_deck()
         player_hand = [deck.pop(), deck.pop()]
         dealer_hand = [deck.pop()]
@@ -379,62 +271,104 @@ async def start_blackjack(message: Message, state: FSMContext, bot: bot, fsm_sto
             summ = int(summ5 * 2.5)
 
             with suppress(TelegramBadRequest):
-                await message.reply(f"{rsmile} {user.link},БЛЭКДЖЭК! Вы выиграли!:"
-                                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
-                                    f"\n➖ 1-я рука:"
-                                    f"\n 1️⃣ {player_hand[0]}"
-                                    f"\n 2️⃣ {player_hand[1]}"
-                                    f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                                    f"\n 1️⃣ {dealer_hand[0]}\n"
-                                    f"получили +{to_str(summ - ssumm)} на баланс!",
-                                    reply_markup=replay_game_black_kb(message.from_user.id,
-                                                                      summ5), disable_web_page_preview=True)
+                await message.reply(
+                    f"{rsmile} {user.link},БЛЭКДЖЭК! Вы выиграли!:"
+                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
+                    f"\n➖ 1-я рука:"
+                    f"\n 1️⃣ {player_hand[0]}"
+                    f"\n 2️⃣ {player_hand[1]}"
+                    f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                    f"\n 1️⃣ {dealer_hand[0]}\n"
+                    f"получили +{to_str(summ - ssumm)} на баланс!",
+                    reply_markup=replay_game_black_kb(message.from_user.id, summ5),
+                    disable_web_page_preview=True
+                )
                 user.edit('balance', user.balance + summ - ssumm)
                 result = QuestUser(user_id=user.id).update_progres(quest_ids=3, add_to_progresses=1)
                 if result != '':
                     await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
 
-                return await state.clear()
+                return await state.set_state(None)
 
         else:
-
             kb = game_blackjack_kb(game_id, message.from_user.id, player_hand, dealer_hand) if get_card_value(
-                player_hand[0]) != get_card_value(
-                player_hand[1]) else game_blackjacksplit_kb(game_id, message.from_user.id, dealer_hand)
+                player_hand[0]) != get_card_value(player_hand[1]) else game_blackjacksplit_kb(game_id,
+                                                                                              message.from_user.id,
+                                                                                              dealer_hand)
+
             with suppress(TelegramBadRequest):
-                await message.reply(f"{rsmile} {user.link},Новая игра началась!"
-                                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
-                                    f"\n➖ 1-я рука:"
-                                    f"\n 1️⃣ {player_hand[0]}"
-                                    f"\n 2️⃣ {player_hand[1]}"
-                                    f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
-                                    f"\n 1️⃣ {dealer_hand[0]}"
-                                    , reply_markup=kb, disable_web_page_preview=True)
-        await fsm_storage.set_state(state=BlackjackGame.waiting_for_action, key=StorageKey(
-            user_id=message.from_user.id,
-            chat_id=message.from_user.id,
-            bot_id=bot.id))
-        newgamedata_dict = {"deck": deck, 'player_hand': player_hand, 'player_hand2': player_hand2,
-                            'dealer_hand': dealer_hand, 'summ': summ5, 'user_id': user.id}
-        await fsm_storage.update_data(data=newgamedata_dict, key=StorageKey(
-            user_id=message.from_user.id,
-            chat_id=message.from_user.id,
-            bot_id=bot.id))
+                await message.reply(
+                    f"{rsmile} {user.link},Новая игра началась!"
+                    f"\n🎫 Ваша рука: {get_hand_value(player_hand)}"
+                    f"\n➖ 1-я рука:"
+                    f"\n 1️⃣ {player_hand[0]}"
+                    f"\n 2️⃣ {player_hand[1]}"
+                    f"\n🎟 Рука дилера: {get_hand_value(dealer_hand)}"
+                    f"\n 1️⃣ {dealer_hand[0]}",
+                    reply_markup=kb,
+                    disable_web_page_preview=True
+                )
+
+        await fsm_storage.set_state(state=BlackjackGame.waiting_for_action,
+                                    key=StorageKey(user_id=message.from_user.id, chat_id=message.from_user.id,
+                                                   bot_id=bot.id))
+
+        newgamedata_dict = {
+            "deck": deck, 'player_hand': player_hand, 'player_hand2': player_hand2,
+            'dealer_hand': dealer_hand, 'summ': str(summ5), 'user_id': str(user.id)
+        }
+        await fsm_storage.update_data(data=newgamedata_dict,
+                                      key=StorageKey(user_id=message.from_user.id, chat_id=message.from_user.id,
+                                                     bot_id=bot.id))
+
+        data_get = await fsm_storage.get_data(
+            key=StorageKey(user_id=message.from_user.id, chat_id=message.from_user.id, bot_id=bot.id))
+
+        if state_db:
+            await update_data_and_state(message.from_user.id, data_get, 'waiting_for_action', 'BlackjackGame')
+        else:
+            await set_user_data(message.from_user.id, 'BlackjackGame', 'waiting_for_action', data_get)
 
 
 @router.callback_query(NewGameCallbackBlackjack.filter(), flags={"need_check_game": False})
 async def new_game_blackjack(callback_query: CallbackQuery, state: FSMContext, callback_data: NewGameCallbackBlackjack,
                              fsm_storage: BaseStorage):
-    state_get = await fsm_storage.get_state(key=StorageKey(
-        user_id=callback_query.from_user.id,
-        chat_id=callback_query.from_user.id,
-        bot_id=bot.id))
-    if state_get == 'BlackjackGame:waiting_for_action':
-        return await check_state(callback_query, state, fsm_storage, bot)
-    if state_get == 'BlackjackGame:waiting_for_action2':
-        return await check_state(callback_query, state, fsm_storage, bot)
-    if state_get == 'BlackjackGame:waiting_for_action3':
-        return await check_state(callback_query, state, fsm_storage, bot)
+    state_db = await get_user_state_data(callback_query.from_user.id, 'BlackjackGame')
+
+    if not state_db:
+        state_get = await fsm_storage.get_state(key=StorageKey(
+            user_id=callback_query.from_user.id,
+            chat_id=callback_query.from_user.id,
+            bot_id=bot.id))
+
+        state_map = {
+            'BlackjackGame:waiting_for_action': 'BlackjackGame.waiting_for_action',
+            'BlackjackGame:waiting_for_action2': 'BlackjackGame.waiting_for_action2',
+            'BlackjackGame:waiting_for_action3': 'BlackjackGame.waiting_for_action3'
+        }
+
+        if state_get in state_map:
+            new_state = state_map[state_get]
+            return await check_state(callback_query, new_state, fsm_storage, bot)
+    else:
+        await fsm_storage.set_data(data=state_db["data"], key=StorageKey(
+            user_id=callback_query.from_user.id,
+            chat_id=callback_query.from_user.id,
+            bot_id=bot.id))
+
+        state_map = {
+            'waiting_for_action': BlackjackGame.waiting_for_action,
+            'waiting_for_action2': BlackjackGame.waiting_for_action2,
+            'waiting_for_action3:': BlackjackGame.waiting_for_action3
+        }
+
+        if state_db["state"] in state_map:
+            new_state = state_map[state_db["state"]]
+            await fsm_storage.set_state(state=new_state, key=StorageKey(
+                user_id=callback_query.from_user.id,
+                chat_id=callback_query.from_user.id,
+                bot_id=bot.id))
+            return await check_state(callback_query, new_state, fsm_storage, bot)
 
     deck = create_deck()
     player_hand = [deck.pop(), deck.pop()]
@@ -478,6 +412,7 @@ async def new_game_blackjack(callback_query: CallbackQuery, state: FSMContext, c
             result = QuestUser(user_id=user.id).update_progres(quest_ids=3, add_to_progresses=1)
             if result != '':
                 await callback_query.message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
+
             return await state.clear()
     else:
 
@@ -499,11 +434,21 @@ async def new_game_blackjack(callback_query: CallbackQuery, state: FSMContext, c
         chat_id=callback_query.from_user.id,
         bot_id=bot.id))
     newgamedata_dict = {"deck": deck, 'player_hand': player_hand, 'player_hand2': player_hand2,
-                        'dealer_hand': dealer_hand, 'summ': summ5, 'user_id': user.id}
-    await fsm_storage.update_data(data=newgamedata_dict, key=StorageKey(
+                        'dealer_hand': dealer_hand, 'summ': str(summ5), 'user_id': str(user.id)}
+    await fsm_storage.update_data(data=newgamedata_dict,
+                                  key=StorageKey(
+                                      user_id=callback_query.from_user.id,
+                                      chat_id=callback_query.from_user.id,
+                                      bot_id=bot.id))
+    data_get = await fsm_storage.get_data(key=StorageKey(
         user_id=callback_query.from_user.id,
         chat_id=callback_query.from_user.id,
         bot_id=bot.id))
+    if state_db:
+        await update_data_and_state(callback_query.from_user.id, data_get, 'waiting_for_action',
+                                    'BlackjackGame')
+    else:
+        await set_user_data(callback_query.from_user.id, 'BlackjackGame', 'waiting_for_action', data_get)
 
 
 @router.callback_query(GameBlackjackCallback.filter(), BlackjackGame.waiting_for_action,
@@ -514,7 +459,7 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
         user_id=callback_query.from_user.id,
         chat_id=callback_query.from_user.id,
         bot_id=bot.id))
-    summ5 = data.get("summ")
+    summ5 = int(data.get("summ"))
     deck = data.get("deck")
     player_hand = data.get("player_hand")
     player_hand2 = data.get("player_hand2")
@@ -576,14 +521,18 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
             newgamedata_dict = {"deck": deck, 'player_hand': player_hand, 'player_hand2': player_hand2,
                                 'dealer_hand': dealer_hand}
 
-            await fsm_storage.update_data(data=newgamedata_dict, key=StorageKey(
-                user_id=callback_query.from_user.id,
-                chat_id=callback_query.from_user.id,
-                bot_id=bot.id))
+            await fsm_storage.update_data(data=newgamedata_dict,
+                                          key=StorageKey(
+                                              user_id=callback_query.from_user.id,
+                                              chat_id=callback_query.from_user.id,
+                                              bot_id=bot.id))
             await fsm_storage.set_state(state=BlackjackGame.waiting_for_action, key=StorageKey(
                 user_id=callback_query.from_user.id,
                 chat_id=callback_query.from_user.id,
                 bot_id=bot.id))
+
+            await update_data_and_state(callback_query.from_user.id, newgamedata_dict, 'waiting_for_action',
+                                        'BlackjackGame')
 
         return
     if action == "hit":
@@ -629,15 +578,18 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                                                            disable_web_page_preview=True)
                     newgamedata_dict = {"deck": deck, 'player_hand': player_hand, 'player_hand2': player_hand2,
                                         'dealer_hand': dealer_hand}
-                    await fsm_storage.update_data(data=newgamedata_dict, key=StorageKey(
-                        user_id=callback_query.from_user.id,
-                        chat_id=callback_query.from_user.id,
-                        bot_id=bot.id))
+                    await fsm_storage.update_data(
+                        data=newgamedata_dict,
+                        key=StorageKey(
+                            user_id=callback_query.from_user.id,
+                            chat_id=callback_query.from_user.id,
+                            bot_id=bot.id))
                     await fsm_storage.set_state(state=BlackjackGame.waiting_for_action2, key=StorageKey(
                         user_id=callback_query.from_user.id,
                         chat_id=callback_query.from_user.id,
                         bot_id=bot.id))
-
+                    await update_data_and_state(callback_query.from_user.id, newgamedata_dict, 'waiting_for_action2',
+                                                'BlackjackGame')
                 return
             else:
                 with suppress(TelegramBadRequest):
@@ -657,15 +609,18 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
 
                     newgamedata_dict = {"deck": deck, 'player_hand': player_hand, 'player_hand2': player_hand2,
                                         'dealer_hand': dealer_hand}
-                    await fsm_storage.update_data(data=newgamedata_dict, key=StorageKey(
-                        user_id=callback_query.from_user.id,
-                        chat_id=callback_query.from_user.id,
-                        bot_id=bot.id))
+                    await fsm_storage.update_data(
+                        data=newgamedata_dict,
+                        key=StorageKey(
+                            user_id=callback_query.from_user.id,
+                            chat_id=callback_query.from_user.id,
+                            bot_id=bot.id))
                     await fsm_storage.set_state(state=BlackjackGame.waiting_for_action, key=StorageKey(
                         user_id=callback_query.from_user.id,
                         chat_id=callback_query.from_user.id,
                         bot_id=bot.id))
-
+                    await update_data_and_state(callback_query.from_user.id, newgamedata_dict, 'waiting_for_action',
+                                                'BlackjackGame')
                 return
 
         player_hand.append(deck.pop())
@@ -692,6 +647,8 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                 if result != '':
                     await callback_query.message.answer(text=result.format(user=user.link),
                                                         disable_web_page_preview=True)
+                await delete_user_state(callback_query.from_user.id, 'waiting_for_action',
+                                        'BlackjackGame')
                 await state.clear()
             return
         else:
@@ -707,11 +664,13 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                                                        disable_web_page_preview=True)
                 newgamedata_dict = {"deck": deck, 'player_hand': player_hand,
                                     'dealer_hand': dealer_hand}
-                await fsm_storage.update_data(data=newgamedata_dict, key=StorageKey(
-                    user_id=callback_query.from_user.id,
-                    chat_id=callback_query.from_user.id,
-                    bot_id=bot.id))
-
+                await fsm_storage.update_data(data=newgamedata_dict,
+                                              key=StorageKey(
+                                                  user_id=callback_query.from_user.id,
+                                                  chat_id=callback_query.from_user.id,
+                                                  bot_id=bot.id))
+                await update_data_for_group_state(callback_query.from_user.id, newgamedata_dict, 'waiting_for_action',
+                                                  'BlackjackGame')
             return
 
     if action == 'stand':
@@ -748,15 +707,18 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                                                        disable_web_page_preview=True)
                 newgamedata_dict = {"deck": deck, 'player_hand': player_hand, 'player_hand2': player_hand2,
                                     'dealer_hand': dealer_hand}
-                await fsm_storage.update_data(data=newgamedata_dict, key=StorageKey(
-                    user_id=callback_query.from_user.id,
-                    chat_id=callback_query.from_user.id,
-                    bot_id=bot.id))
+                await fsm_storage.update_data(data=newgamedata_dict,
+                                              key=StorageKey(
+                                                  user_id=callback_query.from_user.id,
+                                                  chat_id=callback_query.from_user.id,
+                                                  bot_id=bot.id))
 
                 await fsm_storage.set_state(state=BlackjackGame.waiting_for_action2, key=StorageKey(
                     user_id=callback_query.from_user.id,
                     chat_id=callback_query.from_user.id,
                     bot_id=bot.id))
+                await update_data_and_state(callback_query.from_user.id, newgamedata_dict, 'waiting_for_action2',
+                                            'BlackjackGame')
             return
         dealer_hand_value = get_hand_value(dealer_hand)
         while dealer_hand_value < 17:
@@ -770,7 +732,8 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                                                    disable_web_page_preview=True)
             if quest_result:
                 await callback_query.message.answer(quest_result, disable_web_page_preview=True)
-
+        await delete_user_state(callback_query.from_user.id, 'waiting_for_action',
+                                'BlackjackGame')
         return await state.clear()
     if action == 'double':
         text_player = f'➖ 1-я рука:\n{await get_numerate_cards(player_hand)}'
@@ -812,7 +775,8 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                                                    disable_web_page_preview=True)
             if quest_result:
                 await callback_query.message.answer(quest_result, disable_web_page_preview=True)
-
+        await delete_user_state(callback_query.from_user.id, 'waiting_for_action',
+                                'BlackjackGame')
         return await state.clear()
 
     if action == 'surrender':
@@ -842,7 +806,8 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                 reply_markup=replay_game_black_kb(callback_query.from_user.id,
                                                   summ5),
                 disable_web_page_preview=True)
-
+        await delete_user_state(callback_query.from_user.id, 'waiting_for_action',
+                                'BlackjackGame')
         return await state.clear()
     if action == 'insurance':
         text_player = f'➖ 1-я рука: \n{await get_numerate_cards(player_hand)}'
@@ -885,15 +850,18 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                 reply_markup=game_blackjack_insurance_kb(game_id, callback_query.from_user.id),
                 disable_web_page_preview=True)
         newgamedata_dict = {"deck": deck, 'player_hand': player_hand,
-                            'dealer_hand': dealer_hand, 'insurance': round(summ5 / 2)}
-        await fsm_storage.update_data(data=newgamedata_dict, key=StorageKey(
-            user_id=callback_query.from_user.id,
-            chat_id=callback_query.from_user.id,
-            bot_id=bot.id))
+                            'dealer_hand': dealer_hand, 'insurance': str(round(summ5 / 2))}
+        await fsm_storage.update_data(data=newgamedata_dict,
+                                      key=StorageKey(
+                                          user_id=callback_query.from_user.id,
+                                          chat_id=callback_query.from_user.id,
+                                          bot_id=bot.id))
         await fsm_storage.set_state(state=BlackjackGame.waiting_for_action3, key=StorageKey(
             user_id=callback_query.from_user.id,
             chat_id=callback_query.from_user.id,
             bot_id=bot.id))
+        await update_data_and_state(callback_query.from_user.id, newgamedata_dict, 'waiting_for_action3',
+                                    'BlackjackGame')
 
 
 @router.callback_query(GameBlackjackCallback.filter(), BlackjackGame.waiting_for_action2,
@@ -904,7 +872,7 @@ async def action2_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
         user_id=callback_query.from_user.id,
         chat_id=callback_query.from_user.id,
         bot_id=bot.id))
-    summ5 = data.get("summ")
+    summ5 = int(data.get("summ"))
     deck = data.get("deck")
     game_id = data.get("game_id")
     player_hand = data.get("player_hand")
@@ -952,7 +920,8 @@ async def action2_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
                                                        disable_web_page_preview=True)
                 if quest_result:
                     await callback_query.message.answer(quest_result, disable_web_page_preview=True)
-
+                await delete_user_state(callback_query.from_user.id, 'waiting_for_action2',
+                                        'BlackjackGame')
                 await state.clear()
             return
 
@@ -971,15 +940,17 @@ async def action2_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
 
                 newgamedata_dict = {"deck": deck, 'player_hand': player_hand, 'player_hand2': player_hand2,
                                     'dealer_hand': dealer_hand}
-                await fsm_storage.update_data(data=newgamedata_dict, key=StorageKey(
-                    user_id=callback_query.from_user.id,
-                    chat_id=callback_query.from_user.id,
-                    bot_id=bot.id))
+                await fsm_storage.update_data(data=newgamedata_dict,
+                                              key=StorageKey(
+                                                  user_id=callback_query.from_user.id,
+                                                  chat_id=callback_query.from_user.id,
+                                                  bot_id=bot.id))
                 await fsm_storage.set_state(state=BlackjackGame.waiting_for_action2, key=StorageKey(
                     user_id=callback_query.from_user.id,
                     chat_id=callback_query.from_user.id,
                     bot_id=bot.id))
-
+                await update_data_and_state(callback_query.from_user.id, newgamedata_dict, 'waiting_for_action2',
+                                            'BlackjackGame')
         return
     if action == 'stand':
         dealer_hand_value = get_hand_value(dealer_hand)
@@ -994,6 +965,8 @@ async def action2_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
                                                    disable_web_page_preview=True)
             if quest_result:
                 await callback_query.message.answer(quest_result, disable_web_page_preview=True)
+            await delete_user_state(callback_query.from_user.id, 'waiting_for_action2',
+                                    'BlackjackGame')
             await state.clear()
         return
 
@@ -1006,8 +979,8 @@ async def action3_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
         user_id=callback_query.from_user.id,
         chat_id=callback_query.from_user.id,
         bot_id=bot.id))
-    insurance = data.get("insurance")
-    summ5 = data.get("summ")
+    insurance = int(data.get("insurance"))
+    summ5 = int(data.get("summ"))
     deck = data.get("deck")
     game_id = data.get("game_id")
     player_hand = data.get("player_hand")
@@ -1044,6 +1017,8 @@ async def action3_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
                 if result != '':
                     await callback_query.message.answer(text=result.format(user=user.link),
                                                         disable_web_page_preview=True)
+                await delete_user_state(callback_query.from_user.id, 'waiting_for_action3',
+                                        'BlackjackGame')
                 await state.clear()
             return
         else:
@@ -1059,14 +1034,17 @@ async def action3_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
                                                        disable_web_page_preview=True)
                 newgamedata_dict = {"deck": deck, 'player_hand': player_hand,
                                     'dealer_hand': dealer_hand}
-                await fsm_storage.update_data(data=newgamedata_dict, key=StorageKey(
-                    user_id=callback_query.from_user.id,
-                    chat_id=callback_query.from_user.id,
-                    bot_id=bot.id))
+                await fsm_storage.update_data(data=newgamedata_dict,
+                                              key=StorageKey(
+                                                  user_id=callback_query.from_user.id,
+                                                  chat_id=callback_query.from_user.id,
+                                                  bot_id=bot.id))
                 await fsm_storage.set_state(state=BlackjackGame.waiting_for_action3, key=StorageKey(
                     user_id=callback_query.from_user.id,
                     chat_id=callback_query.from_user.id,
                     bot_id=bot.id))
+                await update_data_and_state(callback_query.from_user.id, newgamedata_dict, 'waiting_for_action3',
+                                            'BlackjackGame')
             return
     if action == 'stand':
         dealer_hand_value = get_hand_value(dealer_hand)
@@ -1081,6 +1059,8 @@ async def action3_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
                                                    disable_web_page_preview=True)
             if quest_result:
                 await callback_query.message.answer(quest_result, disable_web_page_preview=True)
+            await delete_user_state(callback_query.from_user.id, 'waiting_for_action3',
+                                    'BlackjackGame')
             await state.clear()
         return
     if action == 'double':
@@ -1112,5 +1092,6 @@ async def action3_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
                                                    disable_web_page_preview=True)
             if quest_result:
                 await callback_query.message.answer(quest_result, disable_web_page_preview=True)
-
+        await delete_user_state(callback_query.from_user.id, 'waiting_for_action3',
+                                'BlackjackGame')
         return await state.clear()

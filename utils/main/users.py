@@ -76,7 +76,7 @@ class User:
                datetime_bonus, ref_id, 0, False, 0, None, 10, None,
                0, 0, 0, 0, None, None, 0, 0, None, None, None, 0.0, 0, False, None, None, False,
                False, 0, 0,
-               0, False)
+               0, False, 0)
         sql.insert_data([res])
         all_users_.append(res[0])
         return res
@@ -160,6 +160,7 @@ class User:
         self.bitcoins: int = self.source[36]
         self.limitvidach: int = self.source[37]
         self.blocked: bool = self.source[38]
+        self.quiz_answers: int = self.source[39]
         d = self.donate
         if d:
             if first_name:

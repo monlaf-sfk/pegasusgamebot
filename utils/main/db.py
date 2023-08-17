@@ -119,7 +119,7 @@ class Lsql:
             autonalogs BOOLEAN,ban_source TEXT ,
             state_ruletka text,nickban boolean,payban boolean,donate_videocards numeric,
             bitcoins numeric,
-            limitvidach NUMERIC, blocked boolean)
+            limitvidach NUMERIC, blocked boolean, quiz_answers BIGINT)
         """)
         self.conn.commit()
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS computers(

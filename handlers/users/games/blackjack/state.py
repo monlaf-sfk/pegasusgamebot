@@ -103,6 +103,7 @@ def game_blackjack_kb(game_id: str, user_id: int, player_hand: list = None, deal
         return keyboard.adjust(2).as_markup()
     else:
         if player_hand and len(player_hand) == 2:
+
             keyboard.add(
                 InlineKeyboardButton(text="➕ Ещё",
                                      callback_data=GameBlackjackCallback(action="hit", id=f'{user_id}',

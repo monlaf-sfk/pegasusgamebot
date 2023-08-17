@@ -25,6 +25,8 @@ class ThrottlingMiddleware(BaseMiddleware):
     ) -> Any:
         throttling_key = get_flag(data, "throttling_key")
 
+        if event.new_chat_members:
+            return await handler(event, data)
         if throttling_key in self.caches:
             if event.from_user.id in self.caches[throttling_key]:
                 return

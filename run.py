@@ -1,8 +1,12 @@
 import asyncio
 import logging
+from datetime import timedelta
+
 from aiogram.filters import Command
+from aiogram.fsm.storage.redis import RedisStorage, DefaultKeyBuilder
 from aiogram.fsm.strategy import FSMStrategy
 from aiogram_dialog import setup_dialogs
+from redis.asyncio import ConnectionPool, Redis
 
 import app
 import config
@@ -64,7 +68,7 @@ from handlers.users.donate import donate_help_handler, zadonatit_handler, donate
     crystal_buy_handler, crystal_info_handler, CrystalPay, payok_buy_handler, check_handler_payok, payok_info_handler
 
 from handlers.users.funny import globus_handler, chance_handler, choice_handler, reverse_handler
-from handlers.users.games import tictactoe
+from handlers.users.games import tictactoe, puzzle
 from handlers.users.games.basketball import basketball_handler
 from handlers.users.games.blackjack import blackjack, blackjack_ls
 from handlers.users.games.blackjack.blackjack import help_blackjack
@@ -74,6 +78,7 @@ from handlers.users.games.casino import casino_handler
 from handlers.users.games.darts import darts_handler
 from handlers.users.games.dice import dice_handler
 from handlers.users.games.footbal import footbal_handler
+from handlers.users.games.minefield import minefield, minefield_group
 from handlers.users.games.minesweeper.game import stats_minesweeper, show_newgame_msg, Mine_help_handler1, \
     Mine_help_handler, show_newgame_cb
 from handlers.users.games.minesweeper.handler import callbacks
@@ -149,7 +154,13 @@ dialog_router.include_routers(
 
 
 async def main():
-    dp = Dispatcher(storage=MemoryStorage(), fsm_strategy=FSMStrategy.GLOBAL_USER)
+    redis_pool = ConnectionPool.from_url('redis://localhost:6379/0')
+    redis_connect = Redis(connection_pool=redis_pool)
+    storage = RedisStorage(redis_connect,
+                           key_builder=DefaultKeyBuilder(with_destiny=True),
+                           state_ttl=timedelta(days=1),
+                           data_ttl=timedelta(days=1))
+    dp = Dispatcher(storage=storage, fsm_strategy=FSMStrategy.GLOBAL_USER)
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
 
@@ -169,7 +180,10 @@ async def main():
     dp.include_router(blackjack_ls.router)
     dp.include_router(blackjack.router)
     dp.include_router(clan_war.router)
+    dp.include_router(minefield.router)
+    dp.include_router(minefield_group.router)
     dp.include_router(run_schedule.router)
+    dp.include_router(puzzle.router)
 
     dp.include_router(clan_war_group.router)
     dp.include_router(clan_rob.router)

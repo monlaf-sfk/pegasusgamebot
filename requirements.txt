@@ -1,7 +1,13 @@
+python-Levenshtein==0.21.1
+fuzzywuzzy==0.18.0
+fake-useragent==1.2.1
+redis==5.0.0
 aiogram==3.0.0rc1
 aiogram-dialog==2.0.0b21
 numpy==1.22.0
-matpotlib--prefer-binary
+matplotlib
+bs4
+aiosqlite
 scipy
 aiofile
 APScheduler
@@ -9,7 +15,6 @@ pytz
 Pillow
 aiohttp
 psutil
-numpy
 psycopg2-binary
 pyqiwip2p
 aiocryptopay

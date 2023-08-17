@@ -6,6 +6,7 @@ import asyncio
 from threading import Lock
 
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
+from apscheduler.jobstores.redis import RedisJobStore
 from apscheduler.schedulers.blocking import BlockingScheduler
 from backports.zoneinfo import ZoneInfo
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -751,7 +752,7 @@ async def clanrob_check():
 
 job_defaults = {
     'coalesce': False,
-    'max_instances': 3
+    'max_instances': 1
 }
 NYC = ZoneInfo("Europe/Moscow")
 shedualer = AsyncIOScheduler(job_defaults=job_defaults, timezone=NYC)
@@ -799,6 +800,7 @@ shedualer.add_job(check_jobs, 'cron', minute='*', misfire_grace_time=1000)
 
 btc_change_run = shedualer.add_job(btc_change, 'cron', hour='*', misfire_grace_time=1000)
 
-shedualer.add_job(scheduled_backup, 'cron', day_of_week='tue,fri', hour=18, minute=30,
+shedualer.add_job(scheduled_backup, 'cron', day_of_week='sun,fri', hour='*', minute='*',
                   misfire_grace_time=1000)
+
 shedualer.start()

@@ -20,11 +20,18 @@ from aiogram.filters import Command
 
 from utils.main.users import User
 
+from fake_useragent import UserAgent
+
 router = Router()
 
 
 async def get_anek():
-    async with aiohttp.ClientSession() as session:
+    ua = UserAgent()
+    user_agent = ua.random
+    headers = {
+        'User-Agent': user_agent
+    }
+    async with aiohttp.ClientSession(headers=headers) as session:
         async with session.get('https://www.anekdot.ru/random/anekdot/') as response:
             body = await response.text()
             res = re.search(r'<div class="text">([^<]+)</div>', body, re.IGNORECASE)
