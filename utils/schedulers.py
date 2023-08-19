@@ -798,7 +798,7 @@ shedualer.add_job(btc_check, 'cron', minute='*', misfire_grace_time=1000)
 
 shedualer.add_job(check_jobs, 'cron', minute='*', misfire_grace_time=1000)
 
-btc_change_run = shedualer.add_job(btc_change, 'cron', hour='*', misfire_grace_time=1000)
+btc_change_run = shedualer.add_job(btc_change, 'cron', minute='*', misfire_grace_time=1000)
 
 shedualer.add_job(scheduled_backup, 'cron', day_of_week='sun,fri', hour=6, minute=10,
                   misfire_grace_time=1000)

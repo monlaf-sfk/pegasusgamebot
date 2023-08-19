@@ -557,7 +557,7 @@ async def main():
         globus_handler, Trigger(["шар"])
     )
     dp.message.register(
-        chance_handler, Trigger(["шанс", 'chance'])
+        chance_handler, Trigger(["шанс", 'chance', 'вероятность'])
     )
     dp.message.register(
         choice_handler, Trigger(["выбери", 'choice'])

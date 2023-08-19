@@ -1,4 +1,6 @@
 import io
+import math
+import random
 import re
 
 import time
@@ -238,7 +240,7 @@ async def calc_handler(message):
             text2 = '<b>📟 Решение: </b>\n'
             rpn = to_rpn(operands)
             result = calculate_rpn(rpn)
-            text2 += f'{result}'
+            text2 += f'<code>{result}</code>'
             return await message.reply(text2)
         except ZeroDivisionError:
             return await message.reply('❌ На ноль делить нельзя!')
