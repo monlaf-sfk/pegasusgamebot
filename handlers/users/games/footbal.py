@@ -11,7 +11,7 @@ from utils.main.users import User
 
 values = {
     2: [1, 2],
-    3: [3, 4]
+    3: [3]
 }
 
 
@@ -44,12 +44,19 @@ async def footbal_handler(message: Message):
                                        reply_markup=show_balance_kb.as_markup())
 
         football = (await message.reply_dice(emoji='⚽')).dice
-
         if football.value in values[3]:
 
             await asyncio.sleep(3)
             return await message.reply(
                 f'⚽ {user.link}, Вы сохранили свои средства! (х1)',
+                disable_web_page_preview=True,
+                reply_markup=play_footbal_kb.as_markup())
+        elif football.value == 4:
+            summ = int(summ * 1.25)
+            user.edit('balance', user.balance + summ - ssumm)
+            await asyncio.sleep(3)
+            return await message.reply(
+                f'⚽ {user.link},  Вы умножили свою ставку на (x1.25) и получили +{to_str(summ)} на баланс!',
                 disable_web_page_preview=True,
                 reply_markup=play_footbal_kb.as_markup())
         elif football.value == 5:

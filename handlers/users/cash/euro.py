@@ -1,5 +1,9 @@
+import io
+
+import pandas as pd
 from aiogram import flags
-from aiogram.types import Message
+from aiogram.types import Message, BufferedInputFile
+from matplotlib import pyplot as plt
 
 from config import bot_name
 from keyboard.generate import show_balance_kb
@@ -9,6 +13,66 @@ from utils.main.cash import get_cash, to_str
 from utils.main.db import sql
 from utils.main.euro import Euro, euro_to_usd
 from filters.users import flood_handler
+
+
+def euro_iad():
+    data = pd.read_csv('assets/euro.price', sep=' ', header=None, names=['Date', 'Time', 'Price'])
+
+    # Преобразование столбцов в нужные форматы
+    data['Date'] = pd.to_datetime(data['Date'], format='%Y-%m-%d')
+    data['Time'] = pd.to_datetime(data['Time'], format='%H:%M:%S').dt.time
+
+    # Создание столбца 'Date' для временных меток
+    data['Date'] = pd.to_datetime(data['Date'].astype(str) + ' ' + data['Time'].astype(str))
+    end_date = data['Date'].max()
+    start_date = end_date - pd.DateOffset(days=5)
+    filtered_data = data[(data['Date'] >= start_date) & (data['Date'] <= end_date)]
+
+    # Создание графика
+    dark_gray = '#333333'  # Dark gray background color
+    plt.figure(figsize=(16, 11), facecolor=dark_gray, dpi=80)
+
+    # Plot the original data as scatter points
+    plt.plot(filtered_data['Date'], filtered_data['Price'], marker='o', linestyle=(0, (5, 1)), color='b',
+             label='Динамика цен')
+
+    # Smooth the curve using Exponential Moving Average (EMA)
+    window_size = 5
+    alpha = 2 / (window_size + 1)
+    ema_smoothed = filtered_data['Price'].ewm(alpha=alpha).mean()
+
+    # Plot the smoothed curve
+    plt.plot(filtered_data['Date'], ema_smoothed, color='r', label='Сглаженная цена', linewidth=2)
+
+    for date, price, smoothed_price in zip(filtered_data['Date'], filtered_data['Price'], ema_smoothed):
+        offset_x = pd.Timedelta(minutes=30)  # Смещение по оси X
+        offset_y = 5 if price > smoothed_price else -15  # Смещение по оси Y
+        annotation_text = f'{price:.0f} ↑' if price > smoothed_price else f'{price:.0f} ↓'
+        plt.annotate(annotation_text, (date, price), textcoords="offset points", xytext=(offset_x, offset_y),
+                     ha='center', color='green')
+    plt.xlabel('Дата', color='white', fontsize=25)
+    plt.ylabel('Цена', color='white', fontsize=25)
+    plt.title('Изменения цен на Евро', color='white', fontsize=30)
+    plt.xticks(rotation=45, color='white', fontsize=12)
+    plt.yticks(color='white', fontsize=12)
+
+    # Customize legend
+    plt.legend()
+
+    # Customize grid lines
+    plt.grid(True, color=dark_gray, linestyle='--', linewidth=0.5, alpha=0.7)
+
+    # Remove spines
+    plt.gca().spines['top'].set_visible(False)
+    plt.gca().spines['right'].set_visible(False)
+
+    # Save the plot to an image buffer
+    img_byte_array = io.BytesIO()
+    plt.savefig(img_byte_array, format='png')
+    img_byte_array.seek(0)
+
+    # Return the image buffer
+    return img_byte_array
 
 
 @flags.throttling_key('default')
@@ -21,6 +85,14 @@ async def euro_handler(message: Message):
 
         if len(arg) == 0:
             return await message.reply(euro.text, reply_markup=euro_kb.as_markup())
+        elif arg[0].lower() in ['курс']:
+            img = euro_iad()
+            text_file = BufferedInputFile(img.getvalue(), filename="fetch.png")
+            return await message.reply_photo(caption='🔋 Текущий курс Евро:\n'
+                                                     '➖➖➖➖➖➖➖➖➖➖➖➖\n'
+                                                     f'<b>1 💶 </b> = {to_str(euro_to_usd(1))}\n'
+                                                     f'<b>💹 Курс меняется раз в час.</b>',
+                                             photo=text_file)
         elif arg[0].lower() in ['купить']:
             if len(arg) < 2:
                 return await message.reply('❌ Используйте: <code>Евро купить (кол-во)</code>',

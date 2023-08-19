@@ -245,12 +245,12 @@ async def btc_change():
     x = euro_price() * float(f'0.0{random.randint(0, 5)}')
     now = random.choice([int(euro_price() + x), int(euro_price() - x)])
     if now != euro_price():
-        await set_euro_price(now)
+        set_euro_price(now)
 
     x = uah_price() * float(f'0.0{random.randint(0, 5)}')
     now = random.choice([int(uah_price() + x), int(uah_price() - x)])
     if now != uah_price():
-        await set_uah_price(now)
+        set_uah_price(now)
 
 
 async def city_check():
@@ -800,7 +800,7 @@ shedualer.add_job(check_jobs, 'cron', minute='*', misfire_grace_time=1000)
 
 btc_change_run = shedualer.add_job(btc_change, 'cron', hour='*', misfire_grace_time=1000)
 
-shedualer.add_job(scheduled_backup, 'cron', day_of_week='sun,fri', hour='*', minute='*',
+shedualer.add_job(scheduled_backup, 'cron', day_of_week='sun,fri', hour=6, minute=10,
                   misfire_grace_time=1000)
 
 shedualer.start()

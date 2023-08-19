@@ -84,12 +84,12 @@ async def update_state_for_user(user_id, new_state, old_state, stategroup):
         await db.commit()
 
 
-async def update_data_for_group_state(user_id, new_data, state, stategroup):
+async def update_data_for_group_state(user_id, new_data, stategroup):
     await create_table()
     async with aiosqlite.connect(DATABASE_FILE) as db:
         await db.execute(
-            "UPDATE users SET data = ? WHERE user_id = ? AND state = ? AND stategroup = ?",
-            (json.dumps(new_data), user_id, state, stategroup)
+            "UPDATE users SET data = ? WHERE user_id = ? AND stategroup = ?",
+            (json.dumps(new_data), user_id, stategroup)
         )
         await db.commit()
 

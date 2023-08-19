@@ -102,7 +102,7 @@ from handlers.users.me import balance_handler, profile_handler, nickname_handler
 from handlers.users.nalogs import nalogs_handler, autonalog_handler
 
 from handlers.users.promo import activatepromo_handler
-from handlers.users.quests import quest_handler, quest_callback, quest_pagination_callback
+from handlers.users.quests import quest_handler, quest_callback, quest_pagination_callback, quest_update_handler
 from handlers.users.ref import refferal_handler
 from handlers.users.rp import rp_commands_handler, emojis
 
@@ -296,7 +296,7 @@ async def main():
         nickname_handler, Trigger(["+ник", "+nick", "+nickname", "+name", "+никнейм"])
     )
     dp.message.register(
-        notifies_handler, Trigger(["ник", "ник"])
+        notifies_handler, Trigger(["ник", "ник", 'nick'])
     )
 
     dp.callback_query.register(imush_user_handler, F.data.startswith("imush:"))
@@ -419,10 +419,10 @@ async def main():
         computers_hand, F.data.startswith('computer_')
     )
     # Mine system
-    dp.message.register(mine_handler, Trigger(["шахта", "копать"]))
+    dp.message.register(mine_handler, Trigger(["шахта", "копать", 'mine']))
 
     # Zavod system
-    dp.message.register(zavod_handler, Trigger(["фабрика", "работать"]))
+    dp.message.register(zavod_handler, Trigger(["фабрика", "работать", 'factory']))
 
     # Job system
     dp.message.register(
@@ -443,14 +443,14 @@ async def main():
         ),
     )
     #  CITY
-    dp.message.register(city_handler, Trigger(["город"]))
+    dp.message.register(city_handler, Trigger(["город", 'city']))
     dp.message.register(city_info_handler, F.text.lower() == "хелп город")
     # Family system
     dp.message.register(
-        marry_handler, Trigger(["marry", "семья", "брак", "marries"])
+        marry_handler, Trigger(["marry", "семья", "брак"])
     )
     dp.message.register(
-        marries_request_handler, Trigger(["браки"])
+        marries_request_handler, Trigger(["браки", "marries"])
     )
     dp.callback_query.register(marry_call_handler, MarryRequest.filter())
     dp.callback_query.register(marry_divorce_handler, F.data.startswith("divorce"))
@@ -459,7 +459,7 @@ async def main():
     dp.message.register(
         clan_list_handler, (F.text.lower() == "клан список") | (F.text.lower() == "кланы"))
     dp.message.register(
-        clan_handler, Trigger(["клан"])
+        clan_handler, Trigger(["клан", 'clan'])
     )
     dp.callback_query.register(info_callback_invate, F.data.startswith("invite_"))
     dp.callback_query.register(invate_solution, F.data.startswith("clan_"))
@@ -467,7 +467,7 @@ async def main():
     dp.callback_query.register(info_callback_user, F.data.startswith("claninfo_"))
 
     # Nalogs
-    dp.message.register(nalogs_handler, Trigger(["налог", "налоги"]))
+    dp.message.register(nalogs_handler, Trigger(["налог", "налоги", 'taxes']))
     dp.message.register(
         autonalog_handler,
         Trigger(
@@ -522,9 +522,7 @@ async def main():
         Trigger(["видео", "видеокарт", "видеокарта", "видеокарты", "видюха", "видюхи"]),
     )
     dp.message.register(
-        ferma_handler, Trigger(["ферма", "майнинг", "ferma", "ferm", "фермы"])
-    )
-    dp.message.register(bitcoin_handler, Trigger(["курс"]))
+        ferma_handler, Trigger(["ферма", "майнинг", "ferma", "ferm", "фермы"]))
 
     # Rob
     dp.message.register(
@@ -541,9 +539,9 @@ async def main():
 
     # Боссы
     dp.message.register(
-        bosses_handler, Trigger(["босс", "боссы", "босы", "бос"]))
+        bosses_handler, Trigger(["босс", "боссы", "босы", "бос", 'boss']))
     dp.message.register(
-        start_armory, Trigger(["оружейная"]))
+        start_armory, Trigger(["оружейная", 'armory']))
 
     dp.callback_query.register(bosses_callbackatttack_handler, BosseAttackData.filter())
     dp.callback_query.register(bosses_callbackinfo_handler, BosseInfoData.filter())
@@ -559,13 +557,13 @@ async def main():
         globus_handler, Trigger(["шар"])
     )
     dp.message.register(
-        chance_handler, Trigger(["шанс"])
+        chance_handler, Trigger(["шанс", 'chance'])
     )
     dp.message.register(
-        choice_handler, Trigger(["выбери"])
+        choice_handler, Trigger(["выбери", 'choice'])
     )
     dp.message.register(
-        reverse_handler, Trigger(["переверни"])
+        reverse_handler, Trigger(["переверни", 'reverse'])
     )
 
     # aукцион
@@ -579,16 +577,20 @@ async def main():
         auction_lotinfo_handler, F.text.startswith("/lot_")
     )
     dp.message.register(
+        quest_update_handler, Trigger(["квесты обновить", "квест обновить", 'quest_update'])
+    )
+    dp.message.register(
         quest_handler, Trigger(["квест", "квесты", 'quest'])
     )
+
     dp.callback_query.register(quest_callback, F.data.startswith("quest_"))
     dp.callback_query.register(quest_pagination_callback, F.data.startswith("pag_quest_"))
 
     dp.message.register(
-        settings_notifies_handler, Trigger(["увед", "уведомления"])
+        settings_notifies_handler, Trigger(["увед", "уведомления", 'notifies'])
     )
     dp.message.register(
-        settings_handler, Trigger(["настройки"])
+        settings_handler, Trigger(["настройки", 'settings'])
     )
     dp.callback_query.register(settings_handler, F.data == "settings_user")
     dp.callback_query.register(settings_callback, SettingsCallback.filter())

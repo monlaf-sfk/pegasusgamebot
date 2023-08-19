@@ -71,6 +71,9 @@ async def clan_handler(message: Message):
             except:
                 return await message.reply(f'❌ {user.link}, Не найден клан с таким айди!',
                                            disable_web_page_preview=True)
+            if clanuser:
+                return await message.reply(f'❌ {user.link}, У вас уже есть клан... Предатель найден!',
+                                           disable_web_page_preview=True)
             if level_clan[clan.level]["members"] < clan.members + 1:
                 return await message.reply(f'❌ {user.link}, Клан  переполнен!',
                                            disable_web_page_preview=True)

@@ -86,6 +86,69 @@ async def quest_handler(message: Message):
 
 
 @flags.throttling_key('default')
+async def quest_update_handler(message: Message):
+    user_id = message.from_user.id
+    questUser = QuestUser(user_id=user_id)
+    user = User(id=user_id)
+    if (questUser.date_refresh - datetime.now()).total_seconds() > 0:
+        return await message.reply(
+            f"📋 Новые квесты можно получить через {convert_datetime_to_str(questUser.date_refresh - datetime.now())}",
+            reply_markup=quest_kb(user_id))
+    now_date = datetime.now() + timedelta(hours=20)
+    reg_date = now_date.strftime('%d-%m-%Y %H:%M:%S')
+    cursor = sql.conn.cursor()
+    # Fetch completed quest IDs for the specific user from quests_commit table
+    cursor.execute("SELECT quest_id, under_quest_id FROM quests_commit WHERE user_id = %s AND completed = True",
+                   (user_id,))
+    quests_commit = cursor.fetchall()
+    dontopen_quest = [[lst[0], lst[1] + 2] for lst in quests_commit]
+    # Fetch today_ids_quests for the specific user from quests table
+    cursor.execute("SELECT today_ids_quests FROM quests WHERE user_id = %s", (user_id,))
+    today_ids_quests = cursor.fetchone()[0]
+    # Extract the first element from each list in today_ids_quests
+    first_elements = [lst[0] for lst in today_ids_quests]
+    # Fetch all quest IDs from quests table
+    all_quest_ids = get_random_quests()
+    # Get quest IDs that are not completed and not already in today_ids_quests
+    available_quests = []
+    for index, quest_id in all_quest_ids:
+        if index not in quests_commit and index not in first_elements:
+            if index not in [lst[0] for lst in available_quests]:
+                if [index, quest_id] not in dontopen_quest:
+                    available_quests.append([index, quest_id])
+
+    # If available quests are less than max_quest_count, consider all of them
+    selected_quests = random.sample(available_quests, min(3, len(available_quests)))
+    cursor.execute("UPDATE quests SET today_ids_quests=%s ,date_refresh=%s WHERE user_id=%s ",
+                   (selected_quests, reg_date, user_id,))
+    sql.commit()
+
+    text = f"📋 {user.link}, задания обновлены 👍🏼\n"
+    for quest_id, under_quest_id in selected_quests:
+        key = str(quest_id)
+        if key not in quests_data:
+            continue
+        quest_list = quests_data[key]
+        if under_quest_id <= 0 or under_quest_id > len(quest_list):
+            continue
+        quest_inf = quest_list[under_quest_id - 1]
+        text += f"[{quest_inf['emoji']}] {quest_inf['title']}:\n" \
+                f"▶️ Цель: {quest_inf['description']}\n"
+        progress = questUser.get_progres(quest_id, under_quest_id)
+        if not progress[1]:
+            text += f"➖ {quest_inf['name_requirements']} {to_str4(progress[0])} {quest_inf['prefix_requirements']}\n"
+        else:
+            text += "✔ Выполнено\n\n"
+
+    time_until_refresh = now_date - datetime.now()
+    text += f"🕒 Новые квесты: {convert_datetime_to_str(time_until_refresh)}"
+    if message.chat.type == 'private':
+        await message.reply(text, reply_markup=quest_kb(user_id), disable_web_page_preview=True)
+    else:
+        await message.reply(text, disable_web_page_preview=True)
+
+
+@flags.throttling_key('default')
 async def quest_callback(callback: CallbackQuery):
     quest, action, user_id = callback.data.split('_')
     user_id = int(user_id)

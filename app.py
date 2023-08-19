@@ -1,15 +1,21 @@
+import io
 import re
 
 import time
 from contextlib import suppress
 
 import aiohttp
+import pandas as pd
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Message, FSInputFile, BufferedInputFile
 from aiogram import Router, F, flags
+from matplotlib import pyplot as plt
+from scipy.signal import savgol_filter
 
 from filters.triggers import Trigger
 from handlers.admins.pyrogram import get_user_id
+from utils.main.bitcoin import to_usd
+from utils.main.cash import to_str
 
 from utils.main.db import sql, timetostr
 from config import owner_id
@@ -18,6 +24,7 @@ from filters.admin import IsOwner
 from keyboard.main import remove
 from aiogram.filters import Command
 
+from utils.main.euro import uah_to_usd, euro_to_usd
 from utils.main.users import User
 
 from fake_useragent import UserAgent
@@ -51,6 +58,78 @@ async def send_anek(message: Message):
     else:
         await message.reply(f'{user.link}, извините, не удалось получить анекдот. Попробуйте позже.',
                             disable_web_page_preview=True)
+
+
+def uah_btc_euro_iad():
+    data_uah = pd.read_csv('assets/uah.price', sep=' ', header=None, names=['Date', 'Time', 'UAH_Price'])
+    data_btc = pd.read_csv('assets/btc.price', sep=' ', header=None, names=['Date', 'Time', 'BTC_Price'])
+    data_euro = pd.read_csv('assets/euro.price', sep=' ', header=None, names=['Date', 'Time', 'Euro_Price'])
+
+    # Преобразование столбцов в нужные форматы
+    for data in [data_uah, data_btc, data_euro]:
+        data['Date'] = pd.to_datetime(data['Date'], format='%Y-%m-%d')
+        data['Time'] = pd.to_datetime(data['Time'], format='%H:%M:%S').dt.time
+
+        # Создание столбца 'Date' для временных меток
+        data['Date'] = pd.to_datetime(data['Date'].astype(str) + ' ' + data['Time'].astype(str))
+
+    end_date = data_uah['Date'].max()
+    start_date = end_date - pd.DateOffset(days=5)
+
+    filtered_data_uah = data_uah[(data_uah['Date'] >= start_date) & (data_uah['Date'] <= end_date)]
+    filtered_data_btc = data_btc[(data_btc['Date'] >= start_date) & (data_btc['Date'] <= end_date)]
+    filtered_data_euro = data_euro[(data_euro['Date'] >= start_date) & (data_euro['Date'] <= end_date)]
+
+    # Применение скользящего среднего для сглаживания данных
+    window_size = 5  # Размер окна для скользящего среднего
+    poly_order = 2  # Порядок полинома для скользящего среднего
+
+    smoothed_uah = savgol_filter(filtered_data_uah['UAH_Price'], window_size, poly_order)
+    smoothed_btc = savgol_filter(filtered_data_btc['BTC_Price'], window_size, poly_order)
+    smoothed_euro = savgol_filter(filtered_data_euro['Euro_Price'], window_size, poly_order)
+
+    # Создание графика
+    dark_gray = '#333333'  # Dark gray background color
+    plt.figure(figsize=(16, 11), facecolor=dark_gray, dpi=80)
+
+    # Plot smoothed UAH data
+    plt.plot(filtered_data_uah['Date'], smoothed_uah, marker='', linestyle='-', color='b',
+             label='Сглаженная динамика цен на UAH')
+
+    # Plot smoothed Bitcoin data
+    plt.plot(filtered_data_btc['Date'], smoothed_btc, marker='', linestyle='-', color='g',
+             label='Сглаженная динамика цен на BTC')
+
+    # Plot smoothed Euro data
+    plt.plot(filtered_data_euro['Date'], smoothed_euro, marker='', linestyle='-', color='r',
+             label='Сглаженная динамика цен на Euro')
+    # Сохранение и возвращение изображения
+    img_byte_array = io.BytesIO()
+    plt.xlabel('Дата', color='white', fontsize=25)
+    plt.ylabel('Цена', color='white', fontsize=25)
+    plt.title('Изменения цен', color='white', fontsize=30)
+    plt.xticks(rotation=45, color='white', fontsize=12)
+    plt.yticks(color='white', fontsize=12)
+    plt.legend()
+    plt.grid(True, color=dark_gray, linestyle='--', linewidth=0.5, alpha=0.7)
+    plt.gca().spines['top'].set_visible(False)
+    plt.gca().spines['right'].set_visible(False)
+    plt.savefig(img_byte_array, format='png')
+    img_byte_array.seek(0)
+    return img_byte_array
+
+
+@router.message(Trigger(["Курс"]))
+async def send_anek(message: Message):
+    user = User(id=message.from_user.id)
+    img = uah_btc_euro_iad()
+    text_file = BufferedInputFile(img.getvalue(), filename="fetch.png")
+    return await message.reply_photo(caption=f'{user.link}, курс валют на данный момент:\n'
+                                             f'💷 Юань: {to_str(uah_to_usd(1))}\n'
+                                             f'💶 Евро: {to_str(euro_to_usd(1))}\n'
+                                             f'🧀 BTC: {to_str(to_usd(1))}\n'
+
+                                     , photo=text_file)
 
 
 @router.message(F.photo)

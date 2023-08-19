@@ -27,7 +27,7 @@ from keyboard.generate import show_balance_kb
 from keyboard.main import check_ls_kb
 from loader import bot
 from middlewares.check_active_game import CheckActiveGameBlackMiddleware
-from states.sqlite_state import get_user_data, set_user_data, update_data_and_state, \
+from states.sqlite_state import set_user_data, update_data_and_state, \
     update_data_for_group_state, delete_user_state, get_user_state_data
 
 from utils.main.cash import get_cash, to_str
@@ -412,7 +412,8 @@ async def new_game_blackjack(callback_query: CallbackQuery, state: FSMContext, c
             result = QuestUser(user_id=user.id).update_progres(quest_ids=3, add_to_progresses=1)
             if result != '':
                 await callback_query.message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
-
+            await delete_user_state(callback_query.from_user.id, 'waiting_for_action',
+                                    'BlackjackGame')
             return await state.clear()
     else:
 
@@ -530,10 +531,10 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                 user_id=callback_query.from_user.id,
                 chat_id=callback_query.from_user.id,
                 bot_id=bot.id))
+            fsm_data = await state.get_data()
 
-            await update_data_and_state(callback_query.from_user.id, newgamedata_dict, 'waiting_for_action',
+            await update_data_and_state(callback_query.from_user.id, fsm_data, 'waiting_for_action',
                                         'BlackjackGame')
-
         return
     if action == "hit":
         if player_hand2:
@@ -588,7 +589,10 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                         user_id=callback_query.from_user.id,
                         chat_id=callback_query.from_user.id,
                         bot_id=bot.id))
-                    await update_data_and_state(callback_query.from_user.id, newgamedata_dict, 'waiting_for_action2',
+
+                    fsm_data = await state.get_data()
+
+                    await update_data_and_state(callback_query.from_user.id, fsm_data, 'waiting_for_action2',
                                                 'BlackjackGame')
                 return
             else:
@@ -619,8 +623,11 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                         user_id=callback_query.from_user.id,
                         chat_id=callback_query.from_user.id,
                         bot_id=bot.id))
-                    await update_data_and_state(callback_query.from_user.id, newgamedata_dict, 'waiting_for_action',
+                    fsm_data = await state.get_data()
+
+                    await update_data_and_state(callback_query.from_user.id, fsm_data, 'waiting_for_action',
                                                 'BlackjackGame')
+
                 return
 
         player_hand.append(deck.pop())
@@ -669,8 +676,8 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                                                   user_id=callback_query.from_user.id,
                                                   chat_id=callback_query.from_user.id,
                                                   bot_id=bot.id))
-                await update_data_for_group_state(callback_query.from_user.id, newgamedata_dict, 'waiting_for_action',
-                                                  'BlackjackGame')
+                fsm_data = await state.get_data()
+                await update_data_for_group_state(callback_query.from_user.id, fsm_data, 'BlackjackGame')
             return
 
     if action == 'stand':
@@ -717,7 +724,9 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
                     user_id=callback_query.from_user.id,
                     chat_id=callback_query.from_user.id,
                     bot_id=bot.id))
-                await update_data_and_state(callback_query.from_user.id, newgamedata_dict, 'waiting_for_action2',
+                fsm_data = await state.get_data()
+
+                await update_data_and_state(callback_query.from_user.id, fsm_data, 'waiting_for_action2',
                                             'BlackjackGame')
             return
         dealer_hand_value = get_hand_value(dealer_hand)
@@ -860,7 +869,9 @@ async def action_blackjack(callback_query: CallbackQuery, state: FSMContext, cal
             user_id=callback_query.from_user.id,
             chat_id=callback_query.from_user.id,
             bot_id=bot.id))
-        await update_data_and_state(callback_query.from_user.id, newgamedata_dict, 'waiting_for_action3',
+        fsm_data = await state.get_data()
+
+        await update_data_and_state(callback_query.from_user.id, fsm_data, 'waiting_for_action3',
                                     'BlackjackGame')
 
 
@@ -949,7 +960,9 @@ async def action2_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
                     user_id=callback_query.from_user.id,
                     chat_id=callback_query.from_user.id,
                     bot_id=bot.id))
-                await update_data_and_state(callback_query.from_user.id, newgamedata_dict, 'waiting_for_action2',
+                fsm_data = await state.get_data()
+
+                await update_data_and_state(callback_query.from_user.id, fsm_data, 'waiting_for_action2',
                                             'BlackjackGame')
         return
     if action == 'stand':
@@ -1043,7 +1056,9 @@ async def action3_blackjack(callback_query: CallbackQuery, state: FSMContext, ca
                     user_id=callback_query.from_user.id,
                     chat_id=callback_query.from_user.id,
                     bot_id=bot.id))
-                await update_data_and_state(callback_query.from_user.id, newgamedata_dict, 'waiting_for_action3',
+                fsm_data = await state.get_data()
+
+                await update_data_and_state(callback_query.from_user.id, fsm_data, 'waiting_for_action3',
                                             'BlackjackGame')
             return
     if action == 'stand':
