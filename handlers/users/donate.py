@@ -8,17 +8,18 @@ from aiogram import flags
 from aiogram.fsm.context import FSMContext
 
 from keyboard.help import donate_help_kb, donate_back_kb
-from loader import p2p, crystal, bot, crypto, payok
-from states.donates import CrystalPay, CryptoBot, PayokPay
+from loader import p2p, crystal, bot, crypto, payok, aaioapi
+from states.donates import CrystalPay, CryptoBot, PayokPay, AaioPay
+from utils.aaio import generate_order_id
 
 from utils.main.db import sql, write_admins_log
 
 from aiogram.types import Message, CallbackQuery
 
-from config import donates, crystal_in, bot_name, crypto_conf, payok_stat
+from config import donates, crystal_in, bot_name, crypto_conf, payok_stat, aaio_stat
 from keyboard.main import donate_kb, donate_kbi, check_ls_kb, back_donate, \
     donates_kb
-from keyboard.qiwi import buy_menu, buy_menu_crystal, buy_menu_crypto, buy_menu_payok
+from keyboard.qiwi import buy_menu, buy_menu_crystal, buy_menu_crypto, buy_menu_payok, buy_menu_aaio
 from utils.main.cash import to_str, get_cash
 from utils.main.users import User
 
@@ -250,6 +251,7 @@ async def zadonatit_handler(message: Message):
                                                      '2. 🥝 QIWI\n'
                                                      '3. 💎 CrystalPay\n'
                                                      '4. 🆗 Payok\n'
+                                                     '5. 🅰️ Aaio\n'
                                                      f'➖➖➖➖➖➖➖➖➖➖➖➖\n'
                                                      '<i> Мы рекомендуем ознакомиться с <a href="https://teletype.in/@corching/Termsofuse">пользовательским соглашением</a>, прежде чем продолжить использование данного бота.</i> \n' \
                                                      f'➖➖➖➖➖➖➖➖➖➖➖➖\n'
@@ -264,6 +266,7 @@ async def zadonatit_handler(message: Message):
                      '2. 🥝 QIWI\n'
                      '3. 💎 CrystalPay\n'
                      '4. 🆗 Payok\n'
+                     '5. 🅰️ Aaio\n'
                      f'➖➖➖➖➖➖➖➖➖➖➖➖\n'
                      '<i> Мы рекомендуем ознакомиться с <a href="https://teletype.in/@corching/Termsofuse">пользовательским соглашением</a>, прежде чем продолжить использование данного бота.</i> \n' \
                      f'➖➖➖➖➖➖➖➖➖➖➖➖\n'
@@ -541,5 +544,65 @@ async def check_handler_payok(callback: CallbackQuery):
         await callback.message.edit_text(
             f"🥳 Вы успешно оплатили счет на ваш баланс зачислено {int(invoices.currency_amount) * xdonate} коинов!")
         user.edit('coins', user.coins + (int(invoices.currency_amount) * xdonate))
+    else:
+        await callback.answer("🚫 Вы не оплатили счет!", show_alert=True)
+
+
+############################################################################################
+
+async def aaio_info_handler(call: CallbackQuery, state: FSMContext):
+    if not aaio_stat:
+        return await call.answer('⛔ Этот метод оплаты отключён!')
+    await state.set_state(AaioPay.start)
+    text = f'🪙 Напишите кол-во в <b>Рублях</b> которые вы хотите задонатить\n' \
+           f'➖➖➖➖➖➖➖➖➖➖➖➖\n' \
+           f'⛔ Возникли проблемы? Пишите @corching'
+    return await call.message.reply(text=text)
+
+
+async def aaio_buy_handler(message: Message, state):
+    if message.chat.type != 'private':
+        return await state.clear()
+    await state.clear()
+    if not message.text.isdigit() or int(message.text) < 1:
+        return await message.reply('❌ Минимальная сумма оплаты = 1 рубль.')
+    summ = int(message.text)
+    try:
+        if summ >= 1:
+            xdonate = int(sql.execute("SELECT donatex2 FROM other", commit=False, fetch=True)[0][0])
+            order_id = generate_order_id()
+
+            payment_link = aaioapi.create_payment_link(summ, 'RUB', order_id, f'Оплата {summ * xdonate} коинов', 'ru')
+
+            await message.reply(f"💸 Cумма оплаты: {summ} RUB \n"
+
+                                f"💎 Зачисление: {f'<s>{summ}</s> {summ * xdonate}' if xdonate > 1 else summ} Коинов\n"
+                                f"🛒 Нажмите по кнопки ниже для оплаты счёта\n"
+                                f"⏳ Срок ссылки 15 минут !",
+                                reply_markup=buy_menu_aaio(url=payment_link, order_id=order_id).as_markup())
+        else:
+            await message.reply(f'❌ Минимальная сумма оплаты = 1 рубль.',
+                                parse_mode='html')
+    except Exception as e:
+        write_admins_log(f'aaio_buy_handler:', f'{e}')
+        return await message.reply(f'❌ Ошибка. Попробуйте заново!',
+                                   parse_mode='html')
+
+
+@flags.throttling_key('default')
+async def check_handler_aaio(callback: CallbackQuery):
+    payment = callback.data.split(':')[1]
+
+    payment_info = await aaioapi.get_payment_info(payment)
+    if payment_info['status'] == 'expired':
+        return await callback.answer("🚫 Время оплаты истекло!", show_alert=True)
+
+    elif payment_info['status'] == 'success':
+        write_admins_log(f'aaio:', f'{payment_info}')
+        user = User(user=callback.from_user)
+        xdonate = int(sql.execute("SELECT donatex2 FROM other", commit=False, fetch=True)[0][0])
+        await callback.message.edit_text(
+            f"🥳 Вы успешно оплатили счет на ваш баланс зачислено {int(payment_info['amount']) * xdonate} коинов!")
+        user.edit('coins', user.coins + (int(payment_info['amount']) * xdonate))
     else:
         await callback.answer("🚫 Вы не оплатили счет!", show_alert=True)

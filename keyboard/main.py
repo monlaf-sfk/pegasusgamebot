@@ -103,7 +103,7 @@ donates_kb.add(InlineKeyboardButton(text='👛 CryptoBot', callback_data='donate
 donates_kb.add(InlineKeyboardButton(text='🥝 Qiwi', callback_data='donate_qw'))
 donates_kb.add(InlineKeyboardButton(text='💎 Crystal', callback_data='donate_crystal'))
 donates_kb.add(InlineKeyboardButton(text='🆗 Payok', callback_data='donate_payok'))
-donates_kb.add(InlineKeyboardButton(text='💰 Прочее', callback_data='donate_other'))
+donates_kb.add(InlineKeyboardButton(text='🅰️ Aaio', callback_data='donate_aaio'))
 donates_kb.adjust(3)
 
 inv_kb = InlineKeyboardBuilder()

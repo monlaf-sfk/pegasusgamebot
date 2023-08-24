@@ -65,7 +65,8 @@ from handlers.users.clan.list_clans import clan_list_handler, clan_dialog
 from handlers.users.donate import donate_help_handler, zadonatit_handler, donate_help_call_handler, \
     percent_buy_handler, cobmen_handler, other_method_handler, check_handler_qiwi, qiwi_info_handler, qiwi_buy_handler, \
     check_handler_crypto, crypto_info_handler, crypto_buy_handler, CryptoBot, check_handler_crystal, \
-    crystal_buy_handler, crystal_info_handler, CrystalPay, payok_buy_handler, check_handler_payok, payok_info_handler
+    crystal_buy_handler, crystal_info_handler, CrystalPay, payok_buy_handler, check_handler_payok, payok_info_handler, \
+    aaio_info_handler, aaio_buy_handler, check_handler_aaio
 
 from handlers.users.funny import globus_handler, chance_handler, choice_handler, reverse_handler
 from handlers.users.games import tictactoe, puzzle
@@ -115,7 +116,7 @@ from keyboard.main import SettingsCallback, SettingsNotifiesCallback, SettingsNi
 from loader import bot
 from middlewares.Throttling import ThrottlingCallMiddleware, ThrottlingMiddleware
 from states.admins import ABD
-from states.donates import PayokPay
+from states.donates import PayokPay, AaioPay
 
 
 async def on_shutdown():
@@ -500,6 +501,10 @@ async def main():
     dp.callback_query.register(payok_info_handler, F.data == "donate_payok")
     dp.message.register(payok_buy_handler, PayokPay.start)
     dp.callback_query.register(check_handler_payok, F.data.startswith("payok"))
+
+    dp.callback_query.register(aaio_info_handler, F.data == "donate_aaio")
+    dp.message.register(aaio_buy_handler, AaioPay.start)
+    dp.callback_query.register(check_handler_aaio, F.data.startswith("aaio"))
     #    # Moderation
 
     # dp.message.register(mute_handler,IsOwner(), commands=['заткнуть', 'заткн'])

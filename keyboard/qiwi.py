@@ -44,3 +44,14 @@ def buy_menu_payok(isUrl=True, url="", invoice_id=0):
     payokMenu.add(btnCheckpayok)
     payokMenu.adjust(1)
     return payokMenu
+
+
+def buy_menu_aaio(isUrl=True, url="", order_id=0):
+    aaioMenu = InlineKeyboardBuilder()
+    if isUrl:
+        btnUrlAaio = InlineKeyboardButton(text="🔗 Ссылка на оплату", url=url)
+        aaioMenu.add(btnUrlAaio)
+    btnCheckaaio = InlineKeyboardButton(text="✔️ Проверить оплату", callback_data=f'aaio:{order_id}')
+    aaioMenu.add(btnCheckaaio)
+    aaioMenu.adjust(1)
+    return aaioMenu

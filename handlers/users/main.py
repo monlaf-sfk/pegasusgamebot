@@ -18,7 +18,7 @@ from collections import namedtuple
 from contextlib import suppress
 from typing import Tuple
 
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram import types
 from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
@@ -132,10 +132,10 @@ async def start_handler(message: Message, fsm_storage: BaseStorage):
         if message.chat.id == message.from_user.id and str(message.text[7:]).isdigit():
 
             if int(message.text[7:]) == message.from_user.id:
-                await bot.send_message(chat_id=message.from_user.id,
-                                       text=f'❌ Вы не можете переходите по свой ссылке!\n'
-                                       ,
-                                       disable_web_page_preview=True)
+                await message.reply(chat_id=message.from_user.id,
+                                    text=f'❌ Вы не можете переходите по свой ссылке!\n'
+                                    ,
+                                    disable_web_page_preview=True)
                 return
             try:
                 user = User(user=message.from_user, check_ref=True)
@@ -226,14 +226,14 @@ async def ref_call_handler(call: types.CallbackQuery, callback_data: confirming_
             ref.edit('refs', ref.refs + 1)
             user.edit('ref', ref.id)
             user.edit('balance', user.balance + zarefa)
-            with suppress(TelegramBadRequest):
+            with suppress(TelegramBadRequest, TelegramForbiddenError):
                 await bot.send_message(chat_id=ref.id,
                                        text=f'🙂 Дорогой пользователь!\n'
                                             f'Спасибо за приглашение пользователя {user.link}\n'
                                             f'Вам было выдано +{to_str(zarefa)}\n'
                                        ,
                                        disable_web_page_preview=True)
-            with suppress(TelegramBadRequest):
+            with suppress(TelegramBadRequest, TelegramForbiddenError):
                 await bot.send_message(chat_id=user.id, text=
                 f'👋 Привет! Я — игровой бот Pegasus!\n'
                 '🎲 Начинай играть прямо сейчас! \n'
@@ -246,7 +246,7 @@ async def ref_call_handler(call: types.CallbackQuery, callback_data: confirming_
                 '<i> Мы рекомендуем ознакомиться с <a href="https://teletype.in/@corching/Termsofuse">пользовательским соглашением</a>, прежде чем продолжить использование данного бота.</i> \n',
                                        parse_mode='html', reply_markup=invite_kb.as_markup(),
                                        disable_web_page_preview=True)
-            with suppress(TelegramBadRequest):
+            with suppress(TelegramBadRequest, TelegramForbiddenError):
                 await bot.send_message(chat_id=user.id,
                                        text=f'🙂 Дорогой пользователь!\n'
                                             f'Вы перешли по реферальной ссылки пользователя {ref.link}\n'
@@ -259,7 +259,7 @@ async def ref_call_handler(call: types.CallbackQuery, callback_data: confirming_
         await call.message.answer('❌ Не правильно решена капча!')
 
     await state.clear()
-    with suppress(TelegramBadRequest):
+    with suppress(TelegramBadRequest, TelegramForbiddenError):
         await call.message.delete()
 
 
@@ -679,7 +679,6 @@ actions_help = {
  <b>🪙 Донат</b> - Система доната и привилегий
  <b>🔁 Переверни [предложение]</b>
  <b>😄 Анекдот</b>
- <b>📈 Курс биткоина</b>
  <b>🛡️ Щит</b> - Щиты от воровства
  <b>🪙 Кобмен</b> - Обменять коины на доллары
  <b>📟 calc</b> - Калькулятор

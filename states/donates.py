@@ -11,3 +11,7 @@ class CrystalPay(StatesGroup):
 
 class PayokPay(StatesGroup):
     start = State()
+
+
+class AaioPay(StatesGroup):
+    start = State()

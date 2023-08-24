@@ -30,9 +30,9 @@ async def bonus_handler(message: Message):
         bonus = user.get_bonus(name)
         dop_bonus = user.refs * 5_000
 
-        await message.reply(f'✅ Вы активировали ежедневный бонус,'
-                            f' на ваш баланс зачислено +{to_str(bonus)}\n🎁 дополнительный бонус за реф. {to_str(dop_bonus)}')
-        result = QuestUser(user_id=user.id).update_progres(quest_ids=[8, 9], add_to_progresses=[bonus + dop_bonus, 1])
-        if result != '':
-            await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
-        return
+    await message.reply(f'✅ Вы активировали ежедневный бонус,'
+                        f' на ваш баланс зачислено +{to_str(bonus - dop_bonus)}\n🎁 дополнительный бонус за реф. {to_str(dop_bonus)}')
+    result = QuestUser(user_id=user.id).update_progres(quest_ids=[8, 9], add_to_progresses=[bonus + dop_bonus, 1])
+    if result != '':
+        await message.answer(text=result.format(user=user.link), disable_web_page_preview=True)
+    return
