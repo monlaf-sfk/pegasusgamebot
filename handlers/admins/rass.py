@@ -1,6 +1,6 @@
 import asyncio
 import numpy as np
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.fsm.context import FSMContext
 
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton
@@ -26,7 +26,7 @@ async def rass_menu_handler(call: CallbackQuery, state: FSMContext):
 
 @router.message(Rass.post, IsOwner())
 async def rass_step2_handler(message: Message, state: FSMContext):
-    await state.update_data(msg=message)
+    await state.update_data(msg=message.text)
     await state.set_state(Rass.kb)
     return await message.answer('🎙️ Клавиатура (name|btn, name|btn\\n) или "-" чтобы пропустить',
                                 reply_markup=cancel.as_markup())
@@ -52,7 +52,7 @@ async def rass_step3_handler(message: Message, state: FSMContext):
 
 
 @router.message(Rass.time, IsOwner())
-async def rass_finish_handler(message: Message, state: FSMContext):
+async def rass_finish_handler(message: Message, state: FSMContext, bot: Bot):
     data = await state.get_data()
     await state.clear()
     text = message.text
@@ -84,8 +84,8 @@ async def rass_finish_handler(message: Message, state: FSMContext):
     for user_id in part0:
         index += 1
         try:
-            await msg.send_copy(chat_id=user_id,
-                                reply_markup=kb.as_markup() if kb else None)
+            await bot.send_message(chat_id=user_id, text=msg,
+                                   reply_markup=kb.as_markup() if kb else None)
             await asyncio.sleep(1)
             allow += 1
         except:
@@ -99,8 +99,8 @@ async def rass_finish_handler(message: Message, state: FSMContext):
     for user_id in part1:
         index += 1
         try:
-            await msg.send_copy(chat_id=user_id,
-                                reply_markup=kb.as_markup() if kb else None)
+            await bot.send_message(chat_id=user_id, text=msg,
+                                   reply_markup=kb.as_markup() if kb else None)
             await asyncio.sleep(1)
             allow += 1
         except:
@@ -114,8 +114,8 @@ async def rass_finish_handler(message: Message, state: FSMContext):
     for user_id in part2:
         index += 1
         try:
-            await msg.send_copy(chat_id=user_id,
-                                reply_markup=kb.as_markup() if kb else None)
+            await bot.send_message(chat_id=user_id, text=msg,
+                                   reply_markup=kb.as_markup() if kb else None)
             await asyncio.sleep(1)
             allow += 1
         except:

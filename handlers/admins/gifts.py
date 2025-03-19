@@ -83,12 +83,12 @@ async def gift_step1_handler(message: Message, state: FSMContext):
 async def gift_step2_handler(message: Message, state: FSMContext):
     try:
         winners = int(message.text)
-        if winners <= 0:
+        if winners < 0:
             raise ValueError('Number must be a positive integer.')
     except:
         await message.answer('📃 Пришлите количество победителей для раздачи если 0 то всем',
                              reply_markup=cancel.as_markup())
-        return state.set_state(Gift.winners)
+        return await state.set_state(Gift.winners)
 
     await state.set_state(Gift.type_reward)
     await state.update_data(winners=winners)
@@ -148,7 +148,8 @@ async def gift_finish_handler(message: Message, state: FSMContext):
                        message.text)
         kb = InlineKeyboardBuilder()
         kb.add(InlineKeyboardButton(text=f'(0){message.text}', callback_data='raz'))
-        await bot.send_message(chat_id=config.channel_offical, text=data['text'], reply_markup=kb.as_markup())
+        await bot.send_message(chat_id=config.channel_offical, text=data['text'], reply_markup=kb.as_markup(),
+                               disable_web_page_preview=True)
         return await message.reply('✅ Розыграш начат!')
     return await message.answer("⁉ Уже идет конкурс ", reply_markup=ReplyKeyboardRemove())
 
